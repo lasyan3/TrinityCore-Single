@@ -2835,5 +2835,16 @@ Custom.AttackSpeedForMobs = 1.0
 
 Custom.FastFishing = 0
 
+#     Custom.GainHonorOnGuardKill
+#     Custom.GainHonorOnEliteKill
+#         Set it to 1 to gain honor when you kill a guard or an elite mob.
+#	 	  Note that not all city guards will give you honor. It seems only capital and big city guards are flagged as so in the database.
+#		  Note that this does not apply on rare mob, unless he is also elite
+#     Default : 0 (No honor when you kill a guard/elite mob)
+#
+
+Custom.GainHonorOnGuardKill = 0
+Custom.GainHonorOnEliteKill = 0
+
 #
 ###################################################################################################################

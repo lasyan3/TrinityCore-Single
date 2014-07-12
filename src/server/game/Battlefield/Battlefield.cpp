@@ -54,7 +54,7 @@ Battlefield::Battlefield()
 
     m_uiKickAfkPlayersTimer = 1000;
 
-    m_LastResurectTimer = 30 * IN_MILLISECONDS;
+    m_LastResurrectTimer = 30 * IN_MILLISECONDS;
     m_StartGroupingTimer = 0;
     m_StartGrouping = false;
     StalkerGuid = 0;
@@ -184,15 +184,15 @@ bool Battlefield::Update(uint32 diff)
     }
 
 
-    if (m_LastResurectTimer <= diff)
+    if (m_LastResurrectTimer <= diff)
     {
         for (uint8 i = 0; i < m_GraveyardList.size(); i++)
             if (GetGraveyardById(i))
                 m_GraveyardList[i]->Resurrect();
-        m_LastResurectTimer = RESURRECTION_INTERVAL;
+        m_LastResurrectTimer = RESURRECTION_INTERVAL;
     }
     else
-        m_LastResurectTimer -= diff;
+        m_LastResurrectTimer -= diff;
 
     return objective_changed;
 }
@@ -632,7 +632,7 @@ void Battlefield::RemovePlayerFromResurrectQueue(uint64 playerGuid)
 void Battlefield::SendAreaSpiritHealerQueryOpcode(Player* player, uint64 guid)
 {
     WorldPacket data(SMSG_AREA_SPIRIT_HEALER_TIME, 12);
-    uint32 time = m_LastResurectTimer;  // resurrect every 30 seconds
+    uint32 time = m_LastResurrectTimer;  // resurrect every 30 seconds
 
     data << guid << time;
     ASSERT(player && player->GetSession());
@@ -711,7 +711,7 @@ void BfGraveyard::Resurrect()
             if (Creature* spirit = m_Bf->GetCreature(m_SpiritGuide[m_ControlTeam]))
                 spirit->CastSpell(spirit, SPELL_SPIRIT_HEAL, true);
 
-        // Resurect player
+        // Resurrect player
         player->CastSpell(player, SPELL_RESURRECTION_VISUAL, true);
         player->ResurrectPlayer(1.0f);
         player->CastSpell(player, 6962, true);
@@ -781,7 +781,7 @@ Creature* Battlefield::SpawnCreature(uint32 entry, const Position& pos, TeamId t
     return SpawnCreature(entry, pos.m_positionX, pos.m_positionY, pos.m_positionZ, pos.m_orientation, team);
 }
 
-Creature* Battlefield::SpawnCreature(uint32 entry, float x, float y, float z, float o, TeamId team)
+Creature* Battlefield::SpawnCreature(uint32 entry, float x, float y, float z, float o, TeamId /*team*/)
 {
     //Get map object
     Map* map = sMapMgr->CreateBaseMap(m_MapId);
@@ -792,7 +792,7 @@ Creature* Battlefield::SpawnCreature(uint32 entry, float x, float y, float z, fl
     }
 
     Creature* creature = new Creature();
-    if (!creature->Create(sObjectMgr->GenerateLowGuid(HIGHGUID_UNIT), map, PHASEMASK_NORMAL, entry, 0, team, x, y, z, o))
+    if (!creature->Create(sObjectMgr->GenerateLowGuid(HIGHGUID_UNIT), map, PHASEMASK_NORMAL, entry, x, y, z, o))
     {
         TC_LOG_ERROR("bg.battlefield", "Battlefield::SpawnCreature: Can't create creature entry: %u", entry);
         delete creature;
@@ -807,9 +807,6 @@ Creature* Battlefield::SpawnCreature(uint32 entry, float x, float y, float z, fl
         TC_LOG_ERROR("bg.battlefield", "Battlefield::SpawnCreature: entry %u does not exist.", entry);
         return NULL;
     }
-    // force using DB speeds -- do we really need this?
-    creature->SetSpeed(MOVE_WALK, cinfo->speed_walk);
-    creature->SetSpeed(MOVE_RUN, cinfo->speed_run);
 
     // Set creature in world
     map->AddToMap(creature);

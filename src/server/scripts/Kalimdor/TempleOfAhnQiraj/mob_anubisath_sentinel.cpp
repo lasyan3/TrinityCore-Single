@@ -64,7 +64,7 @@ class npc_anubisath_sentinel : public CreatureScript
 public:
     npc_anubisath_sentinel() : CreatureScript("npc_anubisath_sentinel") { }
 
-    CreatureAI* GetAI(Creature* creature) const OVERRIDE
+    CreatureAI* GetAI(Creature* creature) const override
     {
         return new aqsentinelAI(creature);
     }
@@ -132,7 +132,7 @@ public:
         void SendMyListToBuddies()
         {
             for (int i=0; i<3; ++i)
-                if (Creature* pNearby = Unit::GetCreature(*me, NearbyGUID[i]))
+                if (Creature* pNearby = ObjectAccessor::GetCreature(*me, NearbyGUID[i]))
                     GiveBuddyMyList(pNearby);
         }
 
@@ -140,7 +140,7 @@ public:
         {
             for (int i=0; i<3; ++i)
             {
-                Creature* c = Unit::GetCreature(*me, NearbyGUID[i]);
+                Creature* c = ObjectAccessor::GetCreature(*me, NearbyGUID[i]);
                 if (c)
                 {
                     if (!c->IsInCombat())
@@ -195,7 +195,7 @@ public:
                 if (!NearbyGUID[bli])
                     break;
 
-                Creature* pNearby = Unit::GetCreature(*me, NearbyGUID[bli]);
+                Creature* pNearby = ObjectAccessor::GetCreature(*me, NearbyGUID[bli]);
                 if (!pNearby)
                     break;
 
@@ -213,7 +213,7 @@ public:
 
         bool gatherOthersWhenAggro;
 
-        void Reset() OVERRIDE
+        void Reset() override
         {
             if (!me->isDead())
             {
@@ -221,7 +221,7 @@ public:
                 {
                     if (!NearbyGUID[i])
                         continue;
-                    if (Creature* pNearby = Unit::GetCreature(*me, NearbyGUID[i]))
+                    if (Creature* pNearby = ObjectAccessor::GetCreature(*me, NearbyGUID[i]))
                     {
                         if (pNearby->isDead())
                             pNearby->Respawn();
@@ -237,7 +237,7 @@ public:
             me->AddAura(id, me);
         }
 
-        void EnterCombat(Unit* who) OVERRIDE
+        void EnterCombat(Unit* who) override
         {
             if (gatherOthersWhenAggro)
                 GetOtherSentinels(who);
@@ -246,11 +246,11 @@ public:
             DoZoneInCombat();
         }
 
-        void JustDied(Unit* /*killer*/) OVERRIDE
+        void JustDied(Unit* /*killer*/) override
         {
             for (int ni=0; ni<3; ++ni)
             {
-                Creature* sent = Unit::GetCreature(*me, NearbyGUID[ni]);
+                Creature* sent = ObjectAccessor::GetCreature(*me, NearbyGUID[ni]);
                 if (!sent)
                     continue;
                 if (sent->isDead())

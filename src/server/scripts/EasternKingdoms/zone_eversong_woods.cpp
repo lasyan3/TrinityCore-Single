@@ -76,7 +76,7 @@ public:
         SummonList Summons;
         EventMap events;
 
-        void Reset() OVERRIDE
+        void Reset() override
         {
             SetCombatMovement(false);
             KillCount = 0;
@@ -84,7 +84,7 @@ public:
             Summons.DespawnAll();
         }
 
-        void sQuestReward(Player* /*player*/, Quest const* quest, uint32 /*opt*/) OVERRIDE
+        void sQuestReward(Player* /*player*/, Quest const* quest, uint32 /*opt*/) override
         {
             if (quest->GetQuestId() == QUEST_CORRUPTED_SOIL)
             {
@@ -93,7 +93,7 @@ public:
             }
         }
 
-        void sQuestAccept(Player* player, Quest const* quest) OVERRIDE
+        void sQuestAccept(Player* player, Quest const* quest) override
         {
             if (quest->GetQuestId() == QUEST_UNEXPECTED_RESULT)
             {
@@ -104,12 +104,12 @@ public:
             }
         }
 
-        void EnterCombat(Unit* /*who*/) OVERRIDE
+        void EnterCombat(Unit* /*who*/) override
         {
             events.ScheduleEvent(EVENT_FIREBALL, 1000);
         }
 
-        void JustSummoned(Creature* summoned) OVERRIDE
+        void JustSummoned(Creature* summoned) override
         {
             // This is the best I can do because AttackStart does nothing
             summoned->GetMotionMaster()->MovePoint(1, me->GetPositionX(), me->GetPositionY(), me->GetPositionZ());
@@ -117,13 +117,13 @@ public:
             Summons.Summon(summoned);
         }
 
-        void SummonedCreatureDies(Creature* summoned, Unit* /*who*/) OVERRIDE
+        void SummonedCreatureDies(Creature* summoned, Unit* /*who*/) override
         {
             Summons.Despawn(summoned);
             ++KillCount;
         }
 
-        void JustDied(Unit* /*killer*/) OVERRIDE
+        void JustDied(Unit* /*killer*/) override
         {
             me->setFaction(FACTION_NORMAL);
 
@@ -132,7 +132,7 @@ public:
                     player->FailQuest(QUEST_UNEXPECTED_RESULT);
         }
 
-        void UpdateAI(uint32 diff) OVERRIDE
+        void UpdateAI(uint32 diff) override
         {
             if (KillCount >= 3 && PlayerGUID)
                 if (Player* player = ObjectAccessor::GetPlayer(*me, PlayerGUID))
@@ -175,7 +175,7 @@ public:
         }
     };
 
-    CreatureAI* GetAI(Creature* creature) const OVERRIDE
+    CreatureAI* GetAI(Creature* creature) const override
     {
         return new npc_apprentice_mirvedaAI(creature);
     }
@@ -189,6 +189,9 @@ enum InfusedCrystal
 {
     // Quest
     QUEST_POWERING_OUR_DEFENSES     = 8490,
+
+    // Quest Credit
+    QUEST_POD_CREDIT = 16364,
 
     // Says
     EMOTE                           = 0,
@@ -219,7 +222,7 @@ class npc_infused_crystal : public CreatureScript
 public:
     npc_infused_crystal() : CreatureScript("npc_infused_crystal") { }
 
-    CreatureAI* GetAI(Creature* creature) const OVERRIDE
+    CreatureAI* GetAI(Creature* creature) const override
     {
         return new npc_infused_crystalAI(creature);
     }
@@ -237,7 +240,7 @@ public:
         bool Progress;
         uint64 PlayerGUID;
 
-        void Reset() OVERRIDE
+        void Reset() override
         {
             EndTimer = 0;
             Completed = false;
@@ -246,7 +249,7 @@ public:
             WaveTimer = 0;
         }
 
-        void MoveInLineOfSight(Unit* who) OVERRIDE
+        void MoveInLineOfSight(Unit* who) override
 
         {
             if (!Progress && who->GetTypeId() == TYPEID_PLAYER && me->IsWithinDistInMap(who, 10.0f))
@@ -261,29 +264,22 @@ public:
             }
         }
 
-        void JustSummoned(Creature* summoned) OVERRIDE
+        void JustSummoned(Creature* summoned) override
         {
             summoned->AI()->AttackStart(me);
         }
 
-        void JustDied(Unit* /*killer*/) OVERRIDE
-        {
-            if (PlayerGUID && !Completed)
-                if (Player* player = ObjectAccessor::GetPlayer(*me, PlayerGUID))
-                    player->FailQuest(QUEST_POWERING_OUR_DEFENSES);
-        }
-
-        void UpdateAI(uint32 diff) OVERRIDE
+        void UpdateAI(uint32 diff) override
         {
             if (EndTimer < diff && Progress)
             {
-                Talk(EMOTE);
                 Completed = true;
                 if (PlayerGUID)
                     if (Player* player = ObjectAccessor::GetPlayer(*me, PlayerGUID))
-                        player->CompleteQuest(QUEST_POWERING_OUR_DEFENSES);
-
-                me->DealDamage(me, me->GetHealth(), NULL, DIRECT_DAMAGE, SPELL_SCHOOL_MASK_NORMAL, NULL, false);
+                    {
+                        Talk(EMOTE, player);
+                        player->KilledMonsterCredit(QUEST_POD_CREDIT);
+                    }
                 me->RemoveCorpse();
             } else EndTimer -= diff;
 

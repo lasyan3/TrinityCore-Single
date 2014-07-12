@@ -1118,6 +1118,7 @@ void World::LoadConfigSettings(bool reload)
     m_bool_configs[CONFIG_GAIN_HONOR_GUARD] = sConfigMgr->GetBoolDefault("Custom.GainHonorOnGuardKill", false);
     m_bool_configs[CONFIG_GAIN_HONOR_ELITE] = sConfigMgr->GetBoolDefault("Custom.GainHonorOnEliteKill", false);
     m_bool_configs[CONFIG_NO_GREY_AGGRO] = sConfigMgr->GetBoolDefault("Custom.NoGreyAggro", false);
+    m_float_configs[CONFIG_RESPAWNSPEED] = sConfigMgr->GetFloatDefault("Custom.RespawnSpeed", 1.0f);
 
     ///- Load the CharDelete related config options
     m_int_configs[CONFIG_CHARDELETE_METHOD] = sConfigMgr->GetIntDefault("CharDelete.Method", 0);

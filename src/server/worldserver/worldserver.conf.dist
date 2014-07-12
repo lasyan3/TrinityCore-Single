@@ -2853,5 +2853,12 @@ Custom.GainHonorOnEliteKill = 0
 
 Custom.NoGreyAggro = 0
 
+#     Custom.RespawnSpeed
+#         Set it to a number upper than 1 to speed up the respawn of mobs (and lower than 1 to slow down).
+#     Default : 1.0 (Normal speed)
+#
+
+Custom.RespawnSpeed = 1.0
+
 #
 ###################################################################################################################

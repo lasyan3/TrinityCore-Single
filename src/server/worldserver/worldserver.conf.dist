@@ -2846,5 +2846,12 @@ Custom.FastFishing = 0
 Custom.GainHonorOnGuardKill = 0
 Custom.GainHonorOnEliteKill = 0
 
+#     Custom.NoGreyAggro
+#         Set it to 1 to disable the aggro of grey (low level) creatures
+#     Default : 0 (Aggro Enable)
+#
+
+Custom.NoGreyAggro = 0
+
 #
 ###################################################################################################################

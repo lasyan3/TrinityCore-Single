@@ -1410,6 +1410,15 @@ bool Creature::CanStartAttack(Unit const* who, bool force) const
             return false;
     }
 
+    // LASYAN3: No aggro for grey creatures
+    if (who->m_ControlledByPlayer && sWorld->getBoolConfig(CONFIG_NO_GREY_AGGRO))
+    {
+        uint32 playerlevel = who->getLevelForTarget(this);
+        uint32 creaturelevel = getLevelForTarget(who);
+        if (Trinity::XP::GetColorCode(playerlevel, creaturelevel) == XP_GRAY)
+            return false;
+    }
+
     if (!CanCreatureAttack(who, force))
         return false;
 

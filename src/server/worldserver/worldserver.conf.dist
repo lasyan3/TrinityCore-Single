@@ -2828,5 +2828,12 @@ Custom.HurtInRealTime = 0
 Custom.AttackSpeedForPlayer = 1.0
 Custom.AttackSpeedForMobs = 1.0
 
+#     Custom.FastFishing
+#         Set it to 1 to make fishing a lot faster!
+#     Default : 0 (Fishing is normal)
+#
+
+Custom.FastFishing = 0
+
 #
 ###################################################################################################################

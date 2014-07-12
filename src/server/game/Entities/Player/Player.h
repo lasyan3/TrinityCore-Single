@@ -2577,6 +2577,7 @@ class Player : public Unit, public GridObject<Player>
         void AddKnownCurrency(uint32 itemId);
 
         void AdjustQuestReqItemCount(Quest const* quest, QuestStatusData& questStatusData);
+        void AutoQuestCompleteDisplayQuestGiver(uint32 questId);
 
         bool IsCanDelayTeleport() const { return m_bCanDelayTeleport; }
         void SetCanDelayTeleport(bool setting) { m_bCanDelayTeleport = setting; }

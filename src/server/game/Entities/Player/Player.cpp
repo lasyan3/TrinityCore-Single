@@ -16324,7 +16324,10 @@ void Player::AreaExploredOrEventHappens(uint32 questId)
             }
         }
         if (CanCompleteQuest(questId))
+        {
             CompleteQuest(questId);
+            AutoQuestCompleteDisplayQuestGiver(questId);
+        }
     }
 }
 
@@ -16376,7 +16379,10 @@ void Player::ItemAddedQuestCheck(uint32 entry, uint32 count)
                     m_QuestStatusSave[questid] = QUEST_DEFAULT_SAVE_TYPE;
                 }
                 if (CanCompleteQuest(questid))
+                {
                     CompleteQuest(questid);
+                    AutoQuestCompleteDisplayQuestGiver(questid);
+                }
                 return;
             }
         }
@@ -16490,7 +16496,10 @@ void Player::KilledMonsterCredit(uint32 entry, ObjectGuid guid /*= ObjectGuid::E
                             SendQuestUpdateAddCreatureOrGo(qInfo, guid, j, curkillcount, addkillcount);
                         }
                         if (CanCompleteQuest(questid))
+                        {
                             CompleteQuest(questid);
+                            AutoQuestCompleteDisplayQuestGiver(questid);
+                        }
 
                         // same objective target can be in many active quests, but not in 2 objectives for single quest (code optimization).
                         break;
@@ -16585,7 +16594,10 @@ void Player::KillCreditGO(uint32 entry, ObjectGuid guid)
                     }
 
                     if (CanCompleteQuest(questid))
+                    {
                         CompleteQuest(questid);
+                        AutoQuestCompleteDisplayQuestGiver(questid);
+                    }
 
                     // same objective target can be in many active quests, but not in 2 objectives for single quest (code optimization).
                     break;
@@ -16961,6 +16973,77 @@ bool Player::HasPvPForcingQuest() const
     }
 
     return false;
+}
+
+void Player::AutoQuestCompleteDisplayQuestGiver(uint32 p_questId)
+{
+    if (sWorld->getIntConfig(CONFIG_QUEST_AUTOCOMPLETE_DELAY) == 0) return;
+    std::ostringstream sql;
+    sql << "SELECT c.id FROM creature c"
+        << " INNER JOIN creature_queststarter s ON s.id = c.id"
+        << " INNER JOIN creature_questender e ON e.id = c.id AND e.quest = s.quest"
+        << " WHERE e.quest = %d";
+    QueryResult result = WorldDatabase.PQuery(sql.str().c_str(), p_questId);
+    if (!result)
+        return;
+    if (result->GetRowCount() > 1)
+        return;
+
+    //uint64 guid = (*result)[0].GetUInt64();
+    //Creature* questgiver = ObjectAccessor::GetCreatureOrPetOrVehicle(*this, guid);
+    TempSummon *_sum = SummonCreature((*result)[0].GetUInt32(), GetPositionX(), GetPositionY(), GetPositionZ(), 3.3f, TEMPSUMMON_TIMED_DESPAWN, sWorld->getIntConfig(CONFIG_QUEST_AUTOCOMPLETE_DELAY) * 1000);
+    _sum->SetInFront(this);
+    // remove fake death
+    if (HasUnitState(UNIT_STATE_DIED))
+        RemoveAurasByType(SPELL_AURA_FEIGN_DEATH);
+    // Stop the npc if moving
+    _sum->StopMoving();
+    _sum->SetReactState(REACT_PASSIVE);
+    //bool IsCivilian() const { return GetCreatureTemplate()->flags_extra & CREATURE_FLAG_EXTRA_CIVILIAN; }
+    sScriptMgr->OnQuestComplete(this, _sum, sObjectMgr->GetQuestTemplate(p_questId));
+
+    /*if (sScriptMgr->OnGossipHello(this, _sum))
+    return;
+
+    PrepareGossipMenu(_sum, _sum->GetCreatureTemplate()->GossipMenuId, true);
+    SendPreparedGossip(_sum);
+
+    _sum->AI()->sGossipHello(this);*/
+    //PlayerTalkClass->SendQuestGiverRequestItems(sObjectMgr->GetQuestTemplate(p_questId), _sum->GetGUID(), CanRewardQuest(sObjectMgr->GetQuestTemplate(p_questId), false), false);
+    //sScriptMgr->OnQuestComplete(this, _sum->GetCreature(*this, _sum->GetGUID()), sObjectMgr->GetQuestTemplate(p_questId));
+    /*
+    Creature* realQuestGiver;
+    uint32 nbQuestGivers = 0;
+    for (Player::ClientGUIDs::const_iterator itr = m_clientGUIDs.begin(); itr != m_clientGUIDs.end(); ++itr)
+    {
+    uint32 questStatus = DIALOG_STATUS_NONE;
+
+    if (!IS_CRE_OR_VEH_OR_PET_GUID(*itr)) continue;
+    Creature* questgiver = ObjectAccessor::GetCreatureOrPetOrVehicle(*this, *itr);
+    if (!questgiver || questgiver->IsHostileTo(this))
+    continue;
+    if (!questgiver->HasFlag(UNIT_NPC_FLAGS, UNIT_NPC_FLAG_QUESTGIVER))
+    continue;
+
+    questStatus = GetQuestDialogStatus(questgiver);
+
+    if (questStatus == DIALOG_STATUS_REWARD){
+    QuestRelationBounds qir = sObjectMgr->GetCreatureQuestInvolvedRelationBounds(questgiver->GetEntry());
+    for (QuestRelations::const_iterator itr = qir.first; itr != qir.second; ++itr)
+    {
+    Quest const* _quest = sObjectMgr->GetQuestTemplate(itr->second);
+    if (!_quest) continue;
+    if (_quest->GetQuestId() != p_questId) continue;
+
+    realQuestGiver = questgiver;
+    nbQuestGivers++;
+    break;
+    }
+    }
+    }
+    if (nbQuestGivers == 1) {
+    SummonCreature(realQuestGiver->GetEntry(), GetPositionX(), GetPositionY(), GetPositionZ(), 3.3f, TEMPSUMMON_TIMED_DESPAWN, sWorld->getIntConfig(CONFIG_AUTOCOMPLETE_DELAY) * 1000);
+    }//*/
 }
 
 /*********************************************************/

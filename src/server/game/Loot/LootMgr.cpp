@@ -724,6 +724,11 @@ QuestItemList* Loot::FillNonQuestNonFFAConditionalLoot(Player* player, bool pres
                 }
             }
         }
+        else // LASYAN3 : Loot only for player
+        {
+            --unlootedCount;
+            item.is_counted = false;
+        }
     }
     if (ql->empty())
     {

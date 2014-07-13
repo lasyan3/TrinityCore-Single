@@ -3428,5 +3428,15 @@ Custom.GainHonorOnEliteKill = 0
 
 Custom.RespawnSpeed = 1.0
 
+#     Custom.LootOnlyForPlayer
+#         Set it to 1 to enable only certain item to be looted:
+#			- only equipment the player can be wear will be looted
+#			- only recipes for a profession the player has will be looted
+#			- only recipes the player does not already know will be looted
+#     Default : 0 (all items are looted)
+#
+
+Custom.LootOnlyForPlayer = 1
+
 #
 ###################################################################################################################

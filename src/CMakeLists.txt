@@ -14,6 +14,7 @@ add_subdirectory(common)
 if(SERVERS)
   add_subdirectory(server)
 endif(SERVERS)
+   Custom/item_lootedQuestItems.cpp
 
 if(TOOLS)
   add_subdirectory(tools)

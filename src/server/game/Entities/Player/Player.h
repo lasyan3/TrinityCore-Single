@@ -29,6 +29,8 @@
 #include "SpellMgr.h"
 #include "SpellHistory.h"
 #include "Unit.h"
+#include "CinematicMgr.h"
+#include "ObjectMgr.h"
 
 #include <limits>
 #include <string>
@@ -1476,6 +1478,11 @@ class Player : public Unit, public GridObject<Player>
 
         bool HasPvPForcingQuest() const;
 
+        // LASYAN3: AlwaysDropQuestItems
+        bool CanDropQuestItem(uint32 itemid); 
+        ObjectMgr::QuestMap GetAvailableQuestsForItem(uint32 itemid);
+        void GetQuestItemInformations(Quest const *qInfo, std::string& giver_name, std::string& giver_area_name, std::string& giver_zone_name);
+
         /*********************************************************/
         /***                   LOAD SYSTEM                     ***/
         /*********************************************************/
@@ -2306,6 +2313,9 @@ class Player : public Unit, public GridObject<Player>
 
         std::string GetMapAreaAndZoneString();
         std::string GetCoordsMapAreaAndZoneString();
+
+        std::string MsgQuestItemAdded;
+        int32 IdQuestItemAdded;
 
     protected:
         // Gamemaster whisper whitelist

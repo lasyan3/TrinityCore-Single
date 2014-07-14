@@ -54,6 +54,10 @@
 
 #include "Transport.h"
 
+//npcbot
+#include "bot_ai.h"
+//end npcbot
+
 TrainerSpell const* TrainerSpellData::Find(uint32 spell_id) const
 {
     TrainerSpellMap::const_iterator itr = spellList.find(spell_id);
@@ -166,6 +170,13 @@ m_originalEntry(0), m_homePosition(), m_transportHomePosition(), m_creatureInfo(
     TriggerJustRespawned = false;
     m_isTempWorldObject = false;
     _focusSpell = NULL;
+
+    //bot
+    m_creature_owner = NULL;
+    m_bots_pet = NULL;
+    bot_AI = NULL;
+    m_canUpdate = true;
+    //end bot
 }
 
 Creature::~Creature()
@@ -441,6 +452,15 @@ bool Creature::UpdateEntry(uint32 entry, CreatureData const* data /*= nullptr*/)
 
 void Creature::Update(uint32 diff)
 {
+    //npcbot: update helper
+    if (bot_AI)
+    {
+        if (!m_canUpdate)
+            return;
+        bot_AI->CommonTimers(diff);
+    }
+    //end npcbot
+
     if (IsAIEnabled && TriggerJustRespawned)
     {
         TriggerJustRespawned = false;
@@ -493,6 +513,11 @@ void Creature::Update(uint32 diff)
             if (m_deathState != CORPSE)
                 break;
 
+            //npcbot
+            if (bot_AI)
+                break;
+            //end npcbot
+
             if (m_groupLootTimer && lootingGroupLowGUID)
             {
                 if (m_groupLootTimer <= diff)
@@ -518,6 +543,9 @@ void Creature::Update(uint32 diff)
 
             // creature can be dead after Unit::Update call
             // CORPSE/DEAD state will processed at next tick (in other case death timer will be updated unexpectedly)
+            //npcbot - skip dead state for bots (handled by AI)
+            if (!bot_AI)
+            //end npcbot
             if (!IsAlive())
                 break;
 
@@ -539,8 +567,15 @@ void Creature::Update(uint32 diff)
                 // do not allow the AI to be changed during update
                 m_AI_locked = true;
                 i_AI->UpdateAI(diff);
+                //bot
+                if (!bot_AI)
+                //end bot
                 m_AI_locked = false;
             }
+            //npcbot - Update evade mode AI
+            else if (bot_AI)
+                bot_AI->UpdateAI(diff);
+            //end npcbot
 
             // creature can be dead after UpdateAI call
             // CORPSE/DEAD state will processed at next tick (in other case death timer will be updated unexpectedly)
@@ -593,6 +628,11 @@ void Creature::Update(uint32 diff)
 
 void Creature::RegenerateMana()
 {
+    //npcbot - manual regen enabled
+    if (GetBotAI())
+        return;
+    //end npcbot
+
     uint32 curValue = GetPower(POWER_MANA);
     uint32 maxValue = GetMaxPower(POWER_MANA);
 
@@ -628,6 +668,11 @@ void Creature::RegenerateMana()
 
 void Creature::RegenerateHealth()
 {
+    //npcbot - manual regen enabled
+    if (GetBotAI())
+        return;
+    //end npcbot
+
     if (!isRegeneratingHealth())
         return;
 
@@ -1263,6 +1308,23 @@ bool Creature::LoadCreatureFromDB(uint32 guid, Map* map, bool addToMap)
 
     m_creatureData = data;
 
+    //npcbot
+    if (IsNPCBot())
+    {
+        //prevent loading npcbot twice (grid unload/load case)
+        if (sWorld->GetMaxPlayerCount() > 0)
+            return false;
+
+        TC_LOG_INFO("entities.unit", "Creature: loading npcbot %s (id: %u)", GetName().c_str(), GetEntry());
+        ASSERT(!IsInWorld());
+        SetByteValue(UNIT_FIELD_BYTES_0, 0, GetCreatureTemplate()->trainer_race); //set race
+
+        //don't allow removing dead bot's corpse
+        m_corpseDelay = std::numeric_limits<uint32>::max();
+        setActive(true);
+    }
+    //end npcbot
+
     if (addToMap && !GetMap()->AddToMap(this))
         return false;
     return true;
@@ -1276,6 +1338,11 @@ void Creature::SetCanDualWield(bool value)
 
 void Creature::LoadEquipment(int8 id, bool force /*= true*/)
 {
+    //npcbot: prevent loading equipment for bots
+    if (IsNPCBot())
+        return;
+    //end npcbot
+
     if (id == 0)
     {
         if (force)
@@ -1555,6 +1622,9 @@ void Creature::Respawn(bool force)
         if (IsAIEnabled)
         {
             //reset the AI to be sure no dirty or uninitialized values will be used till next tick
+            //npcbot - not for bots
+            if (!bot_AI)
+            //end npcbot
             AI()->Reset();
             TriggerJustRespawned = true;//delay event to next tick so all creatures are created on the map before processing
         }
@@ -2139,6 +2209,16 @@ void Creature::SetInCombatWithZone()
 
 uint32 Creature::GetShieldBlockValue() const                  //dunno mob block value
 {
+    //npcbot - bot block value is fully calculated into botAI
+    if (bot_AI)
+    {
+        float blockValue = bot_AI->GetShieldBlockValue();
+        blockValue += GetTotalAuraModifier(SPELL_AURA_MOD_SHIELD_BLOCKVALUE);
+        blockValue *= GetTotalAuraMultiplier(SPELL_AURA_MOD_SHIELD_BLOCKVALUE_PCT);
+        return uint32(blockValue);
+    }
+    //end npcbot
+
     return (getLevel()/2 + uint32(GetStat(STAT_STRENGTH)/20));
 }
 
@@ -2188,6 +2268,11 @@ uint32 Creature::GetCreatureSpellCooldownDelay(uint32 spellId) const
 
 bool Creature::HasSpellCooldown(uint32 spell_id) const
 {
+    //npcbot - get spell cooldown from botAI
+    if (bot_AI && bot_AI->IsSpellReady(sSpellMgr->GetSpellInfo(spell_id)->GetFirstRankSpell()->Id, bot_AI->GetLastDiff(), false))
+        return false;
+    //end npcbot
+
     CreatureSpellCooldowns::const_iterator itr = m_CreatureSpellCooldowns.find(spell_id);
     return (itr != m_CreatureSpellCooldowns.end() && itr->second > time(NULL)) || HasCategoryCooldown(spell_id);
 }
@@ -2222,6 +2307,11 @@ void Creature::ProhibitSpellSchool(SpellSchoolMask idSchoolMask, uint32 unTimeMs
                 ai->SpellInterrupted(unSpellId, unTimeMs);
         }
     }
+
+    //npcbot - call custom spell interruption hook
+    if (bot_AI)
+        bot_AI->OnBotSpellInterrupted(idSchoolMask, unTimeMs);
+    //end npcbot
 }
 
 bool Creature::HasSpell(uint32 spellID) const
@@ -2718,3 +2808,388 @@ void Creature::StartPickPocketRefillTimer()
     _pickpocketLootRestore = time(NULL) + sWorld->getIntConfig(CONFIG_CREATURE_PICKPOCKET_REFILL);
 }
 
+//NPCBOT
+bool Creature::LoadBotCreatureFromDB(uint32 guid, Map* map, bool addToMap)
+{
+    CreatureData const* data = sObjectMgr->GetCreatureData(guid);
+
+    if (!data)
+    {
+        TC_LOG_ERROR("sql.sql", "Bot creature (GUID: %u) not found in table `creature`, can't load. ", guid);
+        return false;
+    }
+
+    m_DBTableGuid = guid;
+    ASSERT(map->GetInstanceId() == 0);
+    if (map->GetCreature(MAKE_NEW_GUID(guid, data->id, HIGHGUID_UNIT)))
+        return false;
+
+    if (!Create(guid, map, data->phaseMask, data->id, data->posX, data->posY, data->posZ, data->orientation, data))
+        return false;
+
+    //We should set first home position, because then AI calls home movement
+    SetHomePosition(data->posX, data->posY, data->posZ, data->orientation);
+
+    m_respawnradius = data->spawndist;
+
+    m_respawnDelay = data->spawntimesecs;
+    m_deathState = ALIVE;
+
+    m_respawnTime  = GetMap()->GetCreatureRespawnTime(m_DBTableGuid);
+    if (m_respawnTime)                          // respawn on Update
+    {
+        m_deathState = DEAD;
+        if (CanFly())
+        {
+            float tz = map->GetHeight(GetPhaseMask(), data->posX, data->posY, data->posZ, false);
+            if (data->posZ - tz > 0.1f)
+                Relocate(data->posX, data->posY, tz);
+        }
+    }
+
+    uint32 curhealth;
+
+    if (!m_regenHealth)
+    {
+        curhealth = data->curhealth;
+        if (curhealth)
+        {
+            curhealth = uint32(curhealth*_GetHealthMod(GetCreatureTemplate()->rank));
+            if (curhealth < 1)
+                curhealth = 1;
+        }
+        SetPower(POWER_MANA, data->curmana);
+    }
+    else
+    {
+        curhealth = GetMaxHealth();
+        SetPower(POWER_MANA, GetMaxPower(POWER_MANA));
+    }
+
+    SetHealth(m_deathState == ALIVE ? curhealth : 0);
+
+    // checked at creature_template loading
+    m_defaultMovementType = MovementGeneratorType(data->movementType);
+
+    m_creatureData = data;
+
+    TC_LOG_INFO("entities.unit", "Creature: loading npcbot %s (id: %u)", GetName().c_str(), GetEntry());
+    ASSERT(!IsInWorld());
+    SetByteValue(UNIT_FIELD_BYTES_0, 0, GetCreatureTemplate()->trainer_race); //set race
+
+    //don't allow removing dead bot's corpse
+    m_corpseDelay = std::numeric_limits<uint32>::max();
+    setActive(true);
+
+    if (addToMap && !GetMap()->AddToMap(this))
+        return false;
+    return true;
+}
+
+uint8 Creature::GetBotClass() const
+{
+    return bot_AI ? bot_AI->GetBotClass() : getClass();
+}
+
+Player* Creature::GetBotOwner() const
+{
+    return bot_AI ? bot_AI->GetBotOwner() : NULL;
+}
+
+void Creature::SetBotOwner(Player* newowner)
+{
+    if (bot_AI)
+        bot_AI->SetBotOwner(newowner);
+}
+
+bool Creature::IsNPCBot() const
+{
+    return GetCreatureTemplate()->flags_extra & CREATURE_FLAG_EXTRA_NPCBOT;
+}
+
+bool Creature::IsFreeBot() const
+{
+    return bot_AI && bot_AI->IAmFree();
+}
+
+void Creature::SetIAmABot(bool bot)
+{
+    CombatStop(!bot);
+    DeleteThreatList();
+
+    if (bot)
+    {
+        m_unitTypeMask |= (/*UNIT_MASK_SUMMON | */UNIT_MASK_MINION);
+    }
+    else
+    {
+        SetCharmerGUID(0);
+        bot_AI->UnsummonAll();
+        m_unitTypeMask &= ~(/*UNIT_MASK_SUMMON | */UNIT_MASK_MINION);
+        SetUInt64Value(UNIT_FIELD_CREATEDBY, 0);
+        //if (bot_AI->IsMinionAI())
+        //    SetOwnerGUID(0);
+    }
+}
+
+void Creature::SetBotsPetDied()
+{
+    if (!m_bots_pet)
+        return;
+
+    m_bots_pet->SetCharmerGUID(0);
+    m_bots_pet->SetCreatureOwner(NULL);
+    //m_bots_pet->GetBotPetAI()->SetCreatureOwner(NULL);
+    GetBotOwner()->SetMinion((Minion*)m_bots_pet, false);
+    m_bots_pet->SetIAmABot(false);
+    m_bots_pet->CleanupsBeforeDelete();
+    m_bots_pet->AddObjectToRemoveList();
+    m_bots_pet = NULL;
+}
+
+uint8 Creature::GetBotRoles() const
+{
+    return bot_AI ? bot_AI->GetBotRoles() : 0;
+}
+
+void Creature::SetBotCommandState(CommandStates st, bool force)
+{
+    if (bot_AI)
+        bot_AI->SetBotCommandState(st, force);
+}
+
+CommandStates Creature::GetBotCommandState() const
+{
+    return bot_AI ? bot_AI->GetBotCommandState() : COMMAND_ABANDON;
+}
+//Bot damage mods
+void Creature::ApplyBotDamageMultiplierMelee(uint32& damage, CalcDamageInfo& damageinfo) const
+{
+    if (bot_AI)
+        bot_AI->ApplyBotDamageMultiplierMelee(damage, damageinfo);
+}
+
+void Creature::ApplyBotDamageMultiplierMelee(int32& damage, SpellNonMeleeDamage& damageinfo, SpellInfo const* spellInfo, WeaponAttackType attackType, bool& crit) const
+{
+    if (bot_AI)
+        bot_AI->ApplyBotDamageMultiplierMelee(damage, damageinfo, spellInfo, attackType, crit);
+}
+
+void Creature::ApplyBotDamageMultiplierSpell(int32& damage, SpellNonMeleeDamage& damageinfo, SpellInfo const* spellInfo, WeaponAttackType attackType, bool& crit) const
+{
+    if (bot_AI)
+        bot_AI->ApplyBotDamageMultiplierSpell(damage, damageinfo, spellInfo, attackType, crit);
+}
+
+void Creature::ApplyBotDamageMultiplierHeal(Unit const* victim, float& heal, SpellInfo const* spellInfo, DamageEffectType damagetype, uint32 stack) const
+{
+    if (bot_AI)
+        bot_AI->ApplyBotDamageMultiplierHeal(victim, heal, spellInfo, damagetype, stack);
+}
+
+void Creature::ApplyBotCritMultiplierAll(Unit const* victim, float& crit_chance, SpellInfo const* spellInfo, SpellSchoolMask schoolMask, WeaponAttackType attackType) const
+{
+    if (bot_AI)
+        bot_AI->ApplyBotCritMultiplierAll(victim, crit_chance, spellInfo, schoolMask, attackType);
+}
+
+void Creature::ApplyCreatureSpellCostMods(SpellInfo const* spellInfo, int32& cost) const
+{
+    if (bot_AI)
+        bot_AI->ApplyBotSpellCostMods(spellInfo, cost);
+}
+
+void Creature::ApplyCreatureSpellCastTimeMods(SpellInfo const* spellInfo, int32& casttime) const
+{
+    if (bot_AI)
+        bot_AI->ApplyBotSpellCastTimeMods(spellInfo, casttime);
+}
+
+bool Creature::GetIAmABot() const
+{
+    return bot_AI && bot_AI->IsMinionAI();
+}
+
+bool Creature::GetIAmABotsPet() const
+{
+    return bot_AI && bot_AI->IsPetAI();
+}
+
+bot_minion_ai* Creature::GetBotMinionAI() const
+{
+    return bot_AI ? bot_AI->ToMinionAI() : NULL;
+}
+
+bot_pet_ai* Creature::GetBotPetAI() const
+{
+    return bot_AI ? bot_AI->ToPetAI() : NULL;
+}
+
+void Creature::SetBotShouldUpdateStats()
+{
+    if (bot_AI)
+        bot_AI->SetShouldUpdateStats();
+}
+
+void Creature::OnBotSummon(Creature* summon)
+{
+    if (bot_AI)
+        bot_AI->OnBotSummon(summon);
+}
+
+void Creature::OnBotDespawn(Creature* summon)
+{
+    if (bot_AI)
+        bot_AI->OnBotDespawn(summon);
+}
+
+void Creature::KillEvents(bool force)
+{
+    if (bot_AI)
+        bot_AI->KillEvents(force);
+}
+
+void Creature::BotStopMovement()
+{
+    if (IsInWorld())
+    {
+        GetMotionMaster()->Clear();
+        GetMotionMaster()->MoveIdle();
+    }
+    StopMoving();
+    DisableSpline();
+}
+
+void Creature::ResetBotAI(uint8 resetType)
+{
+    if (bot_AI)
+        bot_AI->ResetBotAI(resetType);
+}
+
+bool Creature::CanParry() const
+{
+    return bot_AI ? bot_AI->CanParry() : true;
+}
+
+bool Creature::CanDodge() const
+{
+    return bot_AI ? bot_AI->CanDodge() : true;
+}
+
+bool Creature::CanBlock() const
+{
+    return bot_AI ? bot_AI->CanBlock() : true;
+}
+
+bool Creature::CanCrit() const
+{
+    return bot_AI ? bot_AI->CanCrit() : true;
+}
+
+bool Creature::CanMiss() const
+{
+    return bot_AI ? bot_AI->CanMiss() : true;
+}
+
+float Creature::GetCreatureParryChance() const
+{
+    return bot_AI ? bot_AI->GetBotParryChance() : 5.0f;
+}
+
+float Creature::GetCreatureDodgeChance() const
+{
+    return bot_AI ? bot_AI->GetBotDodgeChance() : 5.0f;
+}
+
+float Creature::GetCreatureBlockChance() const
+{
+    return bot_AI ? bot_AI->GetBotBlockChance() : 5.0f;
+}
+
+float Creature::GetCreatureCritChance() const
+{
+    return bot_AI ? bot_AI->GetBotCritChance() : 0.0f;
+}
+
+float Creature::GetCreatureMissChance() const
+{
+    return bot_AI ? bot_AI->GetBotMissChance() : 5.0f;
+}
+
+float Creature::GetCreatureEvasion() const
+{
+    return bot_AI ? bot_AI->GetBotEvasion() : 0.0f;
+}
+
+float Creature::GetCreatureArmorPenetrationCoef() const
+{
+    return bot_AI ? bot_AI->GetBotArmorPenetrationCoef() : 0.0f;
+}
+
+float Creature::GetCreatureDamageTakenMod() const
+{
+    return bot_AI ? bot_AI->GetBotDamageTakenMod() : 1.0f;
+}
+
+uint32 Creature::GetCreatureExpertise() const
+{
+    return bot_AI ? bot_AI->GetBotExpertise() : 0;
+}
+
+uint32 Creature::GetCreatureSpellPenetration() const
+{
+    return bot_AI ? bot_AI->GetBotSpellPenetration() : 0;
+}
+
+uint32 Creature::GetCreatureSpellPower() const
+{
+    return bot_AI ? bot_AI->GetBotSpellPower() : 0;
+}
+
+bool Creature::IsCreatureImmuneToSpell(SpellInfo const* spellInfo) const
+{
+    return bot_AI && bot_AI->IsBotImmuneToSpell(spellInfo);
+}
+
+bool Creature::IsTempBot() const
+{
+    return bot_AI && bot_AI->IsTempBot();
+}
+
+MeleeHitOutcome Creature::BotRollMeleeOutcomeAgainst(Unit const* victim, WeaponAttackType attType) const
+{
+    return bot_AI ? bot_AI->BotRollCustomMeleeOutcomeAgainst(victim, attType) : RollMeleeOutcomeAgainst(victim, attType);
+}
+
+void Creature::CastCreatureItemCombatSpell(Unit* target, WeaponAttackType attType, uint32 procVictim, uint32 procEx, Spell const* spell)
+{
+    if (bot_AI)
+        bot_AI->CastBotItemCombatSpell(target, attType, procVictim, procEx, spell);
+}
+
+void Creature::OnSpellGo(Spell const* spell)
+{
+    if (bot_AI)
+        bot_AI->OnBotSpellGo(spell);
+}
+
+void Creature::AddBotSpellCooldown(uint32 spellId, uint32 cooldown)
+{
+    if (bot_AI)
+        bot_AI->SetSpellCooldown(sSpellMgr->GetSpellInfo(spellId)->GetFirstRankSpell()->Id, cooldown);
+}
+
+//static
+bool Creature::IsBotCustomSpell(uint32 spellId)
+{
+    return bot_ai::IsBotCustomSpell(spellId);
+}
+
+//advanced
+bool Creature::IsQuestBot() const
+{
+    return
+        m_creatureInfo->Entry >= 71000 && m_creatureInfo->Entry < 72000 &&
+        (m_creatureInfo->unit_flags2 & UNIT_FLAG2_ALLOW_ENEMY_INTERACT);
+}
+//END NPCBOT

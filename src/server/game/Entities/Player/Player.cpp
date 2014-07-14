@@ -17826,6 +17826,10 @@ bool Player::LoadFromDB(ObjectGuid guid, SQLQueryHolder *holder)
 
     _LoadEquipmentSets(holder->GetPreparedResult(PLAYER_LOGIN_QUERY_LOAD_EQUIPMENT_SETS));
 
+    // LASYAN3: AutoMount
+    m_mountSpell = 0;
+    m_mountCanceled = false;
+
     return true;
 }
 
@@ -21198,6 +21202,10 @@ bool Player::ActivateTaxiPathTo(std::vector<uint32> const& nodes, Creature* npc 
     else
     {
         RemoveAurasByType(SPELL_AURA_MOUNTED);
+        // LASYAN3: AutoMount
+        m_mountCanceled = true;
+        TC_LOG_INFO("lasyan3", "Mounted aura canceled from ActivateTaxiPathTo");
+
 
         if (IsInDisallowedMountForm())
             RemoveAurasByType(SPELL_AURA_MOD_SHAPESHIFT);

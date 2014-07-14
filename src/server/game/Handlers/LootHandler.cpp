@@ -243,7 +243,19 @@ void WorldSession::HandleLootReleaseOpcode(WorldPacket& recvData)
 
     if (ObjectGuid lguid = GetPlayer()->GetLootGUID())
         if (lguid == guid)
+        {
             DoLootRelease(lguid);
+
+            // LASYAN3: START AutoMount
+            Player *player = GetPlayer();
+            if (player->m_mountCanceled && player->m_mountSpell > 0)
+                GameObject* go = GetPlayer()->GetMap()->GetGameObject(lguid);
+            if (/*go->GetGoType() == GAMEOBJECT_TYPE_CHEST &&*/ player->m_mountCanceled && player->m_mountSpell > 0)
+            {
+                player->CastSpell(player, player->m_mountSpell, true);
+            }
+            // LASYAN3: END AutoMount
+        }
 }
 
 void WorldSession::DoLootRelease(ObjectGuid lguid)

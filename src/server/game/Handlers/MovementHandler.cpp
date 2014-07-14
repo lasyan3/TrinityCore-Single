@@ -139,6 +139,7 @@ void WorldSession::HandleMoveWorldportAckOpcode()
         // battleground state prepare, stop flight
         GetPlayer()->GetMotionMaster()->MovementExpired();
         GetPlayer()->CleanupAfterTaxiFlight();
+        TC_LOG_INFO("lasyan3", "HandleMoveWorldportAckOpcode");
     }
 
     // resurrect character at enter into instance where his corpse exist after add to map

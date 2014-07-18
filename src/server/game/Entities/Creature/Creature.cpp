@@ -1089,6 +1089,13 @@ void Creature::SelectLevel()
     uint8 minlevel = std::min(cInfo->maxlevel, cInfo->minlevel);
     uint8 maxlevel = std::max(cInfo->maxlevel, cInfo->minlevel);
     uint8 level = minlevel == maxlevel ? minlevel : urand(minlevel, maxlevel);
+    // START LASYAN3 : for NPCBots, to use the level of the owner for stats calculating and not the default level of the creature (which is 80)
+    Player* owner = Creature::GetBotOwner();
+    if (owner)
+    {
+        level = owner->getLevel();
+    }
+    // END LASYAN3
     SetLevel(level);
 
     CreatureBaseStats const* stats = sObjectMgr->GetCreatureBaseStats(level, cInfo->unit_class);

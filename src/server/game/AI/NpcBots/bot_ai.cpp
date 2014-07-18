@@ -40,6 +40,7 @@ extern uint8 _healTargetIconFlags;
 extern float _mult_dmg_melee;
 extern float _mult_dmg_spell;
 extern float _mult_healing;
+extern int _maxQualityEquipment;
 
 bot_minion_ai::bot_minion_ai(Creature* creature) : bot_ai(creature)
 {
@@ -583,8 +584,18 @@ void bot_minion_ai::SetBotCommandState(CommandStates st, bool force, Position* n
     {
         me->BotStopMovement();
     }
+    // START LASYAN3 : implements code for attack and abandon commands
     else if (st == COMMAND_ATTACK)
-    { }
+    {
+        Unit *target = master->GetSelectedUnit();
+        m_attackFromCmd = true;
+        OnOwnerDamagedBy(target);
+    }
+    else if (st == COMMAND_ABANDON)
+    {
+        me->CombatStop(true);
+    }
+    // END LASYAN3
     m_botCommandState = st;
     if (Creature* m_botsPet = me->GetBotsPet())
         m_botsPet->SetBotCommandState(st, force);
@@ -1287,6 +1298,7 @@ void bot_ai::_listAuras(Player* player, Unit* unit) const
 // Health, Armor, Powers, Combat Ratings, and global update setup
 void bot_minion_ai::SetStats(bool force, bool shapeshift)
 {
+    bool _newEquip = false;
     uint8 myclass = _botclass;
     uint8 mylevel = std::min<uint8>(master->getLevel(), 80);
     if (myclass == BOT_CLASS_DRUID && GetBotStance() != BOT_STANCE_NONE)
@@ -1313,7 +1325,11 @@ void bot_minion_ai::SetStats(bool force, bool shapeshift)
     if (me->getLevel() != mylevel)
     {
         me->SetLevel(mylevel);
+        me->SelectLevel();
+        me->UpdateAttackPowerAndDamage(false);
+        me->UpdateAttackPowerAndDamage(true);
         force = true; //reinit spells/passives/other
+        _newEquip = true;
     }
     if (force)
     {
@@ -1321,6 +1337,10 @@ void bot_minion_ai::SetStats(bool force, bool shapeshift)
         InitSpells(); //this must stay before class passives
         //ApplyPassives(_botclass);
         ApplyClassPassives();
+    }
+    if (_newEquip)
+    {
+        InitEquips(); // LASYAN3
     }
 
     //PHASE
@@ -2203,7 +2223,8 @@ bool bot_ai::CanBotAttack(Unit const* target, int8 byspell) const
        ((me->CanSeeOrDetect(target) && target->InSamePhase(me)) || CanSeeEveryone()) &&
        //!target->HasStealthAura() && !target->HasInvisibilityAura() &&
        (master->isDead() || target->GetTypeId() == TYPEID_PLAYER || target->IsPet() ||
-       (target->GetDistance(master) < foldist && me->GetDistance(master) < followdist)) &&//if master is killed pursue to the end
+       (target->GetDistance(master) < foldist && me->GetDistance(master) < followdist
+        && !m_attackFromCmd /*LASYAN3 : ignore distance requirements if attack order from "npcbot command attack"*/)) &&//if master is killed pursue to the end
         target->isTargetableForAttack() &&
         !IsInBotParty(target) &&
         (target->IsHostileTo(master) ||
@@ -2239,7 +2260,8 @@ Unit* bot_ai::_getTarget(bool byspell, bool ranged, bool &reset) const
     //Follow if...
     uint8 followdist = IAmFree() ? 100 : master->GetBotFollowDist();
     float foldist = _getAttackDistance(float(followdist));
-    if (!u && master->IsAlive() && (me->GetDistance(master) > foldist || (mytar && master->GetDistance(mytar) > foldist && me->GetDistance(master) > foldist)))
+    if (!u && master->IsAlive() && (me->GetDistance(master) > foldist || (mytar && master->GetDistance(mytar) > foldist && me->GetDistance(master) > foldist)) 
+        && !m_attackFromCmd /* LASYAN3 : ignore distance requirement if attack order given with "npcbot command attack" */)
     {
         //TC_LOG_ERROR("entities.player", "bot %s cannot attack target %s, too far away", me->GetName().c_str(), mytar ? mytar->GetName().c_str() : "");
         return NULL;
@@ -2442,6 +2464,7 @@ bool bot_ai::CheckAttackTarget(uint8 botOrPetType)
                 Evade(true);
         }
 
+        m_attackFromCmd = false; // LASYAN3
         return false;
     }
 
@@ -6447,7 +6470,7 @@ void bot_ai::DefaultInit()
         me->SetBotAI(this);
         InitFaction();
         InitOwner();
-        InitEquips();
+        //InitEquips(); LASYAN3
 
         InitSpellMap(PVPTRINKET, true);
     }
@@ -6594,6 +6617,60 @@ void bot_minion_ai::InitEquips()
             //    me->GetName().c_str(), me->GetEntry(), i, proto->Name1.c_str(), itemId, itemGuidLow);
 
         } while (iiresult->NextRow());
+    }
+
+    // LASYAN3 : Auto fit equipment with level
+    for (uint8 i = 0; i != BOT_INVENTORY_SIZE; ++i)
+    {
+        _equips[i] = 0;
+        std::ostringstream sql;
+        sql << "SELECT entry FROM item_template WHERE Quality <= " << _maxQualityEquipment;
+        sql << " AND RequiredLevel BETWEEN 1 AND " << uint32(me->getLevel());
+        //sql.append(" AND NOT Flags & 1 << ("); sql.append(std::to_string(ITEM_PROTO_FLAG_DEPRECATED)); sql.append("-1)");
+        //sql.append(" AND Flags = 0");
+        sql << " AND FlagsExtra = 0";
+        if (i < 3)
+        { // Weapons
+            sql << " AND Class = " << ITEM_CLASS_WEAPON;
+            sql << " AND InventoryType IN ( " << INVTYPE_WEAPON << "," << INVTYPE_2HWEAPON << "," << INVTYPE_WEAPONMAINHAND << "," << INVTYPE_WEAPONOFFHAND << ")";
+            sql << " AND Subclass NOT IN (" << ITEM_SUBCLASS_WEAPON_obsolete << "," << ITEM_SUBCLASS_WEAPON_MISC << "," << ITEM_SUBCLASS_WEAPON_FISHING_POLE << ")";
+            sql << " AND dmg_min1 > 0 ";
+            switch (me->getClass())
+            {
+                case CLASS_WARRIOR:
+                case CLASS_PALADIN:
+                    sql << " AND Subclass NOT IN (" << ITEM_SUBCLASS_WEAPON_DAGGER << "," << ITEM_SUBCLASS_WEAPON_STAFF << ")";
+                    break;
+                case CLASS_ROGUE:
+                    sql << " AND Subclass IN (" << ITEM_SUBCLASS_WEAPON_DAGGER << "," << ITEM_SUBCLASS_WEAPON_SWORD << ")";
+                    break;
+            }
+        }
+        else
+        { // Armors
+            sql << " AND Class =  " << ITEM_CLASS_ARMOR;
+            sql << " AND Armor > 0";
+            switch (me->getClass())
+            {
+                case CLASS_WARRIOR:
+                    sql << " AND Subclass IN(" << ITEM_SUBCLASS_ARMOR_SHIELD << "," << ITEM_SUBCLASS_ARMOR_MAIL << "," << ITEM_SUBCLASS_ARMOR_PLATE << ")";
+                    break;
+            }
+        }
+        sql << " ORDER BY RequiredLevel DESC, RAND()";
+        QueryResult qresult = WorldDatabase.Query(sql.str().c_str());
+        if (qresult && qresult->GetRowCount() > 0)
+        {
+            uint32 _itemId;
+            do
+            {
+                _itemId = (*qresult)[0].GetUInt32();
+            } while (!_canEquip(sObjectMgr->GetItemTemplate(_itemId), i + 1) && qresult->NextRow());
+            if (_canEquip(sObjectMgr->GetItemTemplate(_itemId), i + 1))
+            {
+                _equips[i] = Item::CreateItem(_itemId, 1, NULL);
+            }
+        }
     }
 
     //visualize

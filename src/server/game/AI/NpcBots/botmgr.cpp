@@ -37,6 +37,7 @@ bool _botPvP;
 float _mult_dmg_melee;
 float _mult_dmg_spell;
 float _mult_healing;
+int _maxQualityEquipment;
 
 bool __firstload = true;
 
@@ -74,6 +75,7 @@ void BotMgr::LoadConfig(bool force)
     _limitNpcBotsRaids      = sConfigMgr->GetBoolDefault("NpcBot.Limit.Raid", true);
     _npcBotsCost            = sConfigMgr->GetIntDefault("NpcBot.Cost", 1000000);
     _botPvP                 = sConfigMgr->GetBoolDefault("NpcBot.PvP", true);
+    _maxQualityEquipment    = sConfigMgr->GetIntDefault("NpcBot.Equipment.QualityMax", 1);
 
     //limits
     _mult_dmg_melee         = std::max(_mult_dmg_melee, 0.1f);

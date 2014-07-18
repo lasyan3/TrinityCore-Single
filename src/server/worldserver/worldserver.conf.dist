@@ -2925,6 +2925,16 @@ NpcBot.Cost = 1000000
 
 NpcBot.PvP = 1
 
+#    NpcBot.Equipment.QualityMax
+#        Description: Set the maximum quality for randomized equipment of the bots
+#        Values:	0 (POOR)
+#					1 (NORMAL)
+#				   	2 (UNCOMMON) (Default)
+#					3 (RARE)
+#					4 (EPIC)
+
+NpcBot.Equipment.QualityMax = 2
+
 #
 ###################################################################################################
 

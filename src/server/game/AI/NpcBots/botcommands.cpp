@@ -50,7 +50,8 @@ public:
             { "lookup",     GM_COMMANDS,                        false, &HandleNpcBotLookupCommand,              "", NULL },
             { "revive",     GM_COMMANDS,                        false, &HandleNpcBotReviveCommand,              "", NULL },
             { "cast",       GM_COMMANDS,                        false, &HandleNpcBotCastCustomSpell,            "", NULL },
-            { NULL,         0,                                  false, NULL,                                    "", NULL }
+            { "command",    GM_COMMANDS,                        false, &HandleNpcBotCommandCommand,             "", NULL },
+            { NULL, 0, false, NULL, "", NULL }
         };
 
         static ChatCommand commandTable[] =
@@ -733,6 +734,7 @@ public:
 
     static bool HandleNpcBotCommandCommand(ChatHandler* handler, const char* args)
     {
+        Unit * sel = NULL;
         Player* owner = handler->GetSession()->GetPlayer();
         if (!*args)
         {
@@ -747,6 +749,18 @@ public:
             state = COMMAND_STAY;
         else if (!strncmp(command, "f", 2) || !strncmp(command, "follow", 7) || !strncmp(command, "fol", 4) || !strncmp(command, "fo", 3))
             state = COMMAND_FOLLOW;
+        //START LASYAN3 : Add commands to force bots to attack or flee
+        else if (!strncmp(command, "a", 2) || !strncmp(command, "attack", 7) || !strncmp(command, "atk", 4) || !strncmp(command, "at", 3))
+        {
+            sel = owner->GetSelectedUnit();
+            if (sel && owner->IsValidAttackTarget(sel))
+            {
+                state = COMMAND_ATTACK;
+            }
+        }
+        else if (!strncmp(command, "b", 2) || !strncmp(command, "abandon", 8) || !strncmp(command, "aban", 5))
+            state = COMMAND_ABANDON;
+        // END LASYAN3
         if (state >= 0 && owner->HaveBot())
         {
             owner->GetBotMgr()->SendBotCommandState(CommandStates(state));

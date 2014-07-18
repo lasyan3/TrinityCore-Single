@@ -107,7 +107,7 @@ void MapManager::Initialize()
         uint32 mapId = uint32(field[1].GetUInt16());
         float pos_x = field[2].GetFloat();
         float pos_y = field[3].GetFloat();
-        //float pos_z = field[4].GetFloat();
+        float pos_z = field[4].GetFloat();
         //float ori = field[5].GetFloat();
 
         CellCoord c = Trinity::ComputeCellCoord(pos_x, pos_y);
@@ -125,7 +125,19 @@ void MapManager::Initialize()
             bot->ResetBotAI(1);
         }
 
-        TC_LOG_DEBUG("server.loading", ">> Spawned npcbot %s (id: %u, map: %u, grid: %u, cell: %u)", proto->Name.c_str(), entry, mapId, g.GetId(), c.GetId());
+        // START LASYAN3 : display map and zone names, instead of ids
+        Map* map = sMapMgr->CreateBaseMap(mapId);
+        char *area_name, *zone_name;
+        if (map)
+        {
+            AreaTableEntry const* area = GetAreaEntryByAreaID(map->GetAreaId(pos_x, pos_y, pos_z));
+            AreaTableEntry const* zone = GetAreaEntryByAreaID(map->GetZoneId(pos_x, pos_y, pos_z));
+            if (area) area_name = area->area_name[sObjectMgr->GetDBCLocaleIndex()];
+            if (zone && stricmp(zone->area_name[sObjectMgr->GetDBCLocaleIndex()], area->area_name[sObjectMgr->GetDBCLocaleIndex()]) != 0)
+                zone_name = zone->area_name[sObjectMgr->GetDBCLocaleIndex()];
+        }
+        TC_LOG_DEBUG("server.loading", ">> Spawned npcbot %s (id: %u, map: %s, zone: %s)", proto->Name.c_str(), entry, area_name, zone_name);
+        // END LASYAN3
         botgrids.push_back(g.GetId());
         ++botcounter;
 

@@ -516,6 +516,8 @@ class bot_ai : public ScriptedAI
         bool IsSpellReady(uint32 basespell, uint32 diff, bool checkGCD = true, uint32 forcedTime = 0) const;
         void SetSpellCooldown(uint32 basespell, uint32 msCooldown);
         void SetSpellCategoryCooldown(SpellInfo const* spellInfo, uint32 msCooldown);
+
+        bool m_attackFromCmd = false; // LASYAN3
     protected:
         static uint32 InitSpell(Unit const* caster, uint32 spell);
         void InitSpellMap(uint32 basespell, bool forceadd = false, bool forwardRank = true);

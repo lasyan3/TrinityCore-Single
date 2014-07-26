@@ -511,6 +511,17 @@ bool LootItem::AllowedForPlayer(Player const* player) const
     return false;
     }*/
 
+    // LASYAN3 : Loot only one item
+    if (sWorld->getBoolConfig(CONFIG_LOOT_UNIQUE) && 
+        (pProto->Class == ITEM_CLASS_RECIPE || pProto->Class == ITEM_CLASS_ARMOR || pProto->Class == ITEM_CLASS_WEAPON || pProto->Class == ITEM_CLASS_KEY))
+    {
+        if (player->HasItemCount(itemid, 1, true))
+        {
+            TC_LOG_INFO("lasyan3", "Only one exemplary allowed for player %s: %s", player->GetName().c_str(), pProto->Name1.c_str());
+            return false;
+        }
+    }
+
     // check quest requirements
     if (!(pProto->FlagsCu & ITEM_FLAGS_CU_IGNORE_QUEST_STATUS) && ((needs_quest || (pProto->StartQuest && player->GetQuestStatus(pProto->StartQuest) != QUEST_STATUS_NONE)) && !player->HasQuestForItem(itemid)))
     {

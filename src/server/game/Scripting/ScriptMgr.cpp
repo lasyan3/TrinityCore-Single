@@ -32,6 +32,7 @@
 #include "CreatureAIImpl.h"
 #include "Player.h"
 #include "WorldPacket.h"
+#include "WorldSession.h"
 
 namespace
 {
@@ -175,8 +176,10 @@ struct TSpellSummary
     uint8 Effects;                                          // set of enum SelectEffect
 } *SpellSummary;
 
-ScriptMgr::ScriptMgr()
-    : _scriptCount(0), _scheduledScripts(0) { }
+ScriptMgr::ScriptMgr() : _scriptCount(0)
+{
+    _scheduledScripts = 0;
+}
 
 ScriptMgr::~ScriptMgr() { }
 
@@ -398,39 +401,49 @@ void ScriptMgr::OnNetworkStop()
     FOREACH_SCRIPT(ServerScript)->OnNetworkStop();
 }
 
-void ScriptMgr::OnSocketOpen(WorldSocket* socket)
+void ScriptMgr::OnSocketOpen(std::shared_ptr<WorldSocket> socket)
 {
     ASSERT(socket);
 
     FOREACH_SCRIPT(ServerScript)->OnSocketOpen(socket);
 }
 
-void ScriptMgr::OnSocketClose(WorldSocket* socket, bool wasNew)
+void ScriptMgr::OnSocketClose(std::shared_ptr<WorldSocket> socket)
 {
     ASSERT(socket);
 
-    FOREACH_SCRIPT(ServerScript)->OnSocketClose(socket, wasNew);
+    FOREACH_SCRIPT(ServerScript)->OnSocketClose(socket);
 }
 
-void ScriptMgr::OnPacketReceive(WorldSocket* socket, WorldPacket packet)
+void ScriptMgr::OnPacketReceive(WorldSession* session, WorldPacket const& packet)
 {
-    ASSERT(socket);
+    if (SCR_REG_LST(ServerScript).empty())
+        return;
 
-    FOREACH_SCRIPT(ServerScript)->OnPacketReceive(socket, packet);
+    WorldPacket copy(packet);
+    FOREACH_SCRIPT(ServerScript)->OnPacketReceive(session, copy);
 }
 
-void ScriptMgr::OnPacketSend(WorldSocket* socket, WorldPacket packet)
+void ScriptMgr::OnPacketSend(WorldSession* session, WorldPacket const& packet)
 {
-    ASSERT(socket);
+    ASSERT(session);
 
-    FOREACH_SCRIPT(ServerScript)->OnPacketSend(socket, packet);
+    if (SCR_REG_LST(ServerScript).empty())
+        return;
+
+    WorldPacket copy(packet);
+    FOREACH_SCRIPT(ServerScript)->OnPacketSend(session, copy);
 }
 
-void ScriptMgr::OnUnknownPacketReceive(WorldSocket* socket, WorldPacket packet)
+void ScriptMgr::OnUnknownPacketReceive(WorldSession* session, WorldPacket const& packet)
 {
-    ASSERT(socket);
+    ASSERT(session);
 
-    FOREACH_SCRIPT(ServerScript)->OnUnknownPacketReceive(socket, packet);
+    if (SCR_REG_LST(ServerScript).empty())
+        return;
+
+    WorldPacket copy(packet);
+    FOREACH_SCRIPT(ServerScript)->OnUnknownPacketReceive(session, copy);
 }
 
 void ScriptMgr::OnOpenStateChange(bool open)
@@ -759,17 +772,6 @@ bool ScriptMgr::OnQuestSelect(Player* player, Creature* creature, Quest const* q
     GET_SCRIPT_RET(CreatureScript, creature->GetScriptId(), tmpscript, false);
     player->PlayerTalkClass->ClearMenus();
     return tmpscript->OnQuestSelect(player, creature, quest);
-}
-
-bool ScriptMgr::OnQuestComplete(Player* player, Creature* creature, Quest const* quest)
-{
-    ASSERT(player);
-    ASSERT(creature);
-    ASSERT(quest);
-
-    GET_SCRIPT_RET(CreatureScript, creature->GetScriptId(), tmpscript, false);
-    player->PlayerTalkClass->ClearMenus();
-    return tmpscript->OnQuestComplete(player, creature, quest);
 }
 
 bool ScriptMgr::OnQuestReward(Player* player, Creature* creature, Quest const* quest, uint32 opt)
@@ -1281,6 +1283,11 @@ void ScriptMgr::OnPlayerBindToInstance(Player* player, Difficulty difficulty, ui
 void ScriptMgr::OnPlayerUpdateZone(Player* player, uint32 newZone, uint32 newArea)
 {
     FOREACH_SCRIPT(PlayerScript)->OnUpdateZone(player, newZone, newArea);
+}
+
+void ScriptMgr::OnQuestStatusChange(Player* player, uint32 questId, QuestStatus status)
+{
+    FOREACH_SCRIPT(PlayerScript)->OnQuestStatusChange(player, questId, status);
 }
 
 // Account

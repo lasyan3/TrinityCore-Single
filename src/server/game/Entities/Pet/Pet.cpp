@@ -182,8 +182,7 @@ bool Pet::LoadPetFromDB(Player* owner, uint32 petEntry, uint32 petnumber, bool c
     setFaction(owner->getFaction());
     SetUInt32Value(UNIT_CREATED_BY_SPELL, summonSpellId);
 
-    CreatureTemplate const* cinfo = GetCreatureTemplate();
-    if (cinfo->type == CREATURE_TYPE_CRITTER)
+    if (IsCritter())
     {
         float px, py, pz;
         owner->GetClosePoint(px, py, pz, GetObjectSize(), PET_FOLLOW_DIST, GetFollowAngle());
@@ -523,9 +522,8 @@ void Pet::setDeathState(DeathState s)                       // overwrite virtual
             SetUInt32Value(UNIT_DYNAMIC_FLAGS, UNIT_DYNFLAG_NONE);
             RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_SKINNABLE);
 
-             //lose happiness when died and not in BG/Arena
-            MapEntry const* mapEntry = sMapStore.LookupEntry(GetMapId());
-            if (!mapEntry || (mapEntry->map_type != MAP_ARENA && mapEntry->map_type != MAP_BATTLEGROUND))
+            // lose happiness when died and not in BG/Arena
+            if (!GetMap()->IsBattlegroundOrArena())
                 ModifyPower(POWER_HAPPINESS, -HAPPINESS_LEVEL_SIZE);
 
             //SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_STUNNED);
@@ -1020,7 +1018,7 @@ bool Guardian::InitStatsForLevel(uint8 petlevel)
                         SetCreateHealth(30*petlevel);
 
                     // wolf attack speed is 1.5s
-                    SetAttackTime(BASE_ATTACK, cinfo->baseattacktime);
+                    SetAttackTime(BASE_ATTACK, cinfo->BaseAttackTime);
 
                     SetBaseWeaponDamage(BASE_ATTACK, MINDAMAGE, float((petlevel * 4 - petlevel)));
                     SetBaseWeaponDamage(BASE_ATTACK, MAXDAMAGE, float((petlevel * 4 + petlevel)));
@@ -1088,7 +1086,7 @@ bool Pet::HaveInDiet(ItemTemplate const* item) const
 
     uint32 diet = cFamily->petFoodMask;
     uint32 FoodMask = 1 << (item->FoodType-1);
-    return diet & FoodMask;
+    return (diet & FoodMask) != 0;
 }
 
 uint32 Pet::GetCurrentFoodBenefitLevel(uint32 itemlevel) const

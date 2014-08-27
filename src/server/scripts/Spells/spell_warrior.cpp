@@ -501,7 +501,7 @@ class spell_warr_overpower : public SpellScriptLoader
                     return;
 
                 if (Player* target = GetHitPlayer())
-                    if (target->HasUnitState(UNIT_STATE_CASTING))
+                    if (target->IsNonMeleeSpellCast(false, false, true)) // UNIT_STATE_CASTING should not be used here, it's present during a tick for instant casts
                         target->CastSpell(target, spellId, true);
             }
 
@@ -583,7 +583,7 @@ class spell_warr_retaliation : public SpellScriptLoader
             bool CheckProc(ProcEventInfo& eventInfo)
             {
                 // check attack comes not from behind and warrior is not stunned
-                return GetTarget()->isInFront(eventInfo.GetActor(), M_PI) && !GetTarget()->HasUnitState(UNIT_STATE_STUNNED);
+                return GetTarget()->isInFront(eventInfo.GetActor(), float(M_PI)) && !GetTarget()->HasUnitState(UNIT_STATE_STUNNED);
             }
 
             void HandleEffectProc(AuraEffect const* aurEff, ProcEventInfo& eventInfo)
@@ -697,7 +697,7 @@ class spell_warr_sweeping_strikes : public SpellScriptLoader
             bool CheckProc(ProcEventInfo& eventInfo)
             {
                 _procTarget = eventInfo.GetActor()->SelectNearbyTarget(eventInfo.GetProcTarget());
-                return _procTarget;
+                return _procTarget != nullptr;
             }
 
             void HandleProc(AuraEffect const* aurEff, ProcEventInfo& eventInfo)
@@ -801,7 +801,7 @@ class spell_warr_vigilance : public SpellScriptLoader
             bool CheckProc(ProcEventInfo& /*eventInfo*/)
             {
                 _procTarget = GetCaster();
-                return _procTarget;
+                return _procTarget != nullptr;
             }
 
             void HandleProc(AuraEffect const* aurEff, ProcEventInfo& /*eventInfo*/)

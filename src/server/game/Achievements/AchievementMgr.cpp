@@ -60,7 +60,7 @@ namespace Trinity
         private:
             Player const* _player;
             ChatMsg _msgType;
-            int32 _textId;
+            uint32 _textId;
             uint32 _achievementId;
     };
 } // namespace Trinity
@@ -425,7 +425,7 @@ bool AchievementCriteriaData::Meets(uint32 criteria_id, Player const* source, Un
         {
             time_t birthday_start = time_t(sWorld->getIntConfig(CONFIG_BIRTHDAY_TIME));
             tm birthday_tm;
-            ACE_OS::localtime_r(&birthday_start, &birthday_tm);
+            localtime_r(&birthday_start, &birthday_tm);
 
             // exactly N birthday
             birthday_tm.tm_year += birthday_login.nth_birthday;
@@ -1026,7 +1026,7 @@ void AchievementMgr::UpdateAchievementCriteria(AchievementCriteriaTypes type, ui
                     continue;
 
                 //FIXME: work only for instances where max == min for players
-                if (((InstanceMap*)map)->GetMaxPlayers() != achievementCriteria->death_in_dungeon.manLimit)
+                if (map->ToInstanceMap()->GetMaxPlayers() != achievementCriteria->death_in_dungeon.manLimit)
                     continue;
                 SetCriteriaProgress(achievementCriteria, 1, PROGRESS_ACCUMULATE);
                 break;
@@ -1279,7 +1279,7 @@ void AchievementMgr::UpdateAchievementCriteria(AchievementCriteriaTypes type, ui
 
                 // check item level and quality via achievement_criteria_data
                 AchievementCriteriaDataSet const* data = sAchievementMgr->GetCriteriaDataSet(achievementCriteria);
-                if (!data || !data->Meets(GetPlayer(), 0, miscValue1))
+                if (!data || !data->Meets(GetPlayer(), nullptr, miscValue1))
                     continue;
 
                 SetCriteriaProgress(achievementCriteria, 1);
@@ -1301,7 +1301,7 @@ void AchievementMgr::UpdateAchievementCriteria(AchievementCriteriaTypes type, ui
 
                 // check item level via achievement_criteria_data
                 AchievementCriteriaDataSet const* data = sAchievementMgr->GetCriteriaDataSet(achievementCriteria);
-                if (!data || !data->Meets(GetPlayer(), 0, pProto->ItemLevel))
+                if (!data || !data->Meets(GetPlayer(), nullptr, pProto->ItemLevel))
                     continue;
 
                 SetCriteriaProgress(achievementCriteria, 1, PROGRESS_ACCUMULATE);
@@ -2584,7 +2584,7 @@ void AchievementGlobalMgr::LoadRewardLocales()
 
         AchievementRewardLocale& data = m_achievementRewardLocales[entry];
 
-        for (int i = 1; i < TOTAL_LOCALES; ++i)
+        for (uint8 i = TOTAL_LOCALES - 1; i > 0; --i)
         {
             LocaleConstant locale = (LocaleConstant) i;
             ObjectMgr::AddLocaleString(fields[1 + 2 * (i - 1)].GetString(), locale, data.subject);
@@ -2593,7 +2593,7 @@ void AchievementGlobalMgr::LoadRewardLocales()
     }
     while (result->NextRow());
 
-    TC_LOG_INFO("server.loading", ">> Loaded %lu achievement reward locale strings in %u ms", (unsigned long)m_achievementRewardLocales.size(), GetMSTimeDiffToNow(oldMSTime));
+    TC_LOG_INFO("server.loading", ">> Loaded %u achievement reward locale strings in %u ms", uint32(m_achievementRewardLocales.size()), GetMSTimeDiffToNow(oldMSTime));
 }
 
 AchievementEntry const* AchievementGlobalMgr::GetAchievement(uint32 achievementId) const

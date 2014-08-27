@@ -19,8 +19,8 @@
 #ifndef TRINITY_SHAREDDEFINES_H
 #define TRINITY_SHAREDDEFINES_H
 
-#include "DetourNavMesh.h"
 #include "Define.h"
+#include "DetourNavMesh.h"
 #include <cassert>
 
 enum SpellEffIndex
@@ -529,7 +529,7 @@ enum SpellAttr6
 enum SpellAttr7
 {
     SPELL_ATTR7_UNK0                             = 0x00000001, //  0 Shaman's new spells (Call of the ...), Feign Death.
-    SPELL_ATTR7_UNK1                             = 0x00000002, //  1 Not set in 3.2.2a.
+    SPELL_ATTR7_IGNORE_DURATION_MODS             = 0x00000002, //  1 Duration is not affected by duration modifiers
     SPELL_ATTR7_REACTIVATE_AT_RESURRECT          = 0x00000004, //  2 Paladin's auras and 65607 only.
     SPELL_ATTR7_IS_CHEAT_SPELL                   = 0x00000008, //  3 Cannot cast if caster doesn't have UnitFlag2 & UNIT_FLAG2_ALLOW_CHEAT_SPELLS
     SPELL_ATTR7_UNK4                             = 0x00000010, //  4 Only 47883 (Soulstone Resurrection) and test spell.
@@ -3309,6 +3309,15 @@ enum BanReturn
     BAN_NOTFOUND
 };
 
+enum BattlegroundTeamId
+{
+    BG_TEAM_HORDE       = 0, // Battleground: Horde,    Arena: Green
+    BG_TEAM_ALLIANCE    = 1, // Battleground: Alliance, Arena: Gold
+    BG_TEAM_NEUTRAL     = 2  // Battleground: Neutral,  Arena: None
+};
+
+#define BG_TEAMS_COUNT  2
+
 // indexes of BattlemasterList.dbc
 enum BattlegroundTypeId
 {
@@ -3391,7 +3400,7 @@ enum TradeStatus
     TRADE_STATUS_NO_TARGET      = 6,
     TRADE_STATUS_BACK_TO_TRADE  = 7,
     TRADE_STATUS_TRADE_COMPLETE = 8,
-    // 9?
+    TRADE_STATUS_TRADE_REJECTED = 9,
     TRADE_STATUS_TARGET_TO_FAR  = 10,
     TRADE_STATUS_WRONG_FACTION  = 11,
     TRADE_STATUS_CLOSE_WINDOW   = 12,
@@ -3404,8 +3413,8 @@ enum TradeStatus
     TRADE_STATUS_YOU_LOGOUT     = 19,
     TRADE_STATUS_TARGET_LOGOUT  = 20,
     TRADE_STATUS_TRIAL_ACCOUNT  = 21,                       // Trial accounts can not perform that action
-    TRADE_STATUS_ONLY_CONJURED  = 22,                       // You can only trade conjured items... (cross realm BG related).
-    TRADE_STATUS_NOT_ELIGIBLE   = 23                        // Related to trading soulbound loot items
+    TRADE_STATUS_WRONG_REALM    = 22,                       // You can only trade conjured items... (cross realm BG related).
+    TRADE_STATUS_NOT_ON_TAPLIST = 23                        // Related to trading soulbound loot items
 };
 
 enum XPColorChar
@@ -3448,6 +3457,7 @@ enum DuelCompleteType
     DUEL_WON         = 1,
     DUEL_FLED        = 2
 };
+
 // handle the queue types and bg types separately to enable joining queue for different sized arenas at the same time
 enum BattlegroundQueueTypeId
 {

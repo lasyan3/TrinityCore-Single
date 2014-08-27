@@ -16,7 +16,6 @@
  * with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <G3D/Quat.h>
 #include "GameObjectAI.h"
 #include "Battleground.h"
 #include "CellImpl.h"
@@ -34,6 +33,7 @@
 #include "UpdateFieldFlags.h"
 #include "World.h"
 #include "Transport.h"
+#include <G3D/Quat.h>
 
 GameObject::GameObject() : WorldObject(false), MapObject(),
     m_model(NULL), m_goValue(), m_AI(NULL)
@@ -143,7 +143,12 @@ void GameObject::AddToWorld()
         // The state can be changed after GameObject::Create but before GameObject::AddToWorld
         bool toggledState = GetGoType() == GAMEOBJECT_TYPE_CHEST ? getLootState() == GO_READY : (GetGoState() == GO_STATE_READY || IsTransport());
         if (m_model)
-            GetMap()->InsertGameObjectModel(*m_model);
+        {
+            if (Transport* trans = ToTransport())
+                trans->SetDelayedAddModelToMap();
+            else
+                GetMap()->InsertGameObjectModel(*m_model);
+        }
 
         EnableCollision(toggledState);
         WorldObject::AddToWorld();
@@ -958,6 +963,17 @@ void GameObject::SaveRespawnTime()
         GetMap()->SaveGORespawnTime(m_DBTableGuid, m_respawnTime);
 }
 
+bool GameObject::IsNeverVisible() const
+{
+    if (WorldObject::IsNeverVisible())
+        return true;
+
+    if (GetGoType() == GAMEOBJECT_TYPE_SPELL_FOCUS && GetGOInfo()->spellFocus.serverOnly == 1)
+        return true;
+
+    return false;
+}
+
 bool GameObject::IsAlwaysVisibleFor(WorldObject const* seer) const
 {
     if (WorldObject::IsAlwaysVisibleFor(seer))
@@ -1245,7 +1261,7 @@ void GameObject::Use(Unit* user)
 
             // the object orientation + 1/2 pi
             // every slot will be on that straight line
-            float orthogonalOrientation = GetOrientation()+M_PI*0.5f;
+            float orthogonalOrientation = GetOrientation() + float(M_PI) * 0.5f;
             // find nearest slot
             bool found_free_slot = false;
             for (ChairSlotAndUser::iterator itr = ChairListSlots.begin(); itr != ChairListSlots.end(); ++itr)
@@ -1780,14 +1796,14 @@ void GameObject::CastSpell(Unit* target, uint32 spellId, bool triggered /*= true
         trigger->setFaction(owner->getFaction());
         // needed for GO casts for proper target validation checks
         trigger->SetOwnerGUID(owner->GetGUID());
-        trigger->CastSpell(target ? target : trigger, spellInfo, triggered, 0, 0, owner->GetGUID());
+        trigger->CastSpell(target ? target : trigger, spellInfo, triggered, nullptr, nullptr, owner->GetGUID());
     }
     else
     {
         trigger->setFaction(14);
         // Set owner guid for target if no owner available - needed by trigger auras
         // - trigger gets despawned and there's no caster avalible (see AuraEffect::TriggerSpell())
-        trigger->CastSpell(target ? target : trigger, spellInfo, triggered, 0, 0, target ? target->GetGUID() : 0);
+        trigger->CastSpell(target ? target : trigger, spellInfo, triggered, nullptr, nullptr, target ? target->GetGUID() : 0);
     }
 }
 
@@ -1810,7 +1826,7 @@ bool GameObject::IsInRange(float x, float y, float z, float radius) const
     float dx = x - GetPositionX();
     float dy = y - GetPositionY();
     float dz = z - GetPositionZ();
-    float dist = sqrt(dx*dx + dy*dy);
+    float dist = std::sqrt(dx*dx + dy*dy);
     //! Check if the distance between the 2 objects is 0, can happen if both objects are on the same position.
     //! The code below this check wont crash if dist is 0 because 0/0 in float operations is valid, and returns infinite
     if (G3D::fuzzyEq(dist, 0.0f))

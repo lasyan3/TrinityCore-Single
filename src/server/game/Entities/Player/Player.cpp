@@ -17000,7 +17000,6 @@ void Player::AutoQuestCompleteDisplayQuestGiver(uint32 p_questId)
     _sum->StopMoving();
     _sum->SetReactState(REACT_PASSIVE);
     //bool IsCivilian() const { return GetCreatureTemplate()->flags_extra & CREATURE_FLAG_EXTRA_CIVILIAN; }
-    sScriptMgr->OnQuestComplete(this, _sum, sObjectMgr->GetQuestTemplate(p_questId));
 
     /*if (sScriptMgr->OnGossipHello(this, _sum))
     return;

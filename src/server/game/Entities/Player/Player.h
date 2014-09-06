@@ -1481,7 +1481,6 @@ class Player : public Unit, public GridObject<Player>
         // LASYAN3: AlwaysDropQuestItems
         bool CanDropQuestItem(uint32 itemid); 
         ObjectMgr::QuestMap GetAvailableQuestsForItem(uint32 itemid);
-        void GetQuestItemInformations(Quest const *qInfo, std::string& giver_name, std::string& giver_area_name, std::string& giver_zone_name);
 
         /*********************************************************/
         /***                   LOAD SYSTEM                     ***/

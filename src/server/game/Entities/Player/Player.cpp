@@ -14750,9 +14750,9 @@ void Player::SendPreparedQuest(ObjectGuid guid)
 
                 if ((quest->IsAutoComplete() && quest->IsRepeatable() && !quest->IsDailyOrWeekly()) || quest->HasFlag(QUEST_FLAGS_AUTOCOMPLETE))
                     PlayerTalkClass->SendQuestGiverRequestItems(quest, guid, CanCompleteRepeatableQuest(quest), true);
-                else
-                    PlayerTalkClass->SendQuestGiverQuestDetails(quest, guid, true);
-            }
+				else
+							PlayerTalkClass->SendQuestGiverQuestDetails(quest, guid, true);
+					}
         }
     }
     // multiple entries
@@ -17010,8 +17010,6 @@ bool Player::CanDropQuestItem(uint32 itemid) // LASYAN: return true if at least 
                     qInfo = qTemp;
                 }
 
-                //std::string giver_name, area_name, zone_name;
-                //GetQuestItemInformations(qInfo, giver_name, area_name, zone_name);
                 IdQuestItemAdded = itemid;
                 ItemTemplate const * it = sObjectMgr->GetItemTemplate(itemid);
                 std::ostringstream msg;
@@ -17092,8 +17090,8 @@ ObjectMgr::QuestMap Player::GetAvailableQuestsForItem(uint32 itemid)
 
         if (!DisableMgr::IsDisabledFor(DISABLE_TYPE_QUEST, qInfo->GetQuestId(), this) && SatisfyQuestClass(qInfo, false) && SatisfyQuestRace(qInfo, false) &&
             SatisfyQuestSkill(qInfo, false) && SatisfyQuestExclusiveGroup(qInfo, false) && SatisfyQuestReputation(qInfo, false) &&
-            /*SatisfyQuestPreviousQuest(qInfo, false) && SatisfyQuestNextChain(qInfo, false) &&*/
-            SatisfyQuestPrevChain(qInfo, false) && SatisfyQuestDay(qInfo, false) && SatisfyQuestWeek(qInfo, false) &&
+            /*SatisfyQuestPreviousQuest(qInfo, false) && SatisfyQuestNextChain(qInfo, false) &&
+            SatisfyQuestPrevChain(qInfo, false) &&*/ SatisfyQuestDay(qInfo, false) && SatisfyQuestWeek(qInfo, false) &&
             SatisfyQuestMonth(qInfo, false) && SatisfyQuestSeasonal(qInfo, false))
         {
             /*if ((getLevel() + sWorld->getIntConfig(CONFIG_QUEST_HIGH_LEVEL_HIDE_DIFF)) < qInfo->GetMinLevel())
@@ -17109,7 +17107,17 @@ ObjectMgr::QuestMap Player::GetAvailableQuestsForItem(uint32 itemid)
         }
         else
         {
-            TC_LOG_DEBUG("lasyan3", " |- Player doesn't satisfy quest");
+			/*if (DisableMgr::IsDisabledFor(DISABLE_TYPE_QUEST, qInfo->GetQuestId(), this))
+			if (!SatisfyQuestClass(qInfo, false))
+			if (!SatisfyQuestRace(qInfo, false))
+			if (!SatisfyQuestSkill(qInfo, false))
+			if (!SatisfyQuestExclusiveGroup(qInfo, false))
+			if (!SatisfyQuestReputation(qInfo, false))
+			if (!SatisfyQuestDay(qInfo, false))
+			if (!SatisfyQuestWeek(qInfo, false))
+			if (!SatisfyQuestMonth(qInfo, false))
+			if (!SatisfyQuestSeasonal(qInfo, false))*/
+				TC_LOG_DEBUG("lasyan3", " |- Player doesn't satisfy quest");
             continue;
         }
 
@@ -17124,43 +17132,6 @@ ObjectMgr::QuestMap Player::GetAvailableQuestsForItem(uint32 itemid)
     } while (result->NextRow());
     TC_LOG_DEBUG("lasyan3", "END GetAvailableQuestsForItem");
     return _allQuests;
-}
-
-void Player::GetQuestItemInformations(Quest const *qInfo, std::string& giver_name, std::string& giver_area_name, std::string& giver_zone_name)
-{
-    std::ostringstream sql;
-    sql << "SELECT ct.name, c.map, c.position_x, c.position_y, c.position_z FROM creature c"
-        << " INNER JOIN creature_queststarter s ON s.id = c.id"
-        << " INNER JOIN creature_template ct ON ct.entry = c.id"
-        << " WHERE s.quest = %d";
-    QueryResult result = WorldDatabase.PQuery(sql.str().c_str(), qInfo->GetQuestId());
-    if (!result || result->GetRowCount() == 0)
-    {
-        std::ostringstream sql2;
-        sql2 << "SELECT gt.name, g.map, g.position_x, g.position_y, g.position_z FROM gameobject g"
-            << " INNER JOIN gameobject_queststarter s ON s.id = g.id"
-            << " INNER JOIN gameobject_template gt ON gt.entry = g.id"
-            << " WHERE s.quest = " << qInfo->GetQuestId();
-        result = WorldDatabase.Query(sql2.str().c_str());
-    }
-    if (result && result->GetRowCount() > 0)
-    {
-        giver_name = (*result)[0].GetString();
-        uint32 _map_id = (*result)[1].GetUInt32();
-        float _pos_x = (*result)[2].GetFloat();
-        float _pos_y = (*result)[3].GetFloat();
-        float _pos_z = (*result)[4].GetFloat();
-
-        Map* map = sMapMgr->CreateBaseMap(_map_id);
-        if (map)
-        {
-            AreaTableEntry const* area = GetAreaEntryByAreaID(map->GetAreaId(_pos_x, _pos_y, _pos_z));
-            AreaTableEntry const* zone = GetAreaEntryByAreaID(map->GetZoneId(_pos_x, _pos_y, _pos_z));
-            if (area) giver_area_name = area->area_name[sObjectMgr->GetDBCLocaleIndex()];
-            if (zone && stricmp(zone->area_name[sObjectMgr->GetDBCLocaleIndex()], area->area_name[sObjectMgr->GetDBCLocaleIndex()]) != 0)
-                giver_zone_name = zone->area_name[sObjectMgr->GetDBCLocaleIndex()];
-        }
-    }
 }
 
 /*********************************************************/

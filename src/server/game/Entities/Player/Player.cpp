@@ -16999,50 +16999,9 @@ void Player::AutoQuestCompleteDisplayQuestGiver(uint32 p_questId)
     // Stop the npc if moving
     _sum->StopMoving();
     _sum->SetReactState(REACT_PASSIVE);
-    //bool IsCivilian() const { return GetCreatureTemplate()->flags_extra & CREATURE_FLAG_EXTRA_CIVILIAN; }
-
-    /*if (sScriptMgr->OnGossipHello(this, _sum))
-    return;
-
-    PrepareGossipMenu(_sum, _sum->GetCreatureTemplate()->GossipMenuId, true);
-    SendPreparedGossip(_sum);
-
-    _sum->AI()->sGossipHello(this);*/
-    //PlayerTalkClass->SendQuestGiverRequestItems(sObjectMgr->GetQuestTemplate(p_questId), _sum->GetGUID(), CanRewardQuest(sObjectMgr->GetQuestTemplate(p_questId), false), false);
-    //sScriptMgr->OnQuestComplete(this, _sum->GetCreature(*this, _sum->GetGUID()), sObjectMgr->GetQuestTemplate(p_questId));
-    /*
-    Creature* realQuestGiver;
-    uint32 nbQuestGivers = 0;
-    for (Player::ClientGUIDs::const_iterator itr = m_clientGUIDs.begin(); itr != m_clientGUIDs.end(); ++itr)
-    {
-    uint32 questStatus = DIALOG_STATUS_NONE;
-
-    if (!IS_CRE_OR_VEH_OR_PET_GUID(*itr)) continue;
-    Creature* questgiver = ObjectAccessor::GetCreatureOrPetOrVehicle(*this, *itr);
-    if (!questgiver || questgiver->IsHostileTo(this))
-    continue;
-    if (!questgiver->HasFlag(UNIT_NPC_FLAGS, UNIT_NPC_FLAG_QUESTGIVER))
-    continue;
-
-    questStatus = GetQuestDialogStatus(questgiver);
-
-    if (questStatus == DIALOG_STATUS_REWARD){
-    QuestRelationBounds qir = sObjectMgr->GetCreatureQuestInvolvedRelationBounds(questgiver->GetEntry());
-    for (QuestRelations::const_iterator itr = qir.first; itr != qir.second; ++itr)
-    {
-    Quest const* _quest = sObjectMgr->GetQuestTemplate(itr->second);
-    if (!_quest) continue;
-    if (_quest->GetQuestId() != p_questId) continue;
-
-    realQuestGiver = questgiver;
-    nbQuestGivers++;
-    break;
-    }
-    }
-    }
-    if (nbQuestGivers == 1) {
-    SummonCreature(realQuestGiver->GetEntry(), GetPositionX(), GetPositionY(), GetPositionZ(), 3.3f, TEMPSUMMON_TIMED_DESPAWN, sWorld->getIntConfig(CONFIG_AUTOCOMPLETE_DELAY) * 1000);
-    }//*/
+	m_lastQuestCompleted = sObjectMgr->GetQuestTemplate(p_questId);
+	PrepareGossipMenu(_sum, _sum->GetCreatureTemplate()->GossipMenuId, true);
+	SendPreparedGossip(_sum);
 }
 
 /*********************************************************/

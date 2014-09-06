@@ -16989,16 +16989,28 @@ void Player::AutoQuestCompleteDisplayQuestGiver(uint32 p_questId)
     if (result->GetRowCount() > 1)
         return;
 
-    //uint64 guid = (*result)[0].GetUInt64();
-    //Creature* questgiver = ObjectAccessor::GetCreatureOrPetOrVehicle(*this, guid);
-    TempSummon *_sum = SummonCreature((*result)[0].GetUInt32(), GetPositionX(), GetPositionY(), GetPositionZ(), 3.3f, TEMPSUMMON_TIMED_DESPAWN, sWorld->getIntConfig(CONFIG_QUEST_AUTOCOMPLETE_DELAY) * 1000);
-    _sum->SetInFront(this);
-    // remove fake death
-    if (HasUnitState(UNIT_STATE_DIED))
-        RemoveAurasByType(SPELL_AURA_FEIGN_DEATH);
-    // Stop the npc if moving
-    _sum->StopMoving();
-    _sum->SetReactState(REACT_PASSIVE);
+	uint32 entry = (*result)[0].GetUInt32();
+	bool visible = false;
+	for (Player::ClientGUIDs::const_iterator itr = m_clientGUIDs.begin(); itr != m_clientGUIDs.end(); ++itr)
+	{
+		if (!IS_CRE_OR_VEH_OR_PET_GUID(*itr)) continue;
+		Creature* questgiver = ObjectAccessor::GetCreatureOrPetOrVehicle(*this, *itr);
+		if (!questgiver || questgiver->IsHostileTo(this))
+			continue;
+		if (!questgiver->HasFlag(UNIT_NPC_FLAGS, UNIT_NPC_FLAG_QUESTGIVER))
+			continue;
+		if (questgiver->GetEntry() == entry)
+			return; // Quest giver already exists on the same map than the player
+	}
+	TempSummon *_sum = SummonCreature(entry, GetPositionX(), GetPositionY(), GetPositionZ(), 3.3f, TEMPSUMMON_TIMED_DESPAWN, sWorld->getIntConfig(CONFIG_QUEST_AUTOCOMPLETE_DELAY) * 1000);
+	_sum->SetInFront(this);
+	// remove fake death
+	if (HasUnitState(UNIT_STATE_DIED))
+		RemoveAurasByType(SPELL_AURA_FEIGN_DEATH);
+	// Stop the npc if moving
+	_sum->StopMoving();
+	_sum->SetReactState(REACT_PASSIVE);
+	// Display quest popup
 	m_lastQuestCompleted = sObjectMgr->GetQuestTemplate(p_questId);
 	PrepareGossipMenu(_sum, _sum->GetCreatureTemplate()->GossipMenuId, true);
 	SendPreparedGossip(_sum);

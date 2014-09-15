@@ -21204,7 +21204,7 @@ bool Player::ActivateTaxiPathTo(std::vector<uint32> const& nodes, Creature* npc 
         RemoveAurasByType(SPELL_AURA_MOUNTED);
         // LASYAN3: AutoMount
         m_mountCanceled = true;
-        TC_LOG_INFO("lasyan3", "Mounted aura canceled from ActivateTaxiPathTo");
+		TC_LOG_DEBUG("lasyan3.automount", "Mounted aura canceled from ActivateTaxiPathTo");
 
 
         if (IsInDisallowedMountForm())

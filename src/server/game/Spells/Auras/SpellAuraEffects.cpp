@@ -2534,7 +2534,7 @@ void AuraEffect::HandleAuraMounted(AuraApplication const* aurApp, uint8 mode, bo
         {
             target->ToPlayer()->m_mountSpell = this->GetSpellInfo()->Id;
             target->ToPlayer()->m_mountCanceled = false;
-            TC_LOG_INFO("lasyan3", "Mount back: cancel=%d spell=%d", target->ToPlayer()->m_mountCanceled, target->ToPlayer()->m_mountSpell);
+			TC_LOG_DEBUG("lasyan3.automount", "Capture mounted aura with spell %d", target->ToPlayer()->m_mountSpell);
         }
         // LASYAN3: END AutoMount
     }

@@ -248,12 +248,13 @@ void WorldSession::HandleLootReleaseOpcode(WorldPacket& recvData)
 
             // LASYAN3: START AutoMount
             Player *player = GetPlayer();
-            if (player->m_mountCanceled && player->m_mountSpell > 0)
-                GameObject* go = GetPlayer()->GetMap()->GetGameObject(lguid);
+            /*if (player->m_mountCanceled && player->m_mountSpell > 0)
+                GameObject* go = GetPlayer()->GetMap()->GetGameObject(lguid);*/
             if (/*go->GetGoType() == GAMEOBJECT_TYPE_CHEST &&*/ player->m_mountCanceled && player->m_mountSpell > 0)
             {
                 player->CastSpell(player, player->m_mountSpell, true);
-            }
+				TC_LOG_DEBUG("lasyan3.automount", "AutoMount casted from HandleLootReleaseOpcode");
+			}
             // LASYAN3: END AutoMount
         }
 }

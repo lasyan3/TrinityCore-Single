@@ -338,8 +338,18 @@ void Unit::Update(uint32 p_time)
         if (m_HostileRefManager.isEmpty())
         {
             // m_CombatTimer set at aura start and it will be freeze until aura removing
-            if (m_CombatTimer <= p_time)
-                ClearInCombat();
+			if (m_CombatTimer <= p_time)
+			{
+				ClearInCombat();
+				if (Player *player = ToPlayer())
+				{
+					if (player->m_mountCanceled && player->m_mountSpell > 0)
+					{
+						player->CastSpell(player, player->m_mountSpell, true);
+						TC_LOG_DEBUG("lasyan3.automount", "AutoMount casted from Unit::Update");
+					}
+				}
+			}
             else
                 m_CombatTimer -= p_time;
         }

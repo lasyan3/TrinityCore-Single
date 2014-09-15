@@ -483,16 +483,21 @@ void PlayerMenu::SendQuestGiverQuestDetails(Quest const* quest, ObjectGuid npcGU
 		data << uint32(quest->DetailsEmoteDelay[i]);       // DetailsEmoteDelay (in ms)
 	}
 
-	bool _reward = false;
+	bool _reward = false; // Auto-complete for "auto-accept" quests
 	std::ostringstream sql;
 	Object* object = ObjectAccessor::GetObjectByTypeMask(*_session->GetPlayer(), npcGUID, TYPEMASK_UNIT | TYPEMASK_GAMEOBJECT | TYPEMASK_ITEM);
 	sql << "SELECT id FROM creature_questender WHERE quest = %d";
+	TC_LOG_DEBUG("lasyan3", sql.str().c_str());
 	QueryResult result = WorldDatabase.PQuery(sql.str().c_str(), quest->GetQuestId());
 	if (result && result->GetRowCount() > 0)
 	{
 		uint32 guid_ender = (*result)[0].GetUInt32();
+		TC_LOG_DEBUG("lasyan3", "Found guid %d", guid_ender);
 		if (_session->GetPlayer()->GetQuestStatus(quest->GetQuestId()) == QUEST_STATUS_COMPLETE && guid_ender == object->GetEntry())
+		{
+			TC_LOG_DEBUG("lasyan3", "Reward OK");
 			_reward = true;
+		}
 	}
 	if ( _reward)
 		_session->GetPlayer()->PlayerTalkClass->SendQuestGiverRequestItems(quest, npcGUID, true, true);

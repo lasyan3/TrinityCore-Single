@@ -2,7 +2,12 @@
 
 class item_lootedQuestItems : public ItemScript
 {
-	typedef std::list<std::string> ItemList;
+	struct StrItemList
+	{
+		std::string name;
+		uint32 requiredCount;
+	};
+	typedef std::list<struct StrItemList> ItemList;
 	enum EntityType
 	{
 		NPC_STARTER = 0,
@@ -61,7 +66,11 @@ public:
 			//msg << "|cffFF2020" << itr->second.quest << "\r\n";
 			msg << itr->second.quest;
 			for (auto it = itr->second.items.begin(); it != itr->second.items.end(); ++it)
-				msg << "\r\n  - " << *it;
+			{
+				msg << "\r\n  - " << it->name.c_str();
+				if (it->requiredCount > 0)
+					msg << " (" << it->requiredCount << ")";
+			}
 			if (pQuestId > 0 && itr->first == pQuestId)
 			{
 				if (itr->second.entity.size() > 0)
@@ -118,6 +127,20 @@ private:
 				uint32 questid = iter->first;
 				Quest const* qInfo = iter->second;
 				//TC_LOG_INFO("lasyan3", "Quest %s, status = %d", qInfo->GetTitle().c_str(), pPlayer->GetQuestStatus(qInfo->GetQuestId()));
+
+				// Get item count
+				uint32 itemCountNeeded = 0;
+				for (uint8 i = 0; i < QUEST_ITEM_OBJECTIVES_COUNT; i++)
+				{
+					if (qInfo->RequiredItemId[i] != pItem->GetTemplate()->ItemId)
+						continue;
+
+					if (qInfo->RequiredItemCount[i] != 0 && pPlayer->GetItemCount(pItem->GetTemplate()->ItemId, false) < qInfo->RequiredItemCount[i])
+					{
+						itemCountNeeded = qInfo->RequiredItemCount[i];
+						break;
+					}
+				}
 
 				// Get first available quest of chain
 				while (qInfo->prevQuests.size() > 0)
@@ -189,6 +212,10 @@ private:
 						}
 					}
 				}
+				struct StrItemList _sil;
+				if (itemCountNeeded > 0)
+					_sil.requiredCount = itemCountNeeded;
+				_sil.name = pItem->GetTemplate()->Name1;
 				//std::ostringstream msg;
 				GossipItemMap::const_iterator got = m_entries.find(qInfo->GetQuestId());
 				//GossipItemMap::const_iterator got = m_entries.find(questid);
@@ -196,7 +223,7 @@ private:
 				{
 					struct StrQuestInfo _info;
 					_info.quest = qInfo->GetTitle();
-					_info.items.push_back(pItem->GetTemplate()->Name1);
+					_info.items.push_back(_sil);
 					if (entity_name.size() > 0)
 					{
 						_info.entity_type = entity_type;
@@ -211,7 +238,7 @@ private:
 				else
 				{
 					//m_entries[questid].items.push_back(pItem->GetTemplate()->Name1);
-					m_entries[qInfo->GetQuestId()].items.push_back(pItem->GetTemplate()->Name1);
+					m_entries[qInfo->GetQuestId()].items.push_back(_sil);
 					/*msg << got->second;
 					msg << "\r\n - " << pItem->GetTemplate()->Name1;*/
 				}

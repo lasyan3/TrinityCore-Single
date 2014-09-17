@@ -176,7 +176,7 @@ void WorldSession::HandleMoveWorldportAckOpcode()
 		_player->RemoveAurasByType(SPELL_AURA_MOUNTED);
 		// LASYAN3: AutoMount
 		_player->m_mountCanceled = true;
-		TC_LOG_DEBUG("lasyan3.automount", "Mounted aura canceled from HandleCancelMountAuraOpcode");
+		TC_LOG_DEBUG("lasyan3.automount", "Mounted aura canceled from WorldSession::HandleCancelMountAuraOpcode");
 	}
 
     // update zone immediately, otherwise leave channel will cause crash in mtmap

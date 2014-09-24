@@ -16180,7 +16180,7 @@ QuestGiverStatus Player::GetQuestDialogStatus(Object* questgiver)
                     if (quest->IsAutoComplete())
                         result2 = DIALOG_STATUS_REWARD_REP;
                     else if (getLevel() <= (GetQuestLevel(quest) + sWorld->getIntConfig(CONFIG_QUEST_LOW_LEVEL_HIDE_DIFF)))
-                    {
+					{
                         if (quest->IsDaily())
                             result2 = DIALOG_STATUS_AVAILABLE_REP;
                         else
@@ -16970,22 +16970,22 @@ bool Player::CanDropQuestItem(uint32 itemid) // LASYAN: return true if at least 
 {
     if (!sWorld->getBoolConfig(CONFIG_DROP_QUEST_ITEMS)) return false;
 
-    TC_LOG_DEBUG("lasyan3", "START CanDropQuestItem for item %d [%s]", itemid, sObjectMgr->GetItemTemplate(itemid)->Name1.c_str());
+    TC_LOG_DEBUG("lasyan3.dropquestitems", "START CanDropQuestItem for item %d [%s]", itemid, sObjectMgr->GetItemTemplate(itemid)->Name1.c_str());
     ObjectMgr::QuestMap _allQuests = GetAvailableQuestsForItem(itemid);
     for (ObjectMgr::QuestMap::const_iterator iter = _allQuests.begin(); iter != _allQuests.end(); ++iter)
     {
         uint32 questid = iter->first;
         Quest const* qInfo = iter->second;
-        TC_LOG_DEBUG("lasyan3", " |- Item has quest %d [%s]", questid, qInfo->GetTitle().c_str());
+        TC_LOG_DEBUG("lasyan3.dropquestitems", " |- Item has quest %d [%s]", questid, qInfo->GetTitle().c_str());
 
-        if ((getLevel() + sWorld->getIntConfig(CONFIG_QUEST_HIGH_LEVEL_HIDE_DIFF)) < qInfo->GetMinLevel())
+		if (Trinity::XP::GetColorCode(getLevel(), GetQuestLevel(qInfo)) == XP_GRAY)
         {
-            TC_LOG_DEBUG("lasyan3", " |- Player's level is too low!");
+            TC_LOG_DEBUG("lasyan3.dropquestitems", " |- Player's level is too low!");
             continue;
         }
-        if (getLevel() > (GetQuestLevel(qInfo) + sWorld->getIntConfig(CONFIG_QUEST_LOW_LEVEL_HIDE_DIFF)))
+		if (Trinity::XP::GetColorCode(getLevel(), GetQuestLevel(qInfo)) == XP_RED)
         {
-            TC_LOG_DEBUG("lasyan3", " |- Player's level is too high!");
+            TC_LOG_DEBUG("lasyan3.dropquestitems", " |- Player's level is too high!");
             continue;
         }
 
@@ -17021,24 +17021,24 @@ bool Player::CanDropQuestItem(uint32 itemid) // LASYAN: return true if at least 
                 if (zone_name.size() > 0) msg << " (" << zone_name << ")";
                 }*/
                 MsgQuestItemAdded = msg.str();
-                TC_LOG_DEBUG("lasyan3", "END CanDropQuestItem Item can be dropped for the quest --> TRUE");
+                TC_LOG_DEBUG("lasyan3.dropquestitems", "END CanDropQuestItem Item can be dropped for the quest --> TRUE");
                 return true;
             }
             else
             {
-                TC_LOG_DEBUG("lasyan3", " |- Item already at max");
+                TC_LOG_DEBUG("lasyan3.dropquestitems", " |- Item already at max");
                 continue;
             }
         }
     }
-    TC_LOG_DEBUG("lasyan3", "END CanDropQuestItem No quest is satisfying --> FALSE");
+    TC_LOG_DEBUG("lasyan3.dropquestitems", "END CanDropQuestItem No quest is satisfying --> FALSE");
     return false;
 }
 
 ObjectMgr::QuestMap Player::GetAvailableQuestsForItem(uint32 itemid)
 {
     ItemTemplate const * it = sObjectMgr->GetItemTemplate(itemid);
-    TC_LOG_DEBUG("lasyan3", "START GetAvailableQuestsForItem for item %d [%s]", itemid, it->Name1.c_str());
+    TC_LOG_DEBUG("lasyan3.dropquestitems", "START GetAvailableQuestsForItem for item %d [%s]", itemid, it->Name1.c_str());
 
     ObjectMgr::QuestMap _allQuests;
     std::ostringstream sql;
@@ -17051,7 +17051,7 @@ ObjectMgr::QuestMap Player::GetAvailableQuestsForItem(uint32 itemid)
     QueryResult result = WorldDatabase.Query(sql.str().c_str());
     if (!result || result->GetRowCount() == 0)
     {
-        TC_LOG_DEBUG("lasyan3", " |- No quest found for item --> FALSE");
+        TC_LOG_DEBUG("lasyan3.dropquestitems", " |- No quest found for item --> FALSE");
         return _allQuests;
     }
 
@@ -17059,12 +17059,12 @@ ObjectMgr::QuestMap Player::GetAvailableQuestsForItem(uint32 itemid)
     {
         Field* fields = result->Fetch();
         uint32 questid = fields[0].GetUInt32();
-        TC_LOG_DEBUG("lasyan3", " |- Do quest %d [%s]", questid, sObjectMgr->GetQuestTemplate(questid)->GetTitle().c_str());
+        TC_LOG_DEBUG("lasyan3.dropquestitems", " |- Do quest %d [%s]", questid, sObjectMgr->GetQuestTemplate(questid)->GetTitle().c_str());
 
         QuestStatus status = GetQuestStatus(questid);
         if (status != QUEST_STATUS_NONE)
         {
-            TC_LOG_DEBUG("lasyan3", " |- Quest has status %d", status);
+            TC_LOG_DEBUG("lasyan3.dropquestitems", " |- Quest has status %d", status);
             continue;
         }
 
@@ -17072,19 +17072,19 @@ ObjectMgr::QuestMap Player::GetAvailableQuestsForItem(uint32 itemid)
 
         if (!qInfo->HasSpecialFlag(QUEST_SPECIAL_FLAGS_DELIVER))
         {
-            TC_LOG_DEBUG("lasyan3", " |- Quest has not special flag QUEST_SPECIAL_FLAGS_DELIVER");
+            TC_LOG_DEBUG("lasyan3.dropquestitems", " |- Quest has not special flag QUEST_SPECIAL_FLAGS_DELIVER");
             continue;
         }
 
         if (qInfo->IsSeasonal())
         {
-            TC_LOG_DEBUG("lasyan", " |- Quest is seasonal");
+            TC_LOG_DEBUG("lasyan3.dropquestitems", " |- Quest is seasonal");
             continue;
         }
 
         if (qInfo->IsDailyOrWeekly())
         {
-            TC_LOG_DEBUG("lasyan", " |- Quest is daily or weekly");
+            TC_LOG_DEBUG("lasyan3.dropquestitems", " |- Quest is daily or weekly");
             continue;
         }
 
@@ -17117,20 +17117,20 @@ ObjectMgr::QuestMap Player::GetAvailableQuestsForItem(uint32 itemid)
 			if (!SatisfyQuestWeek(qInfo, false))
 			if (!SatisfyQuestMonth(qInfo, false))
 			if (!SatisfyQuestSeasonal(qInfo, false))*/
-				TC_LOG_DEBUG("lasyan3", " |- Player doesn't satisfy quest");
+				TC_LOG_DEBUG("lasyan3.dropquestitems", " |- Player doesn't satisfy quest");
             continue;
         }
 
         if (!qInfo->IsRepeatable() && getRewardedQuests().find(questid) != getRewardedQuests().end())
         {
-            TC_LOG_DEBUG("lasyan3", " |- Quest already rewarded");
+            TC_LOG_DEBUG("lasyan3.dropquestitems", " |- Quest already rewarded");
             continue; // not allow re-complete quest
         }
 
         _allQuests[questid] = const_cast<Quest*>(qInfo);
-        TC_LOG_DEBUG("lasyan3", " |- Quest is VALIDATED", status);
+        TC_LOG_DEBUG("lasyan3.dropquestitems", " |- Quest is VALIDATED", status);
     } while (result->NextRow());
-    TC_LOG_DEBUG("lasyan3", "END GetAvailableQuestsForItem");
+    TC_LOG_DEBUG("lasyan3.dropquestitems", "END GetAvailableQuestsForItem");
     return _allQuests;
 }
 

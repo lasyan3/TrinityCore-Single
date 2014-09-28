@@ -140,7 +140,7 @@ class Object
         virtual void SetObjectScale(float scale) { SetFloatValue(OBJECT_FIELD_SCALE_X, scale); }
 
         TypeID GetTypeId() const { return m_objectTypeId; }
-        bool isType(uint16 mask) const { return (mask & m_objectType); }
+        bool isType(uint16 mask) const { return (mask & m_objectType) != 0; }
 
         virtual void BuildCreateUpdateBlockForPlayer(UpdateData* data, Player* target) const;
         void SendUpdateToPlayer(Player* player);
@@ -206,7 +206,7 @@ class Object
         void BuildFieldsUpdate(Player*, UpdateDataMapType &) const;
 
         void SetFieldNotifyFlag(uint16 flag) { _fieldNotifyFlags |= flag; }
-        void RemoveFieldNotifyFlag(uint16 flag) { _fieldNotifyFlags &= ~flag; }
+        void RemoveFieldNotifyFlag(uint16 flag) { _fieldNotifyFlags &= uint16(~flag); }
 
         // FG: some hacky helpers
         void ForceValuesUpdateAtIndex(uint32);
@@ -352,19 +352,19 @@ struct Position
     float GetExactDist2dSq(float x, float y) const
         { float dx = m_positionX - x; float dy = m_positionY - y; return dx*dx + dy*dy; }
     float GetExactDist2d(const float x, const float y) const
-        { return sqrt(GetExactDist2dSq(x, y)); }
+        { return std::sqrt(GetExactDist2dSq(x, y)); }
     float GetExactDist2dSq(Position const* pos) const
         { float dx = m_positionX - pos->m_positionX; float dy = m_positionY - pos->m_positionY; return dx*dx + dy*dy; }
     float GetExactDist2d(Position const* pos) const
-        { return sqrt(GetExactDist2dSq(pos)); }
+        { return std::sqrt(GetExactDist2dSq(pos)); }
     float GetExactDistSq(float x, float y, float z) const
         { float dz = m_positionZ - z; return GetExactDist2dSq(x, y) + dz*dz; }
     float GetExactDist(float x, float y, float z) const
-        { return sqrt(GetExactDistSq(x, y, z)); }
+        { return std::sqrt(GetExactDistSq(x, y, z)); }
     float GetExactDistSq(Position const* pos) const
         { float dx = m_positionX - pos->m_positionX; float dy = m_positionY - pos->m_positionY; float dz = m_positionZ - pos->m_positionZ; return dx*dx + dy*dy + dz*dz; }
     float GetExactDist(Position const* pos) const
-        { return sqrt(GetExactDistSq(pos)); }
+        { return std::sqrt(GetExactDistSq(pos)); }
 
     void GetPositionOffsetTo(Position const & endPos, Position & retOffset) const;
 
@@ -395,11 +395,11 @@ struct Position
         if (o < 0)
         {
             float mod = o *-1;
-            mod = fmod(mod, 2.0f * static_cast<float>(M_PI));
+            mod = std::fmod(mod, 2.0f * static_cast<float>(M_PI));
             mod = -mod + 2.0f * static_cast<float>(M_PI);
             return mod;
         }
-        return fmod(o, 2.0f * static_cast<float>(M_PI));
+        return std::fmod(o, 2.0f * static_cast<float>(M_PI));
     }
 };
 ByteBuffer& operator>>(ByteBuffer& buf, Position::PositionXYZOStreamer const& streamer);
@@ -468,11 +468,11 @@ struct MovementInfo
     void SetMovementFlags(uint32 flag) { flags = flag; }
     void AddMovementFlag(uint32 flag) { flags |= flag; }
     void RemoveMovementFlag(uint32 flag) { flags &= ~flag; }
-    bool HasMovementFlag(uint32 flag) const { return flags & flag; }
+    bool HasMovementFlag(uint32 flag) const { return (flags & flag) != 0; }
 
     uint16 GetExtraMovementFlags() const { return flags2; }
     void AddExtraMovementFlag(uint16 flag) { flags2 |= flag; }
-    bool HasExtraMovementFlag(uint16 flag) const { return flags2 & flag; }
+    bool HasExtraMovementFlag(uint16 flag) const { return (flags2 & flag) != 0; }
 
     void SetFallTime(uint32 time) { fallTime = time; }
 
@@ -580,7 +580,7 @@ class WorldObject : public Object, public WorldLocation
         virtual void Update (uint32 /*time_diff*/) { }
 
         void _Create(uint32 guidlow, HighGuid guidhigh, uint32 phaseMask);
-        virtual void RemoveFromWorld();
+        virtual void RemoveFromWorld() override;
 
         void GetNearPoint2D(float &x, float &y, float distance, float absAngle) const;
         void GetNearPoint(WorldObject const* searcher, float &x, float &y, float &z, float searcher_size, float distance2d, float absAngle) const;
@@ -604,7 +604,7 @@ class WorldObject : public Object, public WorldLocation
         virtual void SetPhaseMask(uint32 newPhaseMask, bool update);
         uint32 GetPhaseMask() const { return m_phaseMask; }
         bool InSamePhase(WorldObject const* obj) const;
-        bool InSamePhase(uint32 phasemask) const { return (GetPhaseMask() & phasemask); }
+        bool InSamePhase(uint32 phasemask) const { return (GetPhaseMask() & phasemask) != 0; }
 
         uint32 GetZoneId() const;
         uint32 GetAreaId() const;
@@ -639,8 +639,8 @@ class WorldObject : public Object, public WorldLocation
         bool IsInRange(WorldObject const* obj, float minRange, float maxRange, bool is3D = true) const;
         bool IsInRange2d(float x, float y, float minRange, float maxRange) const;
         bool IsInRange3d(float x, float y, float z, float minRange, float maxRange) const;
-        bool isInFront(WorldObject const* target, float arc = M_PI) const;
-        bool isInBack(WorldObject const* target, float arc = M_PI) const;
+        bool isInFront(WorldObject const* target, float arc = float(M_PI)) const;
+        bool isInBack(WorldObject const* target, float arc = float(M_PI)) const;
 
         bool IsInBetween(WorldObject const* obj1, WorldObject const* obj2, float size = 0) const;
 
@@ -713,13 +713,13 @@ class WorldObject : public Object, public WorldLocation
 
         void DestroyForNearbyPlayers();
         virtual void UpdateObjectVisibility(bool forced = true);
-        void BuildUpdate(UpdateDataMapType&);
+        void BuildUpdate(UpdateDataMapType&) override;
 
         //relocation and visibility system functions
         void AddToNotify(uint16 f) { m_notifyflags |= f;}
-        bool isNeedNotify(uint16 f) const { return m_notifyflags & f;}
+        bool isNeedNotify(uint16 f) const { return (m_notifyflags & f) != 0; }
         uint16 GetNotifyFlags() const { return m_notifyflags; }
-        bool NotifyExecuted(uint16 f) const { return m_executed_notifies & f;}
+        bool NotifyExecuted(uint16 f) const { return (m_executed_notifies & f) != 0; }
         void SetNotified(uint16 f) { m_executed_notifies |= f;}
         void ResetAllNotifies() { m_notifyflags = 0; m_executed_notifies = 0; }
 
@@ -805,14 +805,16 @@ namespace Trinity
     class ObjectDistanceOrderPred
     {
         public:
-            ObjectDistanceOrderPred(WorldObject const* pRefObj, bool ascending = true) : m_refObj(pRefObj), m_ascending(ascending) { }
-            bool operator()(WorldObject const* pLeft, WorldObject const* pRight) const
+            ObjectDistanceOrderPred(WorldObject const* refObj, bool ascending = true) : _refObj(refObj), _ascending(ascending) { }
+
+            bool operator()(WorldObject const* left, WorldObject const* right) const
             {
-                return m_ascending ? m_refObj->GetDistanceOrder(pLeft, pRight) : !m_refObj->GetDistanceOrder(pLeft, pRight);
+                return _refObj->GetDistanceOrder(left, right) == _ascending;
             }
+
         private:
-            WorldObject const* m_refObj;
-            const bool m_ascending;
+            WorldObject const* _refObj;
+            bool _ascending;
     };
 }
 

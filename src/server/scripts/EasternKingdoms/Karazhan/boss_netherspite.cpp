@@ -124,7 +124,7 @@ public:
 
         float dist(float xa, float ya, float xb, float yb) // auxiliary method for distance
         {
-            return sqrt((xa-xb)*(xa-xb) + (ya-yb)*(ya-yb));
+            return std::sqrt((xa-xb)*(xa-xb) + (ya-yb)*(ya-yb));
         }
 
         void Reset() override
@@ -140,7 +140,7 @@ public:
 
         void SummonPortals()
         {
-            uint8 r = rand()%4;
+            uint8 r = rand32() % 4;
             uint8 pos[3];
             pos[RED_PORTAL] = ((r % 2) ? (r > 1 ? 2 : 1) : 0);
             pos[GREEN_PORTAL] = ((r % 2) ? 0 : (r > 1 ? 2 : 1));

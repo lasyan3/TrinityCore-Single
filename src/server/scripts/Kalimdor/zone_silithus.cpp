@@ -905,7 +905,7 @@ public:
                 if (Creature* spawn = me->SummonCreature(WavesInfo[WaveCount].CreatureId, SpawnLocation[i], TEMPSUMMON_TIMED_OR_DEAD_DESPAWN, desptimer))
                 {
                     if (spawn->GetEntry() == 15423)
-                        spawn->SetUInt32Value(UNIT_FIELD_DISPLAYID, 15427+rand()%4);
+                        spawn->SetUInt32Value(UNIT_FIELD_DISPLAYID, 15427 + rand32() % 4);
                     if (i >= 30) WaveCount = 1;
                     if (i >= 33) WaveCount = 2;
                     if (i >= 45) WaveCount = 3;
@@ -1258,7 +1258,7 @@ class go_wind_stone : public GameObjectScript
         void SummonNPC(GameObject* go, Player* player, uint32 npc, uint32 spell)
         {
             go->CastSpell(player, spell);
-            TempSummon* summons = go->SummonCreature(npc, go->GetPositionX(), go->GetPositionY(), go->GetPositionZ(), player->GetOrientation() - M_PI, TEMPSUMMON_TIMED_OR_DEAD_DESPAWN, 10 * 60 * 1000);
+            TempSummon* summons = go->SummonCreature(npc, go->GetPositionX(), go->GetPositionY(), go->GetPositionZ(), player->GetOrientation() - float(M_PI), TEMPSUMMON_TIMED_OR_DEAD_DESPAWN, 10 * 60 * 1000);
             summons->CastSpell(summons, SPELL_SPAWN_IN, false);
             switch (summons->GetEntry())
             {

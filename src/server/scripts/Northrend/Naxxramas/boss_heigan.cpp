@@ -75,7 +75,7 @@ public:
 
         void KilledUnit(Unit* who) override
         {
-            if (!(rand()%5))
+            if (!(rand32() % 5))
                 Talk(SAY_SLAY);
             if (who->GetTypeId() == TYPEID_PLAYER)
                 safetyDance = false;
@@ -126,7 +126,7 @@ public:
             {
                 float x, y, z, o;
                 me->GetHomePosition(x, y, z, o);
-                me->NearTeleportTo(x, y, z, o - G3D::halfPi());
+                me->NearTeleportTo(x, y, z, o - (float(M_PI) / 2));
                 me->GetMotionMaster()->Clear();
                 me->GetMotionMaster()->MoveIdle();
                 me->SetTarget(0);

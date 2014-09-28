@@ -19,7 +19,7 @@
 /* ScriptData
 SDName: Shadowmoon_Valley
 SD%Complete: 100
-SDComment: Quest support: 10519, 10583, 10601, 10804, 10854, 10458, 10481, 10480, 10781, 10451. Vendor Drake Dealer Hurlunk.
+SDComment: Quest support: 10583, 10601, 10804, 10854, 10458, 10481, 10480, 10781, 10451. Vendor Drake Dealer Hurlunk.
 SDCategory: Shadowmoon Valley
 EndScriptData */
 
@@ -29,7 +29,6 @@ npc_enslaved_netherwing_drake
 npc_drake_dealer_hurlunk
 npcs_flanis_swiftwing_and_kagrosh
 npc_karynaku
-npc_oronok_tornheart
 npc_overlord_morghor
 npc_earthmender_wilda
 npc_torloth_the_magnificent
@@ -81,7 +80,7 @@ public:
     {
         npc_mature_netherwing_drakeAI(Creature* creature) : ScriptedAI(creature) { }
 
-        uint64 uiPlayerGUID;
+        ObjectGuid uiPlayerGUID;
 
         bool bCanEat;
         bool bIsEating;
@@ -91,7 +90,7 @@ public:
 
         void Reset() override
         {
-            uiPlayerGUID = 0;
+            uiPlayerGUID.Clear();
 
             bCanEat = false;
             bIsEating = false;
@@ -155,7 +154,7 @@ public:
 
                         if (Player* player = ObjectAccessor::GetPlayer(*me, uiPlayerGUID))
                         {
-                            player->KilledMonsterCredit(NPC_EVENT_PINGER, 0);
+                            player->KilledMonsterCredit(NPC_EVENT_PINGER);
 
                             if (GameObject* go = player->FindNearestGameObject(GO_CARCASS, 10))
                                 go->Delete();
@@ -219,12 +218,11 @@ public:
     {
         npc_enslaved_netherwing_drakeAI(Creature* creature) : ScriptedAI(creature)
         {
-            PlayerGUID = 0;
             Tapped = false;
             Reset();
         }
 
-        uint64 PlayerGUID;
+        ObjectGuid PlayerGUID;
         uint32 FlyTimer;
         bool Tapped;
 
@@ -277,7 +275,7 @@ public:
                     if (player)
                         DoCast(player, SPELL_FORCE_OF_NELTHARAKU, true);
 
-                    PlayerGUID = 0;
+                    PlayerGUID.Clear();
                 }
                 me->SetVisible(false);
                 me->SetDisableGravity(false);
@@ -350,13 +348,13 @@ public:
     {
         npc_dragonmaw_peonAI(Creature* creature) : ScriptedAI(creature) { }
 
-        uint64 PlayerGUID;
+        ObjectGuid PlayerGUID;
         bool Tapped;
         uint32 PoisonTimer;
 
         void Reset() override
         {
-            PlayerGUID = 0;
+            PlayerGUID.Clear();
             Tapped = false;
             PoisonTimer = 0;
         }
@@ -401,7 +399,7 @@ public:
                     {
                         Player* player = ObjectAccessor::GetPlayer(*me, PlayerGUID);
                         if (player && player->GetQuestStatus(11020) == QUEST_STATUS_INCOMPLETE)
-                            player->KilledMonsterCredit(23209, 0);
+                            player->KilledMonsterCredit(23209);
                     }
                     PoisonTimer = 0;
                     me->DealDamage(me, me->GetHealth(), NULL, DIRECT_DAMAGE, SPELL_SCHOOL_MASK_NORMAL, NULL, false);
@@ -461,7 +459,7 @@ public:
             uint8 msg = player->CanStoreNewItem(NULL_BAG, NULL_SLOT, dest, 30658, 1, NULL);
             if (msg == EQUIP_ERR_OK)
             {
-                player->StoreNewItem(dest, 30658, 1, true);
+                player->StoreNewItem(dest, 30658, true);
                 player->PlayerTalkClass->ClearMenus();
             }
         }
@@ -471,7 +469,7 @@ public:
             uint8 msg = player->CanStoreNewItem(NULL_BAG, NULL_SLOT, dest, 30659, 1, NULL);
             if (msg == EQUIP_ERR_OK)
             {
-                player->StoreNewItem(dest, 30659, 1, true);
+                player->StoreNewItem(dest, 30659, true);
                 player->PlayerTalkClass->ClearMenus();
             }
         }
@@ -492,81 +490,6 @@ public:
 };
 
 /*######
-## npc_oronok
-######*/
-
-#define GOSSIP_ORONOK1 "I am ready to hear your story, Oronok."
-#define GOSSIP_ORONOK2 "How do I find the cipher?"
-#define GOSSIP_ORONOK3 "How do you know all of this?"
-#define GOSSIP_ORONOK4 "Yet what? What is it, Oronok?"
-#define GOSSIP_ORONOK5 "Continue, please."
-#define GOSSIP_ORONOK6 "So what of the cipher now? And your boys?"
-#define GOSSIP_ORONOK7 "I will find your boys and the cipher, Oronok."
-
-class npc_oronok_tornheart : public CreatureScript
-{
-public:
-    npc_oronok_tornheart() : CreatureScript("npc_oronok_tornheart") { }
-
-    bool OnGossipSelect(Player* player, Creature* creature, uint32 /*sender*/, uint32 action) override
-    {
-        player->PlayerTalkClass->ClearMenus();
-        switch (action)
-        {
-            case GOSSIP_ACTION_TRADE:
-                player->GetSession()->SendListInventory(creature->GetGUID());
-                break;
-            case GOSSIP_ACTION_INFO_DEF:
-                player->ADD_GOSSIP_ITEM(0, GOSSIP_ORONOK2, GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF+1);
-                player->SEND_GOSSIP_MENU(10313, creature->GetGUID());
-                break;
-            case GOSSIP_ACTION_INFO_DEF+1:
-                player->ADD_GOSSIP_ITEM(0, GOSSIP_ORONOK3, GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF+2);
-                player->SEND_GOSSIP_MENU(10314, creature->GetGUID());
-                break;
-            case GOSSIP_ACTION_INFO_DEF+2:
-                player->ADD_GOSSIP_ITEM(0, GOSSIP_ORONOK4, GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF+3);
-                player->SEND_GOSSIP_MENU(10315, creature->GetGUID());
-                break;
-            case GOSSIP_ACTION_INFO_DEF+3:
-                player->ADD_GOSSIP_ITEM(0, GOSSIP_ORONOK5, GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF+4);
-                player->SEND_GOSSIP_MENU(10316, creature->GetGUID());
-                break;
-            case GOSSIP_ACTION_INFO_DEF+4:
-                player->ADD_GOSSIP_ITEM(0, GOSSIP_ORONOK6, GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF+5);
-                player->SEND_GOSSIP_MENU(10317, creature->GetGUID());
-                break;
-            case GOSSIP_ACTION_INFO_DEF+5:
-                player->ADD_GOSSIP_ITEM(0, GOSSIP_ORONOK7, GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF+6);
-                player->SEND_GOSSIP_MENU(10318, creature->GetGUID());
-                break;
-            case GOSSIP_ACTION_INFO_DEF+6:
-                player->CLOSE_GOSSIP_MENU();
-                player->AreaExploredOrEventHappens(10519);
-                break;
-        }
-        return true;
-    }
-
-    bool OnGossipHello(Player* player, Creature* creature) override
-    {
-        if (creature->IsQuestGiver())
-            player->PrepareQuestMenu(creature->GetGUID());
-        if (creature->IsVendor())
-            player->ADD_GOSSIP_ITEM(GOSSIP_ICON_VENDOR, GOSSIP_TEXT_BROWSE_GOODS, GOSSIP_SENDER_MAIN, GOSSIP_ACTION_TRADE);
-
-        if (player->GetQuestStatus(10519) == QUEST_STATUS_INCOMPLETE)
-        {
-            player->ADD_GOSSIP_ITEM(0, GOSSIP_ORONOK1, GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF);
-            player->SEND_GOSSIP_MENU(10312, creature->GetGUID());
-        }else
-        player->SEND_GOSSIP_MENU(player->GetGossipTextId(creature), creature->GetGUID());
-
-        return true;
-    }
-};
-
-/*####
 # npc_karynaku
 ####*/
 
@@ -659,8 +582,8 @@ public:
     {
         npc_overlord_morghorAI(Creature* creature) : ScriptedAI(creature) { }
 
-        uint64 PlayerGUID;
-        uint64 IllidanGUID;
+        ObjectGuid PlayerGUID;
+        ObjectGuid IllidanGUID;
 
         uint32 ConversationTimer;
         uint32 Step;
@@ -669,8 +592,8 @@ public:
 
         void Reset() override
         {
-            PlayerGUID = 0;
-            IllidanGUID = 0;
+            PlayerGUID.Clear();
+            IllidanGUID.Clear();
 
             ConversationTimer = 0;
             Step = 0;
@@ -874,7 +797,7 @@ public:
                 case 30:
                     {
                         if (Creature* Yarzill = me->FindNearestCreature(C_YARZILL, 50.0f))
-                            Yarzill->SetTarget(0);
+                            Yarzill->SetTarget(ObjectGuid::Empty);
                         return 5000;
                     }
                     break;
@@ -890,7 +813,7 @@ public:
                     return 5000;
                     break;
                 case 33:
-                    me->SetTarget(0);
+                    me->SetTarget(ObjectGuid::Empty);
                     Reset();
                     return 100;
                     break;
@@ -1199,8 +1122,8 @@ public:
 
         uint8 AnimationCount;
 
-        uint64 LordIllidanGUID;
-        uint64 AggroTargetGUID;
+        ObjectGuid LordIllidanGUID;
+        ObjectGuid AggroTargetGUID;
 
         bool Timers;
 
@@ -1208,13 +1131,13 @@ public:
         {
             AnimationTimer = 4000;
             AnimationCount = 0;
-            LordIllidanGUID = 0;
-            AggroTargetGUID = 0;
+            LordIllidanGUID.Clear();
+            AggroTargetGUID.Clear();
             Timers = false;
 
             me->AddUnitState(UNIT_STATE_ROOT);
             me->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NON_ATTACKABLE);
-            me->SetTarget(0);
+            me->SetTarget(ObjectGuid::Empty);
         }
 
         void EnterCombat(Unit* /*who*/) override { }
@@ -1350,7 +1273,7 @@ public:
     {
         npc_lord_illidan_stormrageAI(Creature* creature) : ScriptedAI(creature) { }
 
-        uint64 PlayerGUID;
+        ObjectGuid PlayerGUID;
 
         uint32 WaveTimer;
         uint32 AnnounceTimer;
@@ -1364,7 +1287,7 @@ public:
 
         void Reset() override
         {
-            PlayerGUID = 0;
+            PlayerGUID.Clear();
 
             WaveTimer = 10000;
             AnnounceTimer = 7000;
@@ -1492,13 +1415,13 @@ public:
     {
         npc_illidari_spawnAI(Creature* creature) : ScriptedAI(creature) { }
 
-        uint64 LordIllidanGUID;
+        ObjectGuid LordIllidanGUID;
         uint32 SpellTimer1, SpellTimer2, SpellTimer3;
         bool Timers;
 
         void Reset() override
         {
-            LordIllidanGUID = 0;
+            LordIllidanGUID.Clear();
             Timers = false;
         }
 
@@ -1803,7 +1726,7 @@ public:
 
                      if (Unit* owner = totemOspirits->GetOwner())
                          if (Player* player = owner->ToPlayer())
-                             player->KilledMonsterCredit(credit, 0);
+                             player->KilledMonsterCredit(credit);
                      DoCast(totemOspirits, SPELL_SOUL_CAPTURED);
                  }
             }
@@ -1909,7 +1832,6 @@ void AddSC_shadowmoon_valley()
     new npc_drake_dealer_hurlunk();
     new npcs_flanis_swiftwing_and_kagrosh();
     new npc_karynaku();
-    new npc_oronok_tornheart();
     new npc_overlord_morghor();
     new npc_earthmender_wilda();
     new npc_lord_illidan_stormrage();

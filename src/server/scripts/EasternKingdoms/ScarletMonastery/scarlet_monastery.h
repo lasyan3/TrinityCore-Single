@@ -18,6 +18,9 @@
 #ifndef SCARLET_M_
 #define SCARLET_M_
 
+#define SMScriptName "instance_scarlet_monastery"
+#define DataHeader "SM"
+
 uint32 const EncounterCount = 10;
 
 enum DataTypes
@@ -56,5 +59,11 @@ enum GameObjectIds
     GO_HIGH_INQUISITORS_DOOR        = 104600,
     GO_PUMPKIN_SHRINE               = 186267
 };
+
+template<class AI>
+inline AI* GetScarletMonasteryAI(Creature* creature)
+{
+    return GetInstanceAI<AI>(creature, SMScriptName);
+}
 
 #endif // SCARLET_M_

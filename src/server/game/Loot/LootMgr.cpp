@@ -393,7 +393,7 @@ bool LootItem::AllowedForPlayer(Player const* player) const
     // check quest requirements
     if (!(pProto->FlagsCu & ITEM_FLAGS_CU_IGNORE_QUEST_STATUS) &&
         ((needs_quest || (pProto->StartQuest && player->GetQuestStatus(pProto->StartQuest) != QUEST_STATUS_NONE)) && !player->HasQuestForItem(itemid)) &&
-        !pl->CanDropQuestItem(itemid))
+		!player->CanDropQuestItem(itemid))
         return false;
 
     return true;

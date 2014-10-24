@@ -1403,8 +1403,6 @@ void ScriptMgr::OnQuestStatusChange(Player* player, uint32 questId, QuestStatus 
     FOREACH_SCRIPT(PlayerScript)->OnQuestStatusChange(player, questId, status);
 }
 
-}
-
 void ScriptMgr::OnGossipSelect(Player* player, uint32 menu_id, uint32 sender, uint32 action)
 {
     FOREACH_SCRIPT(PlayerScript)->OnGossipSelect(player, menu_id, sender, action);
@@ -1412,7 +1410,9 @@ void ScriptMgr::OnGossipSelect(Player* player, uint32 menu_id, uint32 sender, ui
 
 void ScriptMgr::OnGossipSelectCode(Player* player, uint32 menu_id, uint32 sender, uint32 action, const char* code)
 {
-    FOREACH_SCRIPT(PlayerScript)->OnGossipSelectCode(player, menu_id, sender, action, code);
+	FOREACH_SCRIPT(PlayerScript)->OnGossipSelectCode(player, menu_id, sender, action, code);
+}
+
 // Account
 void ScriptMgr::OnAccountLogin(uint32 accountId)
 {

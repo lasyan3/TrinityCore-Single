@@ -16991,9 +16991,9 @@ void Player::AutoQuestCompleteDisplayQuestGiver(uint32 p_questId)
 
 	uint32 entry = (*result)[0].GetUInt32();
 	bool visible = false;
-	for (Player::ClientGUIDs::const_iterator itr = m_clientGUIDs.begin(); itr != m_clientGUIDs.end(); ++itr)
+	for (GuidSet::iterator itr = m_clientGUIDs.begin(); itr != m_clientGUIDs.end(); ++itr)
 	{
-		if (!IS_CRE_OR_VEH_OR_PET_GUID(*itr)) continue;
+		if (!itr->IsCreatureOrPet() && !itr->IsCreatureOrVehicle()) continue;
 		Creature* questgiver = ObjectAccessor::GetCreatureOrPetOrVehicle(*this, *itr);
 		if (!questgiver || questgiver->IsHostileTo(this))
 			continue;

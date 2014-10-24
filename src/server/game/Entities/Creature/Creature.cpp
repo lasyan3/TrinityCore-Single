@@ -1409,7 +1409,7 @@ bool Creature::CanStartAttack(Unit const* who, bool force) const
     {
         uint32 playerlevel = who->getLevelForTarget(this);
         uint32 creaturelevel = getLevelForTarget(who);
-        if (Trinity::XP::GetColorCode(playerlevel, creaturelevel) == XP_GRAY)
+        if (creaturelevel <= Trinity::XP::GetGrayLevel(playerlevel))
             return false;
     }
 

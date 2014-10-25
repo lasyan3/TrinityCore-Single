@@ -1739,6 +1739,11 @@ bool SpellInfo::CheckTargetCreatureType(Unit const* target) const
         else
             return true;
     }
+
+    // if target is magnet (i.e Grounding Totem) the check is skipped
+    if (target->IsMagnet())
+        return true;
+
     uint32 creatureType = target->GetCreatureTypeMask();
     return !TargetCreatureType || !creatureType || (creatureType & TargetCreatureType);
 }

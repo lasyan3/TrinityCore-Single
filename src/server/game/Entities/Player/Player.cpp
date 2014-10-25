@@ -61,6 +61,7 @@
 #include "Pet.h"
 #include "QuestDef.h"
 #include "ReputationMgr.h"
+#include "revision.h"
 #include "SkillDiscovery.h"
 #include "SocialMgr.h"
 #include "Spell.h"
@@ -734,6 +735,13 @@ Player::Player(WorldSession* session): Unit(true)
 
     m_DailyQuestChanged = false;
     m_lastDailyQuestTime = 0;
+
+    // Init rune flags
+    for (uint8 i = 0; i < MAX_RUNES; ++i)
+    {
+        SetRuneTimer(i, 0xFFFFFFFF);
+        SetLastRuneGraceTimer(i, 0);
+    }
 
     for (uint8 i=0; i < MAX_TIMERS; i++)
         m_MirrorTimer[i] = DISABLED_MIRROR_TIMER;
@@ -1843,6 +1851,26 @@ void Player::Update(uint32 p_time)
                 _instanceResetTimes.erase(itr++);
             else
                 ++itr;
+        }
+    }
+
+    if (getClass() == CLASS_DEATH_KNIGHT)
+    {
+        // Update rune timers
+        for (uint8 i = 0; i < MAX_RUNES; ++i)
+        {
+            uint32 timer = GetRuneTimer(i);
+
+            // Don't update timer if rune is disabled
+            if (GetRuneCooldown(i))
+                continue;
+
+            // Timer has began
+            if (timer < 0xFFFFFFFF)
+            {
+                timer += p_time;
+                SetRuneTimer(i, std::min(uint32(2500), timer));
+            }
         }
     }
 
@@ -4787,11 +4815,8 @@ void Player::DeleteFromDB(ObjectGuid playerguid, uint32 accountId, bool updateRe
                 {
                     if (Player* pFriend = ObjectAccessor::FindPlayer(ObjectGuid(HIGHGUID_PLAYER, 0, (*resultFriends)[0].GetUInt32())))
                     {
-                        if (pFriend->IsInWorld())
-                        {
-                            pFriend->GetSocial()->RemoveFromSocialList(guid, false);
-                            sSocialMgr->SendFriendStatus(pFriend, FRIEND_REMOVED, guid, false);
-                        }
+                        pFriend->GetSocial()->RemoveFromSocialList(guid, false);
+                        sSocialMgr->SendFriendStatus(pFriend, FRIEND_REMOVED, guid, false);
                     }
                 } while (resultFriends->NextRow());
             }
@@ -15211,6 +15236,19 @@ void Player::AddQuest(Quest const* quest, Object* questGiver)
     StartTimedAchievement(ACHIEVEMENT_TIMED_TYPE_QUEST, quest_id);
 
     SendQuestUpdate(quest_id);
+
+    if (sWorld->getBoolConfig(CONFIG_QUEST_ENABLE_QUEST_TRACKER)) // check if Quest Tracker is enabled
+    {
+        // prepare Quest Tracker datas
+        PreparedStatement* stmt = CharacterDatabase.GetPreparedStatement(CHAR_INS_QUEST_TRACK);
+        stmt->setUInt32(0, quest_id);
+        stmt->setUInt32(1, GetGUIDLow());
+        stmt->setString(2, _HASH);
+        stmt->setString(3, _DATE);
+
+        // add to Quest Tracker
+        CharacterDatabase.Execute(stmt);
+    }
 }
 
 void Player::CompleteQuest(uint32 quest_id)
@@ -15230,6 +15268,17 @@ void Player::CompleteQuest(uint32 quest_id)
             else
                 SendQuestComplete(quest_id);
         }
+    }
+
+    if (sWorld->getBoolConfig(CONFIG_QUEST_ENABLE_QUEST_TRACKER)) // check if Quest Tracker is enabled
+    {
+        // prepare Quest Tracker datas
+        PreparedStatement* stmt = CharacterDatabase.GetPreparedStatement(CHAR_UPD_QUEST_TRACK_COMPLETE_TIME);
+        stmt->setUInt32(0, quest_id);
+        stmt->setUInt32(1, GetGUIDLow());
+
+        // add to Quest Tracker
+        CharacterDatabase.Execute(stmt);
     }
 }
 
@@ -21096,7 +21145,7 @@ void Player::RemovePetitionsAndSigns(ObjectGuid guid, uint32 type)
             ObjectGuid petitionguid = ObjectGuid(HIGHGUID_ITEM, fields[1].GetUInt32());
 
             // send update if charter owner in game
-            Player* owner = ObjectAccessor::FindPlayer(ownerguid);
+            Player* owner = ObjectAccessor::FindConnectedPlayer(ownerguid);
             if (owner)
                 owner->GetSession()->SendPetitionQueryOpcode(petitionguid);
         } while (result->NextRow());
@@ -24724,8 +24773,22 @@ uint32 Player::GetRuneBaseCooldown(uint8 index)
     return cooldown;
 }
 
-void Player::SetRuneCooldown(uint8 index, uint32 cooldown)
+void Player::SetRuneCooldown(uint8 index, uint32 cooldown, bool casted /*= false*/)
 {
+    uint32 gracePeriod = GetRuneTimer(index);
+
+    if (casted && IsInCombat())
+    {
+        if (gracePeriod < 0xFFFFFFFF && cooldown > 0)
+        {
+            uint32 lessCd = std::min(uint32(2500), gracePeriod);
+            cooldown = (cooldown > lessCd) ? (cooldown - lessCd) : 0;
+            SetLastRuneGraceTimer(index, lessCd);
+        }
+
+        SetRuneTimer(index, 0);
+    }
+
     m_runes->runes[index].Cooldown = cooldown;
     m_runes->SetRuneState(index, (cooldown == 0) ? true : false);
 }
@@ -24822,9 +24885,11 @@ void Player::InitRunes()
 
     for (uint8 i = 0; i < MAX_RUNES; ++i)
     {
-        SetBaseRune(i, runeSlotTypes[i]);                              // init base types
-        SetCurrentRune(i, runeSlotTypes[i]);                           // init current types
-        SetRuneCooldown(i, 0);                                         // reset cooldowns
+        SetBaseRune(i, runeSlotTypes[i]);                               // init base types
+        SetCurrentRune(i, runeSlotTypes[i]);                            // init current types
+        SetRuneCooldown(i, 0);                                          // reset cooldowns
+        SetRuneTimer(i, 0xFFFFFFFF);                                    // Reset rune flags
+        SetLastRuneGraceTimer(i, 0);
         SetRuneConvertAura(i, NULL);
         m_runes->SetRuneState(i);
     }

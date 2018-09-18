@@ -17035,7 +17035,7 @@ bool Player::CanDropQuestItem(uint32 itemid) // LASYAN: return true if at least 
     return false;
 }
 
-ObjectMgr::QuestMap Player::GetAvailableQuestsForItem(uint32 itemid) const
+ObjectMgr::QuestMap Player::GetAvailableQuestsForItem(uint32 itemid)
 {
     ItemTemplate const * it = sObjectMgr->GetItemTemplate(itemid);
     TC_LOG_DEBUG("lasyan3.dropquestitems", "START GetAvailableQuestsForItem for item %d [%s]", itemid, it->Name1.c_str());

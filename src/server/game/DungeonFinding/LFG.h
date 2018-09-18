@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2014 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2015 TrinityCore <http://www.trinitycore.org/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -64,8 +64,8 @@ enum LfgState
     LFG_STATE_ROLECHECK,                                   // Rolecheck active
     LFG_STATE_QUEUED,                                      // Queued
     LFG_STATE_PROPOSAL,                                    // Proposal active
-    LFG_STATE_BOOT,                                        // Vote kick active
-    LFG_STATE_DUNGEON,                                     // In LFG Group, in a Dungeon
+    //LFG_STATE_BOOT,                                      // Vote kick active
+    LFG_STATE_DUNGEON = 5,                                 // In LFG Group, in a Dungeon
     LFG_STATE_FINISHED_DUNGEON,                            // In LFG Group, in a finished Dungeon
     LFG_STATE_RAIDBROWSER                                  // Using Raid finder
 };

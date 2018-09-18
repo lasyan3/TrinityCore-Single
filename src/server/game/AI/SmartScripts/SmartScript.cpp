@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2014 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2015 TrinityCore <http://www.trinitycore.org/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -776,7 +776,15 @@ void SmartScript::ProcessAction(SmartScriptHolder& e, Unit* unit, uint32 var0, u
                     continue;
 
                 if (e.action.removeAura.spell)
-                    (*itr)->ToUnit()->RemoveAurasDueToSpell(e.action.removeAura.spell);
+                {
+                    if (e.action.removeAura.charges)
+                    {
+                        if (Aura* aur = (*itr)->ToUnit()->GetAura(e.action.removeAura.spell))
+                            aur->ModCharges(-static_cast<int32>(e.action.removeAura.charges), AURA_REMOVE_BY_EXPIRE);
+                    }
+                    else
+                        (*itr)->ToUnit()->RemoveAurasDueToSpell(e.action.removeAura.spell);
+                }
                 else
                     (*itr)->ToUnit()->RemoveAllAuras();
 
@@ -2256,7 +2264,7 @@ void SmartScript::ProcessAction(SmartScriptHolder& e, Unit* unit, uint32 var0, u
         if (linked)
             ProcessEvent(linked, unit, var0, var1, bvar, spell, gob);
         else
-            TC_LOG_ERROR("sql.sql", "SmartScript::ProcessAction: Entry %d SourceType %u, Event %u, Link Event %u not found or invalid, skipped.", e.entryOrGuid, e.GetScriptType(), e.event_id, e.link);
+            TC_LOG_DEBUG("sql.sql", "SmartScript::ProcessAction: Entry %d SourceType %u, Event %u, Link Event %u not found or invalid, skipped.", e.entryOrGuid, e.GetScriptType(), e.event_id, e.link);
     }
 }
 
@@ -3159,7 +3167,7 @@ void SmartScript::ProcessEvent(SmartScriptHolder& e, Unit* unit, uint32 var0, ui
                 std::list<Creature*> list;
                 me->GetCreatureListWithEntryInGrid(list, e.event.distance.entry, (float)e.event.distance.dist);
 
-                if (list.size() > 0)
+                if (!list.empty())
                     creature = list.front();
             }
 
@@ -3190,7 +3198,7 @@ void SmartScript::ProcessEvent(SmartScriptHolder& e, Unit* unit, uint32 var0, ui
                 std::list<GameObject*> list;
                 me->GetGameObjectListWithEntryInGrid(list, e.event.distance.entry, (float)e.event.distance.dist);
 
-                if (list.size() > 0)
+                if (!list.empty())
                     gameobject = list.front();
             }
 

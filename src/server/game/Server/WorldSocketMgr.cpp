@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2014 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2015 TrinityCore <http://www.trinitycore.org/>
  * Copyright (C) 2005-2008  MaNGOS <http://getmangos.com/>
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -50,7 +50,8 @@ bool WorldSocketMgr::StartNetwork(boost::asio::io_service& service, std::string 
 {
     _tcpNoDelay = sConfigMgr->GetBoolDefault("Network.TcpNodelay", true);
 
-    TC_LOG_DEBUG("misc", "Max allowed socket connections %d", boost::asio::socket_base::max_connections);
+    int const max_connections = boost::asio::socket_base::max_connections;
+    TC_LOG_DEBUG("misc", "Max allowed socket connections %d", max_connections);
 
     // -1 means use default
     _socketSendBufferSize = sConfigMgr->GetIntDefault("Network.OutKBuff", -1);

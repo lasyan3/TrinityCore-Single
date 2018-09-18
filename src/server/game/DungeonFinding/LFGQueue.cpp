@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2014 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2015 TrinityCore <http://www.trinitycore.org/>
  *
  * This program is free software you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -377,7 +377,7 @@ LfgCompatibility LFGQueue::CheckCompatibility(GuidList check)
     // Group with less that MAXGROUPSIZE members always compatible
     if (check.size() == 1 && numPlayers != MAXGROUPSIZE)
     {
-        TC_LOG_DEBUG("lfg.queue.match.compatibility.check", "Guids: (%s) sigle group. Compatibles", strGuids.c_str());
+        TC_LOG_DEBUG("lfg.queue.match.compatibility.check", "Guids: (%s) single group. Compatibles", strGuids.c_str());
         LfgQueueDataContainer::iterator itQueue = QueueDataStore.find(check.front());
 
         LfgCompatibilityData data(LFG_COMPATIBLES_WITH_LESS_PLAYERS);

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2014 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2015 TrinityCore <http://www.trinitycore.org/>
  * Copyright (C) 2005-2009 MaNGOS <http://getmangos.com/>
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -607,7 +607,7 @@ void Object::_LoadIntoDataField(std::string const& data, uint32 startOffset, uin
 
     for (uint32 index = 0; index < count; ++index)
     {
-        m_uint32Values[startOffset + index] = atol(tokens[index]);
+        m_uint32Values[startOffset + index] = atoul(tokens[index]);
         _changesMask.SetBit(startOffset + index);
     }
 }
@@ -1072,32 +1072,32 @@ ByteBuffer& operator<<(ByteBuffer& buf, Position::PositionXYZOStreamer const& st
 
 void MovementInfo::OutDebug()
 {
-    TC_LOG_INFO("misc", "MOVEMENT INFO");
-    TC_LOG_INFO("misc", "%s", guid.ToString().c_str());
-    TC_LOG_INFO("misc", "flags %u", flags);
-    TC_LOG_INFO("misc", "flags2 %u", flags2);
-    TC_LOG_INFO("misc", "time %u current time " UI64FMTD "", flags2, uint64(::time(NULL)));
-    TC_LOG_INFO("misc", "position: `%s`", pos.ToString().c_str());
+    TC_LOG_DEBUG("misc", "MOVEMENT INFO");
+    TC_LOG_DEBUG("misc", "%s", guid.ToString().c_str());
+    TC_LOG_DEBUG("misc", "flags %u", flags);
+    TC_LOG_DEBUG("misc", "flags2 %u", flags2);
+    TC_LOG_DEBUG("misc", "time %u current time " UI64FMTD "", flags2, uint64(::time(NULL)));
+    TC_LOG_DEBUG("misc", "position: `%s`", pos.ToString().c_str());
     if (flags & MOVEMENTFLAG_ONTRANSPORT)
     {
-        TC_LOG_INFO("misc", "TRANSPORT:");
-        TC_LOG_INFO("misc", "%s", transport.guid.ToString().c_str());
-        TC_LOG_INFO("misc", "position: `%s`", transport.pos.ToString().c_str());
-        TC_LOG_INFO("misc", "seat: %i", transport.seat);
-        TC_LOG_INFO("misc", "time: %u", transport.time);
+        TC_LOG_DEBUG("misc", "TRANSPORT:");
+        TC_LOG_DEBUG("misc", "%s", transport.guid.ToString().c_str());
+        TC_LOG_DEBUG("misc", "position: `%s`", transport.pos.ToString().c_str());
+        TC_LOG_DEBUG("misc", "seat: %i", transport.seat);
+        TC_LOG_DEBUG("misc", "time: %u", transport.time);
         if (flags2 & MOVEMENTFLAG2_INTERPOLATED_MOVEMENT)
-            TC_LOG_INFO("misc", "time2: %u", transport.time2);
+            TC_LOG_DEBUG("misc", "time2: %u", transport.time2);
     }
 
     if ((flags & (MOVEMENTFLAG_SWIMMING | MOVEMENTFLAG_FLYING)) || (flags2 & MOVEMENTFLAG2_ALWAYS_ALLOW_PITCHING))
-        TC_LOG_INFO("misc", "pitch: %f", pitch);
+        TC_LOG_DEBUG("misc", "pitch: %f", pitch);
 
-    TC_LOG_INFO("misc", "fallTime: %u", fallTime);
+    TC_LOG_DEBUG("misc", "fallTime: %u", fallTime);
     if (flags & MOVEMENTFLAG_FALLING)
-        TC_LOG_INFO("misc", "j_zspeed: %f j_sinAngle: %f j_cosAngle: %f j_xyspeed: %f", jump.zspeed, jump.sinAngle, jump.cosAngle, jump.xyspeed);
+        TC_LOG_DEBUG("misc", "j_zspeed: %f j_sinAngle: %f j_cosAngle: %f j_xyspeed: %f", jump.zspeed, jump.sinAngle, jump.cosAngle, jump.xyspeed);
 
     if (flags & MOVEMENTFLAG_SPLINE_ELEVATION)
-        TC_LOG_INFO("misc", "splineElevation: %f", splineElevation);
+        TC_LOG_DEBUG("misc", "splineElevation: %f", splineElevation);
 }
 
 WorldObject::WorldObject(bool isWorldObject) : WorldLocation(), LastUsedScriptID(0),
@@ -1447,6 +1447,13 @@ void Position::GetPositionOffsetTo(const Position & endPos, Position & retOffset
     retOffset.m_positionY = dy * std::cos(GetOrientation()) - dx * std::sin(GetOrientation());
     retOffset.m_positionZ = endPos.GetPositionZ() - GetPositionZ();
     retOffset.SetOrientation(endPos.GetOrientation() - GetOrientation());
+}
+
+Position Position::GetPositionWithOffset(Position const& offset) const
+{
+    Position ret(*this);
+    ret.RelocateOffset(offset);
+    return ret;
 }
 
 float Position::GetAngle(const Position* obj) const
@@ -2248,6 +2255,13 @@ void WorldObject::GetCreatureListWithEntryInGrid(std::list<Creature*>& creatureL
     cell.Visit(pair, visitor, *(this->GetMap()), *this, maxSearchRange);
 }
 
+void WorldObject::GetPlayerListInGrid(std::list<Player*>& playerList, float maxSearchRange) const
+{
+    Trinity::AnyPlayerInObjectRangeCheck checker(this, maxSearchRange);
+    Trinity::PlayerListSearcher<Trinity::AnyPlayerInObjectRangeCheck> searcher(this, playerList, checker);
+    this->VisitNearbyWorldObject(maxSearchRange, searcher);
+}
+
 /*
 namespace Trinity
 {
@@ -2593,7 +2607,7 @@ void WorldObject::DestroyForNearbyPlayers()
         if (!player->HaveAtClient(this))
             continue;
 
-        if (isType(TYPEMASK_UNIT) && ((Unit*)this)->GetCharmerGUID() == player->GetGUID()) /// @todo this is for puppet
+        if (isType(TYPEMASK_UNIT) && ToUnit()->GetCharmerGUID() == player->GetGUID()) /// @todo this is for puppet
             continue;
 
         DestroyForPlayer(player);

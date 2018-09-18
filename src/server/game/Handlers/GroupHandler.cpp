@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2014 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2015 TrinityCore <http://www.trinitycore.org/>
  * Copyright (C) 2005-2009 MaNGOS <http://getmangos.com/>
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -288,7 +288,7 @@ void WorldSession::HandleGroupUninviteGuidOpcode(WorldPacket& recvData)
         return;
     }
 
-    PartyResult res = GetPlayer()->CanUninviteFromGroup();
+    PartyResult res = GetPlayer()->CanUninviteFromGroup(guid);
     if (res != ERR_PARTY_RESULT_OK)
     {
         SendPartyResult(PARTY_OP_UNINVITE, "", res);
@@ -296,14 +296,8 @@ void WorldSession::HandleGroupUninviteGuidOpcode(WorldPacket& recvData)
     }
 
     Group* grp = GetPlayer()->GetGroup();
-    if (!grp)
-        return;
-
-    if (grp->IsLeader(guid))
-    {
-        SendPartyResult(PARTY_OP_UNINVITE, "", ERR_NOT_LEADER);
-        return;
-    }
+    // grp is checked already above in CanUninviteFromGroup()
+    ASSERT(grp);
 
     if (grp->IsMember(guid))
     {

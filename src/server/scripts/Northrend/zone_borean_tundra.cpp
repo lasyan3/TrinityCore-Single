@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2014 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2015 TrinityCore <http://www.trinitycore.org/>
  * Copyright (C) 2006-2009 ScriptDev2 <https://scriptdev2.svn.sourceforge.net/>
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -29,7 +29,6 @@ npc_corastrasza
 npc_sinkhole_kill_credit
 npc_khunok_the_behemoth
 npc_nerubar_victim
-npc_keristrasza
 npc_nesingwary_trapper
 npc_lurgglbr
 npc_nexus_drake_hatchling
@@ -223,48 +222,6 @@ public:
 };
 
 /*######
-## npc_keristrasza
-######*/
-
-enum Keristrasza
-{
-    SPELL_TELEPORT_TO_SARAGOSA = 46772
-};
-
-#define GOSSIP_HELLO_KERI   "I am prepared to face Saragosa!"
-
-class npc_keristrasza : public CreatureScript
-{
-public:
-    npc_keristrasza() : CreatureScript("npc_keristrasza") { }
-
-    bool OnGossipHello(Player* player, Creature* creature) override
-    {
-        if (creature->IsQuestGiver())
-            player->PrepareQuestMenu(creature->GetGUID());
-
-        if (player->GetQuestStatus(11957) == QUEST_STATUS_INCOMPLETE)
-            player->ADD_GOSSIP_ITEM(GOSSIP_ICON_CHAT, GOSSIP_HELLO_KERI, GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF + 1);
-
-        player->SEND_GOSSIP_MENU(player->GetGossipTextId(creature), creature->GetGUID());
-
-        return true;
-    }
-
-    bool OnGossipSelect(Player* player, Creature* /*creature*/, uint32 /*sender*/, uint32 action) override
-    {
-        player->PlayerTalkClass->ClearMenus();
-        if (action == GOSSIP_ACTION_INFO_DEF + 1)
-        {
-            player->CLOSE_GOSSIP_MENU();
-            player->CastSpell(player, SPELL_TELEPORT_TO_SARAGOSA, true);
-        }
-
-        return true;
-    }
-};
-
-/*######
 ## npc_corastrasza
 ######*/
 
@@ -438,6 +395,9 @@ enum NesingwaryTrapper
     GO_CARIBOU_TRAP_15  = 188008,
 
     SPELL_TRAPPED       = 46104,
+
+    // Texts
+    SAY_NESINGWARY_1    = 0
 };
 
 #define CaribouTrapsNum 15
@@ -514,7 +474,7 @@ public:
                         phase = 3;
                         break;
                     case 3:
-                        //Talk(SAY_NESINGWARY_1);
+                        Talk(SAY_NESINGWARY_1);
                         phaseTimer = 2000;
                         phase = 4;
                         break;
@@ -2488,7 +2448,6 @@ void AddSC_borean_tundra()
 {
     new npc_sinkhole_kill_credit();
     new npc_khunok_the_behemoth();
-    new npc_keristrasza();
     new npc_corastrasza();
     new npc_iruk();
     new npc_nerubar_victim();

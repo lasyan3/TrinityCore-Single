@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2014 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2015 TrinityCore <http://www.trinitycore.org/>
  * Copyright (C) 2006-2010 ScriptDev2 <https://scriptdev2.svn.sourceforge.net/>
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -205,10 +205,7 @@ class boss_anubarak_trial : public CreatureScript
             void KilledUnit(Unit* who) override
             {
                 if (who->GetTypeId() == TYPEID_PLAYER)
-                {
                     Talk(SAY_KILL_PLAYER);
-                    instance->SetData(DATA_TRIBUTE_TO_IMMORTALITY_ELIGIBLE, 0);
-                }
             }
 
             void MoveInLineOfSight(Unit* /*who*/) override
@@ -611,9 +608,7 @@ class npc_frost_sphere : public CreatureScript
 
         struct npc_frost_sphereAI : public ScriptedAI
         {
-            npc_frost_sphereAI(Creature* creature) : ScriptedAI(creature)
-            {
-            }
+            npc_frost_sphereAI(Creature* creature) : ScriptedAI(creature) { }
 
             void Reset() override
             {
@@ -766,7 +761,6 @@ class npc_anubarak_spike : public CreatureScript
             }
 
             void MoveInLineOfSight(Unit* pWho) override
-
             {
                 if (!pWho)
                     return;

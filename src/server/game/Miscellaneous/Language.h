@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2014 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2015 TrinityCore <http://www.trinitycore.org/>
  * Copyright (C) 2005-2009 MaNGOS <http://getmangos.com/>
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -110,7 +110,9 @@ enum TrinityStrings
     LANG_RBAC_PERM_DENIED               = 77,
     LANG_RBAC_PERM_REVOKED              = 78,
     LANG_RBAC_PERM_REVOKED_NOT_IN_LIST  = 79,
-    // Free 80 - 95
+    LANG_PVPSTATS                       = 80,
+    LANG_PVPSTATS_DISABLED              = 81,
+    // Free 82 - 95
 
 
     LANG_GUILD_RENAME_ALREADY_EXISTS    = 96,
@@ -205,7 +207,8 @@ enum TrinityStrings
     LANG_LIQUID_STATUS                  = 175,
     LANG_INVALID_GAMEOBJECT_TYPE        = 176,
     LANG_GAMEOBJECT_DAMAGED             = 177,
-    // Room for more level 1              178-199 not used
+    LANG_GRID_POSITION                  = 178,
+    // Room for more level 1              179-199 not used
 
     // level 2 chat
     LANG_NO_SELECTION                   = 200,

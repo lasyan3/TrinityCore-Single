@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2014 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2015 TrinityCore <http://www.trinitycore.org/>
  * Copyright (C) 2005-2009 MaNGOS <http://getmangos.com/>
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -191,7 +191,7 @@ void AuraApplication::BuildUpdatePacket(ByteBuffer& data, bool remove) const
     Aura const* aura = GetBase();
     data << uint32(aura->GetId());
     uint32 flags = _flags;
-    if (aura->GetMaxDuration() > 0 && !(aura->GetSpellInfo()->AttributesEx5 & SPELL_ATTR5_HIDE_DURATION))
+    if (aura->GetMaxDuration() > 0 && !aura->GetSpellInfo()->HasAttribute(SPELL_ATTR5_HIDE_DURATION))
         flags |= AFLAG_DURATION;
     data << uint8(flags);
     data << uint8(aura->GetCasterLevel());
@@ -749,12 +749,13 @@ void Aura::SetDuration(int32 duration, bool withMods)
 
 void Aura::RefreshDuration(bool withMods)
 {
-    if (withMods)
+    Unit* caster = GetCaster();
+    if (withMods && caster)
     {
         int32 duration = m_spellInfo->GetMaxDuration();
         // Calculate duration of periodics affected by haste.
-        if (GetCaster()->HasAuraTypeWithAffectMask(SPELL_AURA_PERIODIC_HASTE, m_spellInfo) || m_spellInfo->AttributesEx5 & SPELL_ATTR5_HASTE_AFFECT_DURATION)
-            duration = int32(duration * GetCaster()->GetFloatValue(UNIT_MOD_CAST_SPEED));
+        if (caster->HasAuraTypeWithAffectMask(SPELL_AURA_PERIODIC_HASTE, m_spellInfo) || m_spellInfo->HasAttribute(SPELL_ATTR5_HASTE_AFFECT_DURATION))
+            duration = int32(duration * caster->GetFloatValue(UNIT_MOD_CAST_SPEED));
 
         SetMaxDuration(duration);
         SetDuration(duration);
@@ -1705,14 +1706,8 @@ void Aura::HandleAuraSpecificPeriodics(AuraApplication const* aurApp, Unit* cast
             {
                 AuraEffect* aurEff = GetEffect(i);
 
-                // ignore non positive values (can be result apply spellmods to aura damage
-                uint32 damage = std::max(aurEff->GetAmount(), 0);
-
-                // Script Hook For HandlePeriodicDamageAurasTick -- Allow scripts to change the Damage pre class mitigation calculations
-                sScriptMgr->ModifyPeriodicDamageAurasTick(target, caster, damage);
-
-                aurEff->SetDonePct(caster->SpellDamagePctDone(target, m_spellInfo, DOT)); // Calculate done percentage first!
-                aurEff->SetDamage(caster->SpellDamageBonusDone(target, m_spellInfo, damage, DOT, GetStackAmount()) * aurEff->GetDonePct());
+                aurEff->SetDonePct(caster->SpellDamagePctDone(target, m_spellInfo, DOT));
+                aurEff->SetBonusAmount(caster->SpellDamageBonusDone(target, m_spellInfo, 0, DOT, GetStackAmount()));
                 aurEff->SetCritChance(caster->GetUnitSpellCriticalChance(target, m_spellInfo, m_spellInfo->GetSchoolMask()));
                 break;
             }
@@ -1721,14 +1716,8 @@ void Aura::HandleAuraSpecificPeriodics(AuraApplication const* aurApp, Unit* cast
             {
                 AuraEffect* aurEff = GetEffect(i);
 
-                // ignore non positive values (can be result apply spellmods to aura damage
-                uint32 damage = std::max(aurEff->GetAmount(), 0);
-
-                // Script Hook For HandlePeriodicDamageAurasTick -- Allow scripts to change the Damage pre class mitigation calculations
-                sScriptMgr->ModifyPeriodicDamageAurasTick(target, caster, damage);
-
-                aurEff->SetDonePct(caster->SpellHealingPctDone(target, m_spellInfo)); // Calculate done percentage first!
-                aurEff->SetDamage(caster->SpellHealingBonusDone(target, m_spellInfo, damage, DOT, GetStackAmount()) * aurEff->GetDonePct());
+                aurEff->SetDonePct(caster->SpellHealingPctDone(target, m_spellInfo));
+                aurEff->SetBonusAmount(caster->SpellHealingBonusDone(target, m_spellInfo, 0, DOT, GetStackAmount()));
                 aurEff->SetCritChance(caster->GetUnitSpellCriticalChance(target, m_spellInfo, m_spellInfo->GetSchoolMask()));
                 break;
             }
@@ -1825,7 +1814,7 @@ bool Aura::CanStackWith(Aura const* existingAura) const
         if (existingAura->GetSpellInfo()->IsChanneled())
             return true;
 
-        if (m_spellInfo->AttributesEx3 & SPELL_ATTR3_STACK_FOR_DIFF_CASTERS)
+        if (m_spellInfo->HasAttribute(SPELL_ATTR3_STACK_FOR_DIFF_CASTERS))
             return true;
 
         // check same periodic auras
@@ -1877,7 +1866,7 @@ bool Aura::CanStackWith(Aura const* existingAura) const
         if (m_spellInfo->IsMultiSlotAura() && !IsArea())
             return true;
         if (GetCastItemGUID() && existingAura->GetCastItemGUID())
-            if (GetCastItemGUID() != existingAura->GetCastItemGUID() && (m_spellInfo->AttributesCu & SPELL_ATTR0_CU_ENCHANT_PROC))
+            if (GetCastItemGUID() != existingAura->GetCastItemGUID() && m_spellInfo->HasAttribute(SPELL_ATTR0_CU_ENCHANT_PROC))
                 return true;
         // same spell with same caster should not stack
         return false;

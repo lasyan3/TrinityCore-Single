@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2014 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2015 TrinityCore <http://www.trinitycore.org/>
  * Copyright (C) 2005-2009 MaNGOS <http://getmangos.com/>
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -432,7 +432,7 @@ void AuctionHouseObject::AddAuction(AuctionEntry* auction)
     sScriptMgr->OnAuctionAdd(this, auction);
 }
 
-bool AuctionHouseObject::RemoveAuction(AuctionEntry* auction, uint32 /*itemEntry*/)
+bool AuctionHouseObject::RemoveAuction(AuctionEntry* auction)
 {
     bool wasInMap = AuctionsMap.erase(auction->Id) ? true : false;
 
@@ -440,8 +440,6 @@ bool AuctionHouseObject::RemoveAuction(AuctionEntry* auction, uint32 /*itemEntry
 
     // we need to delete the entry, it is not referenced any more
     delete auction;
-    auction = NULL;
-
     return wasInMap;
 }
 
@@ -454,25 +452,22 @@ void AuctionHouseObject::Update()
     if (AuctionsMap.empty())
         return;
 
-    PreparedStatement* stmt = CharacterDatabase.GetPreparedStatement(CHAR_SEL_AUCTION_BY_TIME);
-    stmt->setUInt32(0, (uint32)curTime+60);
-    PreparedQueryResult result = CharacterDatabase.Query(stmt);
 
-    if (!result)
-        return;
+    SQLTransaction trans = CharacterDatabase.BeginTransaction();
 
-    do
+    for (AuctionEntryMap::iterator it = AuctionsMap.begin(); it != AuctionsMap.end();)
     {
         // from auctionhousehandler.cpp, creates auction pointer & player pointer
-        AuctionEntry* auction = GetAuction(result->Fetch()->GetUInt32());
+        AuctionEntry* auction = it->second;
+        // Increment iterator due to AuctionEntry deletion
+        ++it;
 
-        if (!auction)
+        ///- filter auctions expired on next update
+        if (auction->expire_time > curTime + 60)
             continue;
 
-        SQLTransaction trans = CharacterDatabase.BeginTransaction();
-
         ///- Either cancel the auction if there was no bidder
-        if (auction->bidder == 0)
+        if (auction->bidder == 0 && auction->bid == 0)
         {
             sAuctionMgr->SendAuctionExpiredMail(auction, trans);
             sScriptMgr->OnAuctionExpire(this, auction);
@@ -488,16 +483,15 @@ void AuctionHouseObject::Update()
             sScriptMgr->OnAuctionSuccessful(this, auction);
         }
 
-        uint32 itemEntry = auction->itemEntry;
-
         ///- In any case clear the auction
         auction->DeleteFromDB(trans);
-        CharacterDatabase.CommitTransaction(trans);
 
         sAuctionMgr->RemoveAItem(auction->itemGUIDLow);
-        RemoveAuction(auction, itemEntry);
+        RemoveAuction(auction);
     }
-    while (result->NextRow());
+
+    // Run DB changes
+    CharacterDatabase.CommitTransaction(trans);
 }
 
 void AuctionHouseObject::BuildListBidderItems(WorldPacket& data, Player* player, uint32& count, uint32& totalcount)
@@ -592,22 +586,31 @@ void AuctionHouseObject::BuildListAuctionItems(WorldPacket& data, Player* player
             if (propRefID)
             {
                 // Append the suffix to the name (ie: of the Monkey) if one exists
-                // These are found in ItemRandomProperties.dbc, not ItemRandomSuffix.dbc
+                // These are found in ItemRandomSuffix.dbc and ItemRandomProperties.dbc
                 //  even though the DBC names seem misleading
-                const ItemRandomPropertiesEntry* itemRandProp = sItemRandomPropertiesStore.LookupEntry(propRefID);
 
-                if (itemRandProp)
+                char* const* suffix = nullptr;
+
+                if (propRefID < 0)
                 {
-                    char* const* temp = itemRandProp->nameSuffix;
+                    const ItemRandomSuffixEntry* itemRandSuffix = sItemRandomSuffixStore.LookupEntry(-propRefID);
+                    if (itemRandSuffix)
+                        suffix = itemRandSuffix->nameSuffix;
+                }
+                else
+                {
+                    const ItemRandomPropertiesEntry* itemRandProp = sItemRandomPropertiesStore.LookupEntry(propRefID);
+                    if (itemRandProp)
+                        suffix = itemRandProp->nameSuffix;
+                }
 
-                    // dbc local name
-                    if (temp)
-                    {
-                        // Append the suffix (ie: of the Monkey) to the name using localization
-                        // or default enUS if localization is invalid
-                        name += ' ';
-                        name += temp[locdbc_idx >= 0 ? locdbc_idx : LOCALE_enUS];
-                    }
+                // dbc local name
+                if (suffix)
+                {
+                    // Append the suffix (ie: of the Monkey) to the name using localization
+                    // or default enUS if localization is invalid
+                    name += ' ';
+                    name += suffix[locdbc_idx >= 0 ? locdbc_idx : LOCALE_enUS];
                 }
             }
 

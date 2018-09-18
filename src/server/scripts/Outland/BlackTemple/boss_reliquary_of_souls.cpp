@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2014 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2015 TrinityCore <http://www.trinitycore.org/>
  * Copyright (C) 2006-2009 ScriptDev2 <https://scriptdev2.svn.sourceforge.net/>
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -84,12 +84,7 @@ enum ReliquaryOfSouls
     NUMBER_ENSLAVED_SOUL            = 8
 };
 
-struct Position2d
-{
-    float x, y;
-};
-
-static Position2d Coords[]=
+G3D::Vector2 const Coords[]=
 {
     {450.4f, 212.3f},
     {542.1f, 212.3f},

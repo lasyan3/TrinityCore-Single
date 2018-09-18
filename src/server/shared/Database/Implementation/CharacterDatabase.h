@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2014 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2015 TrinityCore <http://www.trinitycore.org/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -72,6 +72,7 @@ enum CharacterDatabaseStatements
     CHAR_SEL_CHAR_POSITION_XYZ,
     CHAR_SEL_CHAR_POSITION,
 
+    CHAR_DEL_BATTLEGROUND_RANDOM_ALL,
     CHAR_DEL_BATTLEGROUND_RANDOM,
     CHAR_INS_BATTLEGROUND_RANDOM,
 
@@ -128,7 +129,6 @@ enum CharacterDatabaseStatements
     CHAR_SEL_AUCTION_ITEMS,
     CHAR_INS_AUCTION,
     CHAR_DEL_AUCTION,
-    CHAR_SEL_AUCTION_BY_TIME,
     CHAR_UPD_AUCTION_BID,
     CHAR_SEL_AUCTIONS,
     CHAR_INS_MAIL,
@@ -254,6 +254,7 @@ enum CharacterDatabaseStatements
     CHAR_DEL_ARENA_TEAM_MEMBER,
     CHAR_UPD_ARENA_TEAM_STATS,
     CHAR_UPD_ARENA_TEAM_MEMBER,
+    CHAR_DEL_CHARACTER_ARENA_STATS,
     CHAR_REP_CHARACTER_ARENA_STATS,
     CHAR_SEL_PLAYER_ARENA_TEAMS,
     CHAR_UPD_ARENA_TEAM_NAME,
@@ -535,6 +536,7 @@ enum CharacterDatabaseStatements
     CHAR_SEL_PVPSTATS_MAXID,
     CHAR_INS_PVPSTATS_BATTLEGROUND,
     CHAR_INS_PVPSTATS_PLAYER,
+    CHAR_SEL_PVPSTATS_FACTIONS_OVERALL,
 
     CHAR_INS_QUEST_TRACK,
     CHAR_UPD_QUEST_TRACK_GM_COMPLETE,

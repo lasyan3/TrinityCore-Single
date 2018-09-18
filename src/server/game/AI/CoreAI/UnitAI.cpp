@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2014 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2015 TrinityCore <http://www.trinitycore.org/>
  * Copyright (C) 2005-2009 MaNGOS <http://getmangos.com/>
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -141,7 +141,7 @@ void UnitAI::DoCast(uint32 spellId)
         {
             if (SpellInfo const* spellInfo = sSpellMgr->GetSpellInfo(spellId))
             {
-                bool playerOnly = (spellInfo->AttributesEx3 & SPELL_ATTR3_ONLY_TARGET_PLAYERS) != 0;
+                bool playerOnly = spellInfo->HasAttribute(SPELL_ATTR3_ONLY_TARGET_PLAYERS);
                 target = SelectTarget(SELECT_TARGET_RANDOM, 0, spellInfo->GetMaxRange(false), playerOnly);
             }
             break;
@@ -156,7 +156,7 @@ void UnitAI::DoCast(uint32 spellId)
         {
             if (SpellInfo const* spellInfo = sSpellMgr->GetSpellInfo(spellId))
             {
-                bool playerOnly = (spellInfo->AttributesEx3 & SPELL_ATTR3_ONLY_TARGET_PLAYERS) != 0;
+                bool playerOnly = spellInfo->HasAttribute(SPELL_ATTR3_ONLY_TARGET_PLAYERS);
                 float range = spellInfo->GetMaxRange(false);
 
                 DefaultTargetSelector targetSelector(me, range, playerOnly, -(int32)spellId);
@@ -213,7 +213,7 @@ void UnitAI::FillAISpellInfo()
         if (!spellInfo)
             continue;
 
-        if (spellInfo->Attributes & SPELL_ATTR0_CASTABLE_WHILE_DEAD)
+        if (spellInfo->HasAttribute(SPELL_ATTR0_CASTABLE_WHILE_DEAD))
             AIInfo->condition = AICOND_DIE;
         else if (spellInfo->IsPassive() || spellInfo->GetDuration() == -1)
             AIInfo->condition = AICOND_AGGRO;

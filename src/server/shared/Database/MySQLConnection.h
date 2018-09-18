@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2014 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2015 TrinityCore <http://www.trinitycore.org/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -72,8 +72,10 @@ class MySQLConnection
         MySQLConnection(ProducerConsumerQueue<SQLOperation*>* queue, MySQLConnectionInfo& connInfo);  //! Constructor for asynchronous connections.
         virtual ~MySQLConnection();
 
-        virtual bool Open();
+        virtual uint32 Open();
         void Close();
+
+        bool PrepareStatements();
 
     public:
         bool Execute(const char* sql);
@@ -86,7 +88,7 @@ class MySQLConnection
         void BeginTransaction();
         void RollbackTransaction();
         void CommitTransaction();
-        bool ExecuteTransaction(SQLTransaction& transaction);
+        int ExecuteTransaction(SQLTransaction& transaction);
 
         operator bool () const { return m_Mysql != NULL; }
         void Ping() { mysql_ping(m_Mysql); }
@@ -111,7 +113,6 @@ class MySQLConnection
         MySQLPreparedStatement* GetPreparedStatement(uint32 index);
         void PrepareStatement(uint32 index, const char* sql, ConnectionFlags flags);
 
-        bool PrepareStatements();
         virtual void DoPrepareStatements() = 0;
 
     protected:

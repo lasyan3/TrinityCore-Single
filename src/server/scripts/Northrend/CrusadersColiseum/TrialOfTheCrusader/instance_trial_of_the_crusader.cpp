@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2014 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2015 TrinityCore <http://www.trinitycore.org/>
  * Copyright (C) 2006-2009 ScriptDev2 <https://scriptdev2.svn.sourceforge.net/>
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -190,6 +190,13 @@ class instance_trial_of_the_crusader : public InstanceMapScript
                 }
             }
 
+            void OnUnitDeath(Unit* unit) override
+            {
+                if (unit->GetTypeId() == TYPEID_PLAYER && IsEncounterInProgress())
+                    TributeToImmortalityEligible = false;
+
+            }
+
             bool SetBossState(uint32 type, EncounterState state) override
             {
                 if (!InstanceScript::SetBossState(type, state))
@@ -247,12 +254,6 @@ class instance_trial_of_the_crusader : public InstanceMapScript
                             case SPECIAL:
                                 if (GetBossState(BOSS_VALKIRIES) == SPECIAL)
                                     state = DONE;
-                                break;
-                            case DONE:
-                                if (instance->GetPlayers().getFirst()->GetSource()->GetTeam() == ALLIANCE)
-                                    EventStage = 4020;
-                                else
-                                    EventStage = 4030;
                                 break;
                             default:
                                 break;
@@ -329,7 +330,7 @@ class instance_trial_of_the_crusader : public InstanceMapScript
 
                 if (type < MAX_ENCOUNTERS)
                 {
-                    TC_LOG_INFO("scripts", "[ToCr] BossState(type %u) %u = state %u;", type, GetBossState(type), state);
+                    TC_LOG_DEBUG("scripts", "[ToCr] BossState(type %u) %u = state %u;", type, GetBossState(type), state);
                     if (state == FAIL)
                     {
                         if (instance->IsHeroic())
@@ -426,9 +427,6 @@ class instance_trial_of_the_crusader : public InstanceMapScript
                             ++MistressOfPainCount;
                         else if (data == DECREASE)
                             --MistressOfPainCount;
-                        break;
-                    case DATA_TRIBUTE_TO_IMMORTALITY_ELIGIBLE:
-                        TributeToImmortalityEligible = false;
                         break;
                     default:
                         break;

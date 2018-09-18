@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2014 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2015 TrinityCore <http://www.trinitycore.org/>
  * Copyright (C) 2005-2009 MaNGOS <http://getmangos.com/>
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -72,8 +72,8 @@ class ReputationMgr
         void LoadFromDB(PreparedQueryResult result);
     public:                                                 // statics
         static const int32 PointsInRank[MAX_REPUTATION_RANK];
-        static const int32 Reputation_Cap    =  42999;
-        static const int32 Reputation_Bottom = -42000;
+        static const int32 Reputation_Cap;
+        static const int32 Reputation_Bottom;
 
         static ReputationRank ReputationToRank(int32 standing);
     public:                                                 // accessors

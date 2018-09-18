@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2014 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2015 TrinityCore <http://www.trinitycore.org/>
  * Copyright (C) 2005-2009 MaNGOS <http://getmangos.com/>
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -2238,7 +2238,7 @@ void SpellMgr::LoadEnchantCustomAttr()
             continue;
 
         /// @todo find a better check
-        if (!(spellInfo->AttributesEx2 & SPELL_ATTR2_PRESERVE_ENCHANT_IN_ARENA) || !(spellInfo->Attributes & SPELL_ATTR0_NOT_SHAPESHIFT))
+        if (!spellInfo->HasAttribute(SPELL_ATTR2_PRESERVE_ENCHANT_IN_ARENA) || !spellInfo->HasAttribute(SPELL_ATTR0_NOT_SHAPESHIFT))
             continue;
 
         for (uint32 j = 0; j < MAX_SPELL_EFFECTS; ++j)
@@ -2959,6 +2959,8 @@ void SpellMgr::LoadSpellInfoCorrections()
         switch (spellInfo->Id)
         {
             case 53096: // Quetz'lun's Judgment
+            case 70743: // AoD Special
+            case 70614: // AoD Special - Vegard
                 spellInfo->MaxAffectedTargets = 1;
                 break;
             case 42436: // Drink! (Brewfest)
@@ -3729,7 +3731,7 @@ void SpellMgr::LoadSpellInfoCorrections()
             case 45440: // Steam Tonk Controller
             case 60256: // Collect Sample
                 // Crashes client on pressing ESC
-                spellInfo->AttributesEx4 &= ~SPELL_ATTR4_TRIGGERED;
+                spellInfo->AttributesEx4 &= ~SPELL_ATTR4_CAN_CAST_WHILE_CASTING;
                 break;
             // ISLE OF CONQUEST SPELLS
             //
@@ -3746,7 +3748,7 @@ void SpellMgr::LoadSpellInfoCorrections()
         {
             case SPELLFAMILY_PALADIN:
                 // Seals of the Pure should affect Seal of Righteousness
-                if (spellInfo->SpellIconID == 25 && spellInfo->Attributes & SPELL_ATTR0_PASSIVE)
+                if (spellInfo->SpellIconID == 25 && spellInfo->HasAttribute(SPELL_ATTR0_PASSIVE))
                     spellInfo->Effects[EFFECT_0].SpellClassMask[1] |= 0x20000000;
                 break;
             case SPELLFAMILY_DEATHKNIGHT:

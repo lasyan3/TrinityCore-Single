@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2014 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2015 TrinityCore <http://www.trinitycore.org/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -444,7 +444,7 @@ enum SMART_ACTION
     SMART_ACTION_FLEE_FOR_ASSIST                    = 25,     // With Emote
     SMART_ACTION_CALL_GROUPEVENTHAPPENS             = 26,     // QuestID
     // none                                         = 27,
-    SMART_ACTION_REMOVEAURASFROMSPELL               = 28,     // Spellid, 0 removes all auras
+    SMART_ACTION_REMOVEAURASFROMSPELL               = 28,     // Spellid (0 removes all auras), charges (0 removes aura)
     SMART_ACTION_FOLLOW                             = 29,     // Distance (0 = default), Angle (0 = default), EndCreatureEntry, credit, creditType (0monsterkill, 1event)
     SMART_ACTION_RANDOM_PHASE                       = 30,     // PhaseId1, PhaseId2, PhaseId3...
     SMART_ACTION_RANDOM_PHASE_RANGE                 = 31,     // PhaseMin, PhaseMax
@@ -656,6 +656,7 @@ struct SmartAction
         struct
         {
             uint32 spell;
+            uint32 charges;
         } removeAura;
 
         struct

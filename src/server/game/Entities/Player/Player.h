@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2014 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2015 TrinityCore <http://www.trinitycore.org/>
  * Copyright (C) 2005-2009 MaNGOS <http://getmangos.com/>
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -52,6 +52,8 @@ class PlayerMenu;
 class PlayerSocial;
 class SpellCastTargets;
 class UpdateMask;
+
+struct CharacterCustomizeInfo;
 
 typedef std::deque<Mail*> PlayerMails;
 
@@ -1508,8 +1510,8 @@ class Player : public Unit, public GridObject<Player>
 
         static void SetUInt32ValueInArray(Tokenizer& data, uint16 index, uint32 value);
         static void SetFloatValueInArray(Tokenizer& data, uint16 index, float value);
-        static void Customize(ObjectGuid guid, uint8 gender, uint8 skin, uint8 face, uint8 hairStyle, uint8 hairColor, uint8 facialHair);
-        static void SavePositionInDB(uint32 mapid, float x, float y, float z, float o, uint32 zone, ObjectGuid guid);
+        static void Customize(CharacterCustomizeInfo const* customizeInfo, SQLTransaction& trans);
+        static void SavePositionInDB(WorldLocation const& loc, uint16 zoneId, ObjectGuid guid, SQLTransaction& trans);
 
         static void DeleteFromDB(ObjectGuid playerguid, uint32 accountId, bool updateRealmChars = true, bool deleteFinally = false);
         static void DeleteOldCharacters();
@@ -1720,7 +1722,7 @@ class Player : public Unit, public GridObject<Player>
         void SetContestedPvPTimer(uint32 newTime) {m_contestedPvPTimer = newTime;}
         void ResetContestedPvP();
 
-        /** todo: -maybe move UpdateDuelFlag+DuelComplete to independent DuelHandler.. **/
+        /// @todo: maybe move UpdateDuelFlag+DuelComplete to independent DuelHandler
         DuelInfo* duel;
         void UpdateDuelFlag(time_t currTime);
         void CheckDuelDistance(time_t currTime);
@@ -2168,7 +2170,7 @@ class Player : public Unit, public GridObject<Player>
         WorldLocation GetStartPosition() const;
 
         // currently visible objects at player client
-        GuidSet m_clientGUIDs;
+        GuidUnorderedSet m_clientGUIDs;
 
         bool HaveAtClient(WorldObject const* u) const;
 
@@ -2256,7 +2258,7 @@ class Player : public Unit, public GridObject<Player>
         uint64 GetAuraUpdateMaskForRaid() const { return m_auraRaidUpdateMask; }
         void SetAuraUpdateMaskForRaid(uint8 slot) { m_auraRaidUpdateMask |= (uint64(1) << slot); }
         Player* GetNextRandomRaidMember(float radius);
-        PartyResult CanUninviteFromGroup() const;
+        PartyResult CanUninviteFromGroup(ObjectGuid guidMember = ObjectGuid::Empty) const;
 
         // Battleground / Battlefield Group System
         void SetBattlegroundOrBattlefieldRaid(Group* group, int8 subgroup = -1);

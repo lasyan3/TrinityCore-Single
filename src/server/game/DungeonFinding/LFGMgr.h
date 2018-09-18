@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2014 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2015 TrinityCore <http://www.trinitycore.org/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -322,6 +322,8 @@ class LFGMgr
         LfgDungeonSet const& GetSelectedDungeons(ObjectGuid guid);
         /// Get current lfg state
         LfgState GetState(ObjectGuid guid);
+        /// Get current vote kick state
+        bool IsVoteKickActive(ObjectGuid gguid);
         /// Get current dungeon
         uint32 GetDungeon(ObjectGuid guid, bool asId = true);
         /// Get the map id of the current dungeon
@@ -425,8 +427,9 @@ class LFGMgr
         void SetSelectedDungeons(ObjectGuid guid, LfgDungeonSet const& dungeons);
         void DecreaseKicksLeft(ObjectGuid guid);
         void SetState(ObjectGuid guid, LfgState state);
+        void SetVoteKick(ObjectGuid gguid, bool active);
         void RemovePlayerData(ObjectGuid guid);
-        void GetCompatibleDungeons(LfgDungeonSet& dungeons, GuidSet const& players, LfgLockPartyMap& lockMap);
+        void GetCompatibleDungeons(LfgDungeonSet& dungeons, GuidSet const& players, LfgLockPartyMap& lockMap, bool isContinue);
         void _SaveToDB(ObjectGuid guid, uint32 db_guid);
         LFGDungeonData const* GetLFGDungeon(uint32 id);
 

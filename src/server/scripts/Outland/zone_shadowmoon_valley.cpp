@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2014 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2015 TrinityCore <http://www.trinitycore.org/>
  * Copyright (C) 2006-2009 ScriptDev2 <https://scriptdev2.svn.sourceforge.net/>
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -1213,13 +1213,8 @@ static TorlothCinematic TorlothAnim[]=
     {0, 0}
 };
 
-struct Location
-{
-    float x, y, z, o;
-};
-
 //Cordinates for Spawns
-static Location SpawnLocation[]=
+static Position SpawnLocation[]=
 {
     //Cords used for:
     {-4615.8556f, 1342.2532f, 139.9f, 1.612f}, //Illidari Soldier
@@ -1727,12 +1722,7 @@ void npc_lord_illidan_stormrage::npc_lord_illidan_stormrageAI::SummonNextWave()
 
     for (uint8 i = 0; i < count; ++i)
     {
-        Creature* Spawn = NULL;
-        float X = SpawnLocation[locIndex + i].x;
-        float Y = SpawnLocation[locIndex + i].y;
-        float Z = SpawnLocation[locIndex + i].z;
-        float O = SpawnLocation[locIndex + i].o;
-        Spawn = me->SummonCreature(WavesInfo[WaveCount].CreatureId, X, Y, Z, O, TEMPSUMMON_TIMED_OR_DEAD_DESPAWN, 60000);
+        Creature* Spawn = me->SummonCreature(WavesInfo[WaveCount].CreatureId, SpawnLocation[locIndex + i], TEMPSUMMON_TIMED_OR_DEAD_DESPAWN, 60000);
         ++LiveCount;
 
         if (Spawn)

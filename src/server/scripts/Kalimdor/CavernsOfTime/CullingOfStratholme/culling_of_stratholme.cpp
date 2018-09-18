@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2014 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2015 TrinityCore <http://www.trinitycore.org/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -292,7 +292,7 @@ public:
                 break;
         }
         player->CLOSE_GOSSIP_MENU();
-        ai->SetDespawnAtFar(true);
+        ai->SetDespawnAtFar(false);
         creature->RemoveFlag(UNIT_NPC_FLAGS, UNIT_NPC_FLAG_GOSSIP);
         return true;
     }
@@ -574,7 +574,6 @@ public:
                     break;
                 case 45:
                     SetRun(true);
-                    SetDespawnAtFar(false);
                     gossipStep = 4;
                     me->SetFlag(UNIT_NPC_FLAGS, UNIT_NPC_FLAG_GOSSIP);
                     SetHoldState(true);
@@ -901,7 +900,6 @@ public:
                             instance->SetBossState(DATA_ARTHAS, IN_PROGRESS);
 
                             me->SetReactState(REACT_DEFENSIVE);
-                            SetDespawnAtFar(false);
                             JumpToNextStep(5000);
                             break;
                         // Summon wave groups - start the Infinite Corruptor timer

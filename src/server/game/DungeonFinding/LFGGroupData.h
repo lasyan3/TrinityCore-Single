@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2014 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2015 TrinityCore <http://www.trinitycore.org/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -66,6 +66,9 @@ class LfgGroupData
         // VoteKick
         uint8 GetKicksLeft() const;
 
+        void SetVoteKick(bool active);
+        bool IsVoteKickActive() const;
+
     private:
         // General
         LfgState m_State;                                  ///< State if group in LFG
@@ -76,6 +79,7 @@ class LfgGroupData
         uint32 m_Dungeon;                                  ///< Dungeon entry
         // Vote Kick
         uint8 m_KicksLeft;                                 ///< Number of kicks left
+        bool m_VoteKickActive;
 };
 
 } // namespace lfg

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2014 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2015 TrinityCore <http://www.trinitycore.org/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -72,7 +72,7 @@ void MySQLConnection::Close()
     delete this;
 }
 
-bool MySQLConnection::Open()
+uint32 MySQLConnection::Open()
 {
     MYSQL *mysqlInit;
     mysqlInit = mysql_init(NULL);
@@ -137,13 +137,13 @@ bool MySQLConnection::Open()
         // set connection properties to UTF8 to properly handle locales for different
         // server configs - core sends data in UTF8, so MySQL must expect UTF8 too
         mysql_set_character_set(m_Mysql, "utf8");
-        return PrepareStatements();
+        return 0;
     }
     else
     {
-        TC_LOG_ERROR("sql.sql", "Could not connect to MySQL database at %s: %s\n", m_connectionInfo.host.c_str(), mysql_error(mysqlInit));
+        TC_LOG_ERROR("sql.sql", "Could not connect to MySQL database at %s: %s", m_connectionInfo.host.c_str(), mysql_error(mysqlInit));
         mysql_close(mysqlInit);
-        return false;
+        return mysql_errno(mysqlInit);
     }
 }
 
@@ -359,11 +359,11 @@ void MySQLConnection::CommitTransaction()
     Execute("COMMIT");
 }
 
-bool MySQLConnection::ExecuteTransaction(SQLTransaction& transaction)
+int MySQLConnection::ExecuteTransaction(SQLTransaction& transaction)
 {
     std::list<SQLElementData> const& queries = transaction->m_queries;
     if (queries.empty())
-        return false;
+        return -1;
 
     BeginTransaction();
 
@@ -380,8 +380,9 @@ bool MySQLConnection::ExecuteTransaction(SQLTransaction& transaction)
                 if (!Execute(stmt))
                 {
                     TC_LOG_WARN("sql.sql", "Transaction aborted. %u queries not executed.", (uint32)queries.size());
+                    int errorCode = GetLastError();
                     RollbackTransaction();
-                    return false;
+                    return errorCode;
                 }
             }
             break;
@@ -392,8 +393,9 @@ bool MySQLConnection::ExecuteTransaction(SQLTransaction& transaction)
                 if (!Execute(sql))
                 {
                     TC_LOG_WARN("sql.sql", "Transaction aborted. %u queries not executed.", (uint32)queries.size());
+                    int errorCode = GetLastError();
                     RollbackTransaction();
-                    return false;
+                    return errorCode;
                 }
             }
             break;
@@ -406,7 +408,7 @@ bool MySQLConnection::ExecuteTransaction(SQLTransaction& transaction)
     // and not while iterating over every element.
 
     CommitTransaction();
-    return true;
+    return 0;
 }
 
 MySQLPreparedStatement* MySQLConnection::GetPreparedStatement(uint32 index)
@@ -489,7 +491,9 @@ bool MySQLConnection::_HandleMySQLErrno(uint32 errNo)
             m_reconnecting = true;
             uint64 oldThreadId = mysql_thread_id(GetHandle());
             mysql_close(GetHandle());
-            if (this->Open())                           // Don't remove 'this' pointer unless you want to skip loading all prepared statements....
+
+            // Don't remove 'this' pointer unless you want to skip loading all prepared statements....
+            if (this->Open() && this->PrepareStatements())
             {
                 TC_LOG_INFO("sql.sql", "Connection to the MySQL server is active.");
                 if (oldThreadId != mysql_thread_id(GetHandle()))

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2014 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2015 TrinityCore <http://www.trinitycore.org/>
  * Copyright (C) 2006-2009 ScriptDev2 <https://scriptdev2.svn.sourceforge.net/>
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -816,6 +816,44 @@ class spell_shredder_delivery : public SpellScriptLoader
         }
 };
 
+enum InfectedWorgenBite
+{
+    SPELL_INFECTED_WORGEN_BITE = 53094,
+    SPELL_WORGENS_CALL         = 53095
+};
+
+class spell_infected_worgen_bite : public SpellScriptLoader
+{
+    public:
+        spell_infected_worgen_bite() : SpellScriptLoader("spell_infected_worgen_bite") { }
+        
+        class spell_infected_worgen_bite_AuraScript : public AuraScript
+        {
+            PrepareAuraScript(spell_infected_worgen_bite_AuraScript);
+            
+            void HandleAfterEffectApply(AuraEffect const* /*aurEff*/, AuraEffectHandleModes /*mode*/)
+            {
+                Unit* target = GetTarget();
+                if (target->GetTypeId() == TYPEID_PLAYER)
+                    if (GetStackAmount() == GetSpellInfo()->StackAmount)
+                    {
+                        Remove();
+                        target->CastSpell(target, SPELL_WORGENS_CALL, true);
+                    }
+            }
+            
+            void Register() override
+            {
+                AfterEffectApply += AuraEffectApplyFn(spell_infected_worgen_bite_AuraScript::HandleAfterEffectApply, EFFECT_1, SPELL_AURA_PERIODIC_DAMAGE, AURA_EFFECT_HANDLE_REAPPLY);
+            }
+        };
+
+        AuraScript* GetAuraScript() const override
+        {
+            return new spell_infected_worgen_bite_AuraScript();
+        }
+};
+
 void AddSC_grizzly_hills()
 {
     new npc_emily();
@@ -827,4 +865,5 @@ void AddSC_grizzly_hills()
     new npc_venture_co_straggler();
     new npc_lake_frog();
     new spell_shredder_delivery();
+    new spell_infected_worgen_bite();
 }

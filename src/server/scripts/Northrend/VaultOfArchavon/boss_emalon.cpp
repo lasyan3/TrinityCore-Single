@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2014 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2015 TrinityCore <http://www.trinitycore.org/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -58,7 +58,7 @@ enum Misc
     MAX_TEMPEST_MINIONS         = 4
 };
 
-struct Position TempestMinions[MAX_TEMPEST_MINIONS] =
+Position const TempestMinions[MAX_TEMPEST_MINIONS] =
 {
     {-203.980103f, -281.287720f, 91.650223f, 1.598807f},
     {-233.489410f, -281.139282f, 91.652412f, 1.598807f},

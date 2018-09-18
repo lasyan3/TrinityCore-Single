@@ -16991,7 +16991,7 @@ void Player::AutoQuestCompleteDisplayQuestGiver(uint32 p_questId)
 
 	uint32 entry = (*result)[0].GetUInt32();
 	bool visible = false;
-	for (GuidSet::iterator itr = m_clientGUIDs.begin(); itr != m_clientGUIDs.end(); ++itr)
+	for (GuidList::const_iterator itr = m_clientGUIDs.begin(); itr != m_clientGUIDs.end(); ++itr)
 	{
 		if (!itr->IsCreatureOrPet() && !itr->IsCreatureOrVehicle()) continue;
 		Creature* questgiver = ObjectAccessor::GetCreatureOrPetOrVehicle(*this, *itr);

@@ -967,8 +967,8 @@ public:
 
             //RefreshAura(SPELLDMG, /*level >= 78 ? 5 : level >= 75 ? 4 */level >= 55 ? 3 : level >= 35 ? 2 : level >= 15 ? 1 : 0);
             //RefreshAura(SPELLDMG2, level >= 55 ? 3 : level >= 35 ? 2 : level >= 15 ? 1 : 0);
-            RefreshAura(PURE, level >= 55 ? 1 : 0);
-            RefreshAura(WISE, level >= 35 ? 1 : 0);
+            RefreshAura(JUDGE_PURE, level >= 55 ? 1 : 0);
+			RefreshAura(JUDGE_WISE, level >= 35 ? 1 : 0);
             RefreshAura(RECKONING5, level >= 50 ? 1 : 0);
             RefreshAura(RECKONING4, level >= 45 && level < 50 ? 1 : 0);
             RefreshAura(RECKONING3, level >= 40 && level < 45 ? 1 : 0);
@@ -1105,8 +1105,8 @@ public:
         {
         //Talents
             DIVINE_PURPOSE                      = 31872,
-            PURE/*Judgements of the Pure*/      = 54155,
-            WISE/*Judgements of the Wise*/      = 31878,
+			JUDGE_PURE/*Judgements of the Pure*/ = 54155,
+            JUDGE_WISE/*Judgements of the Wise*/      = 31878,
             SACRED_CLEANSING                    = 53553,//rank 3
             RECKONING1                          = 20177,
             RECKONING2                          = 20179,

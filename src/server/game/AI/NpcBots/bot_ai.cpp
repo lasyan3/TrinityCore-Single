@@ -5819,7 +5819,7 @@ bool bot_minion_ai::_equip(uint8 slot, Item* newItem)
             me->SetUInt32Value(UNIT_VIRTUAL_ITEM_SLOT_ID + slot, newItemId);
         uint32 delay =
             /*einfo->ItemEntry[slot] != newItemId || */!IgnoreEquipsAttackTime() || slot + 1 == BOT_SLOT_OFFHAND ? proto->Delay :
-            slot + 1 == BOT_SLOT_RANGED ? me->GetCreatureTemplate()->rangeattacktime : me->GetCreatureTemplate()->baseattacktime;
+			slot + 1 == BOT_SLOT_RANGED ? me->GetCreatureTemplate()->RangeAttackTime : me->GetCreatureTemplate()->BaseAttackTime;
         me->SetAttackTime(WeaponAttackType(slot), delay); //set attack speed
     }
 

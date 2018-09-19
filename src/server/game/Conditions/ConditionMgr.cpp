@@ -100,7 +100,8 @@ ConditionMgr::ConditionTypeInfo const ConditionMgr::StaticConditionTypeData[COND
     { "Alive",               false, false, false },
     { "Health Value",         true, true,  false },
     { "Health Pct",           true, true, false  },
-    { "Realm Achievement",    true, false, false }
+    { "Realm Achievement",    true, false, false },
+    { "In Water",            false, false, false }
 };
 
 // Checks if object meets the condition
@@ -424,6 +425,12 @@ bool Condition::Meets(ConditionSourceInfo& sourceInfo)
                 condMeets = true;
             break;
         }
+        case CONDITION_IN_WATER:
+        {
+            if (Unit* unit = object->ToUnit())
+                condMeets = unit->IsInWater();
+            break;
+        }
         default:
             condMeets = false;
             break;
@@ -590,6 +597,9 @@ uint32 Condition::GetSearcherTypeMaskForCondition()
             break;
         case CONDITION_REALM_ACHIEVEMENT:
             mask |= GRID_MAP_TYPE_MASK_ALL;
+            break;
+        case CONDITION_IN_WATER:
+            mask |= GRID_MAP_TYPE_MASK_CREATURE | GRID_MAP_TYPE_MASK_PLAYER;
             break;
         default:
             ASSERT(false && "Condition::GetSearcherTypeMaskForCondition - missing condition handling!");
@@ -1525,6 +1535,9 @@ bool ConditionMgr::isSourceTypeValid(Condition* cond)
                 if (!((1 << i) & cond->SourceGroup))
                     continue;
 
+                if (spellInfo->Effects[i].ChainTarget > 0)
+                    continue;
+
                 switch (spellInfo->Effects[i].TargetA.GetSelectionCategory())
                 {
                     case TARGET_SELECT_CATEGORY_NEARBY:
@@ -1545,7 +1558,7 @@ bool ConditionMgr::isSourceTypeValid(Condition* cond)
                         break;
                 }
 
-                TC_LOG_ERROR("sql.sql", "SourceEntry %u SourceGroup %u in `condition` table - spell %u does not have implicit targets of types: _AREA_, _CONE_, _NEARBY_ for effect %u, SourceGroup needs correction, ignoring.", cond->SourceEntry, origGroup, cond->SourceEntry, uint32(i));
+                TC_LOG_ERROR("sql.sql", "SourceEntry %u SourceGroup %u in `condition` table - spell %u does not have implicit targets of types: _AREA_, _CONE_, _NEARBY_, __CHAIN__ for effect %u, SourceGroup needs correction, ignoring.", cond->SourceEntry, origGroup, cond->SourceEntry, uint32(i));
                 cond->SourceGroup &= ~(1 << i);
             }
             // all effects were removed, no need to add the condition at all
@@ -2077,6 +2090,8 @@ bool ConditionMgr::isConditionTypeValid(Condition* cond)
             }
             break;
         }
+        case CONDITION_IN_WATER:
+            break;
         default:
             break;
     }

@@ -64,7 +64,7 @@ class Log
         template<typename... Args>
         inline void outMessage(std::string const& filter, LogLevel const level, const char* fmt, Args const&... args)
         {
-            write(std::move(std::unique_ptr<LogMessage>(new LogMessage(level, filter, std::move(Trinity::StringFormat(fmt, args...))))));
+            write(std::unique_ptr<LogMessage>(new LogMessage(level, filter, Trinity::StringFormat(fmt, args...))));
         }
 
         template<typename... Args>
@@ -75,9 +75,7 @@ class Log
 
             std::unique_ptr<LogMessage> msg(new LogMessage(LOG_LEVEL_INFO, "commands.gm", std::move(Trinity::StringFormat(fmt, args...))));
 
-            std::ostringstream ss;
-            ss << account;
-            msg->param1 = ss.str();
+            msg->param1 = std::to_string(account);
 
             write(std::move(msg));
         }

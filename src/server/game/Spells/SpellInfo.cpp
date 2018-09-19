@@ -1482,12 +1482,17 @@ SpellCastResult SpellInfo::CheckLocation(uint32 map_id, uint32 zone_id, uint32 a
             case SPELL_AURA_MOD_INCREASE_MOUNTED_FLIGHT_SPEED:
             case SPELL_AURA_FLY:
             {
-                if (player && !player->IsKnowHowFlyIn(map_id, zone_id))
-                    return SPELL_FAILED_INCORRECT_AREA;
+                SkillLineAbilityMapBounds bounds = sSpellMgr->GetSkillLineAbilityMapBounds(Id);
+                for (SkillLineAbilityMap::const_iterator skillIter = bounds.first; skillIter != bounds.second; ++skillIter)
+                {
+                    if (skillIter->second->skillId == SKILL_MOUNTS)
+                        if (player && !player->CanFlyInZone(map_id, zone_id))
+                            return SPELL_FAILED_INCORRECT_AREA;
+                }
+                break;
             }
         }
     }
-
     return SPELL_CAST_OK;
 }
 
@@ -1610,7 +1615,7 @@ SpellCastResult SpellInfo::CheckTarget(Unit const* caster, WorldObject const* ta
     }
 
     // not allow casting on flying player
-    if (unitTarget->HasUnitState(UNIT_STATE_IN_FLIGHT))
+    if (unitTarget->HasUnitState(UNIT_STATE_IN_FLIGHT) && !(AttributesCu & SPELL_ATTR0_CU_ALLOW_INFLIGHT_TARGET))
         return SPELL_FAILED_BAD_TARGETS;
 
     /* TARGET_UNIT_MASTER gets blocked here for passengers, because the whole idea of this check is to

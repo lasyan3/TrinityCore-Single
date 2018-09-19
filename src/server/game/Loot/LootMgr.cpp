@@ -151,14 +151,8 @@ uint32 LootStore::LoadLootTable()
         bool   needsquest          = fields[4].GetBool();
         uint16 lootmode            = fields[5].GetUInt16();
         uint8  groupid             = fields[6].GetUInt8();
-        int32  mincount            = fields[7].GetUInt8();
-        int32  maxcount            = fields[8].GetUInt8();
-
-        if (maxcount > std::numeric_limits<uint8>::max())
-        {
-            TC_LOG_ERROR("sql.sql", "Table '%s' Entry %d Item %d: MaxCount value (%u) to large. must be less %u - skipped", GetName(), entry, item, maxcount, std::numeric_limits<uint8>::max());
-            continue;                                   // error already printed to log/console.
-        }
+        uint8  mincount            = fields[7].GetUInt8();
+        uint8  maxcount            = fields[8].GetUInt8();
 
         if (groupid >= 1 << 7)                                     // it stored in 7 bit field
         {
@@ -853,7 +847,7 @@ ByteBuffer& operator<<(ByteBuffer& b, LootItem const& li)
 {
     b << uint32(li.itemid);
     b << uint32(li.count);                                  // nr of items of this type
-    b << uint32(sObjectMgr->GetItemTemplate(li.itemid)->DisplayInfoID);
+    b << uint32(ASSERT_NOTNULL(sObjectMgr->GetItemTemplate(li.itemid))->DisplayInfoID);
     b << uint32(li.randomSuffix);
     b << uint32(li.randomPropertyId);
     //b << uint8(0);                                        // slot type - will send after this function call

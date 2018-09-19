@@ -19,15 +19,11 @@
 #include "SpellMgr.h"
 #include "SpellInfo.h"
 #include "ObjectMgr.h"
-#include "SpellAuras.h"
 #include "SpellAuraDefines.h"
 #include "SharedDefines.h"
 #include "DBCStores.h"
-#include "World.h"
 #include "Chat.h"
-#include "Spell.h"
 #include "BattlegroundMgr.h"
-#include "MapManager.h"
 #include "BattlefieldWG.h"
 #include "BattlefieldMgr.h"
 #include "Player.h"
@@ -1613,8 +1609,8 @@ void SpellMgr::LoadSpellTargetPositions()
 
     mSpellTargetPositions.clear();                                // need for reload case
 
-    //                                                0      1          2             3                  4                  5                   6
-    QueryResult result = WorldDatabase.Query("SELECT id, effIndex, target_map, target_position_x, target_position_y, target_position_z, target_orientation FROM spell_target_position");
+    //                                                0      1          2        3         4           5            6
+    QueryResult result = WorldDatabase.Query("SELECT ID, EffectIndex, MapID, PositionX, PositionY, PositionZ, Orientation FROM spell_target_position");
     if (!result)
     {
         TC_LOG_INFO("server.loading", ">> Loaded 0 spell target coordinates. DB table `spell_target_position` is empty.");
@@ -2958,6 +2954,10 @@ void SpellMgr::LoadSpellInfoCorrections()
 
         switch (spellInfo->Id)
         {
+            case 63026: // Force Cast (HACK: Target shouldn't be changed)
+            case 63137: // Force Cast (HACK: Target shouldn't be changed; summon position should be untied from spell destination)
+                spellInfo->Effects[0].TargetA = SpellImplicitTargetInfo(TARGET_DEST_DB);
+                break;
             case 53096: // Quetz'lun's Judgment
             case 70743: // AoD Special
             case 70614: // AoD Special - Vegard
@@ -3004,6 +3004,10 @@ void SpellMgr::LoadSpellInfoCorrections()
                 spellInfo->Effects[EFFECT_0].TriggerSpell = 36325; // They Must Burn Bomb Drop (DND)
                 break;
             case 49838: // Stop Time
+            case 69438: // Sample Satisfaction
+            case 69445: // Perfume Spritz
+            case 69489: // Chocolate Sample
+            case 69563: // Cologne Spritz
                 spellInfo->AttributesEx3 |= SPELL_ATTR3_NO_INITIAL_AGGRO;
                 break;
             case 61407: // Energize Cores
@@ -3130,6 +3134,7 @@ void SpellMgr::LoadSpellInfoCorrections()
             case 64823: // Item - Druid T8 Balance 4P Bonus
             case 34477: // Misdirection
             case 44401: // Missile Barrage
+            case 18820: // Insight
                 spellInfo->ProcCharges = 1;
                 break;
             case 44544: // Fingers of Frost

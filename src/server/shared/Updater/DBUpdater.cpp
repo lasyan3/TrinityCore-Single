@@ -26,7 +26,6 @@
 #include <iostream>
 #include <unordered_map>
 #include <boost/process.hpp>
-#include <boost/process/mitigate.hpp>
 #include <boost/iostreams/device/file_descriptor.hpp>
 #include <boost/system/system_error.hpp>
 
@@ -240,16 +239,27 @@ bool DBUpdater<T>::Update(DatabaseWorkerPool<T>& pool)
         [&](Path const& file) { DBUpdater<T>::ApplyFile(pool, file); },
             [&](std::string const& query) -> QueryResult { return DBUpdater<T>::Retrieve(pool, query); });
 
-    uint32 const count = updateFetcher.Update(
-        sConfigMgr->GetBoolDefault("Updates.Redundancy", true),
-        sConfigMgr->GetBoolDefault("Updates.AllowRehash", true),
-        sConfigMgr->GetBoolDefault("Updates.ArchivedRedundancy", false),
-        sConfigMgr->GetIntDefault("Updates.CleanDeadRefMaxCount", 3));
+    UpdateResult result;
+    try
+    {
+        result = updateFetcher.Update(
+            sConfigMgr->GetBoolDefault("Updates.Redundancy", true),
+            sConfigMgr->GetBoolDefault("Updates.AllowRehash", true),
+            sConfigMgr->GetBoolDefault("Updates.ArchivedRedundancy", false),
+            sConfigMgr->GetIntDefault("Updates.CleanDeadRefMaxCount", 3));
+    }
+    catch (UpdateException&)
+    {
+        return false;
+    }
 
-    if (!count)
-        TC_LOG_INFO("sql.updates", ">> %s database is up-to-date!", DBUpdater<T>::GetTableName().c_str());
+    std::string const info = Trinity::StringFormat("Containing " SZFMTD " new and " SZFMTD " archived updates.",
+        result.recent, result.archived);
+
+    if (!result.updated)
+        TC_LOG_INFO("sql.updates", ">> %s database is up-to-date! %s", DBUpdater<T>::GetTableName().c_str(), info.c_str());
     else
-        TC_LOG_INFO("sql.updates", ">> Applied %d %s.", count, count == 1 ? "query" : "queries");
+        TC_LOG_INFO("sql.updates", ">> Applied " SZFMTD " %s. %s", result.updated, result.updated == 1 ? "query" : "queries", info.c_str());
 
     return true;
 }
@@ -299,7 +309,14 @@ bool DBUpdater<T>::Populate(DatabaseWorkerPool<T>& pool)
 
     // Update database
     TC_LOG_INFO("sql.updates", ">> Applying \'%s\'...", base.generic_string().c_str());
-    ApplyFile(pool, base);
+    try
+    {
+        ApplyFile(pool, base);
+    }
+    catch (UpdateException&)
+    {
+        return false;
+    }
 
     TC_LOG_INFO("sql.updates", ">> Done!");
     return true;
@@ -334,8 +351,29 @@ void DBUpdater<T>::ApplyFile(DatabaseWorkerPool<T>& pool, std::string const& hos
     // CLI Client connection info
     args.push_back("-h" + host);
     args.push_back("-u" + user);
-    args.push_back("-p" + password);
+
+    if (!password.empty())
+        args.push_back("-p" + password);
+
+    // Check if we want to connect through ip or socket (Unix only)
+#ifdef _WIN32
+
     args.push_back("-P" + port_or_socket);
+
+#else
+
+    if (!std::isdigit(port_or_socket[0]))
+    {
+        // We can't check here if host == "." because is named localhost if socket option is enabled
+        args.push_back("-P0");
+        args.push_back("--protocol=SOCKET");
+        args.push_back("-S" + port_or_socket);
+    }
+    else
+        // generic case
+        args.push_back("-P" + port_or_socket);
+
+#endif
 
     // Set the default charset to utf8
     args.push_back("--default-character-set=utf8");

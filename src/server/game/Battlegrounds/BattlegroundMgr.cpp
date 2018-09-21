@@ -549,7 +549,7 @@ void BattlegroundMgr::LoadBattlegroundTemplates()
         float dist                   = fields[9].GetFloat();
         bgTemplate.MaxStartDistSq    = dist * dist;
         bgTemplate.Weight            = fields[10].GetUInt8();
-        bgTemplate.ScriptId          = sObjectMgr->GetScriptId(fields[11].GetCString());
+        bgTemplate.ScriptId          = sObjectMgr->GetScriptId(fields[11].GetString());
         bgTemplate.BattlemasterEntry = bl;
 
         if (bgTemplate.MaxPlayersPerTeam == 0 || bgTemplate.MinPlayersPerTeam > bgTemplate.MaxPlayersPerTeam)
@@ -821,7 +821,8 @@ void BattlegroundMgr::ToggleArenaTesting()
 
 void BattlegroundMgr::SetHolidayWeekends(uint32 mask)
 {
-    for (uint32 bgtype = 1; bgtype < MAX_BATTLEGROUND_TYPE_ID; ++bgtype)
+    // The current code supports battlegrounds up to BattlegroundTypeId(31)
+    for (uint32 bgtype = 1; bgtype < MAX_BATTLEGROUND_TYPE_ID && bgtype < 32; ++bgtype)
         if (Battleground* bg = GetBattlegroundTemplate(BattlegroundTypeId(bgtype)))
             bg->SetHoliday((mask & (1 << bgtype)) != 0);
 }

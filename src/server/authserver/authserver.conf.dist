@@ -155,6 +155,7 @@ LoginDatabase.WorkerThreads = 1
 #                     1 - (Enabled)
 
 Wrong.Password.Login.Logging = 0
+
 #
 ###################################################################################################
 
@@ -182,7 +183,7 @@ Updates.EnableDatabases = 0
 Updates.SourcePath  = ""
 
 #
-#    Updates.SourcePath
+#    Updates.MySqlCLIPath
 #        Description: The path to your mysql cli binary.
 #                     If the path is left empty, built-in path from cmake is used.
 #        Example:     "C:/Program Files/MySQL/MySQL Server 5.6/bin/mysql.exe"

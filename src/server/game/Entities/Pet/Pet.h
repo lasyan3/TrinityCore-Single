@@ -55,7 +55,7 @@ class Pet : public Guardian
 
         bool IsPermanentPetFor(Player* owner) const;        // pet have tab in character windows and set UNIT_FIELD_PETNUMBER
 
-        bool Create(uint32 guidlow, Map* map, uint32 phaseMask, uint32 Entry, uint32 pet_number);
+        bool Create(ObjectGuid::LowType guidlow, Map* map, uint32 phaseMask, uint32 Entry, uint32 pet_number);
         bool CreateBaseAtCreature(Creature* creature);
         bool CreateBaseAtCreatureInfo(CreatureTemplate const* cinfo, Unit* owner);
         bool CreateBaseAtTamed(CreatureTemplate const* cinfo, Map* map, uint32 phaseMask);
@@ -63,7 +63,7 @@ class Pet : public Guardian
         bool IsLoading() const override { return m_loading;}
         void SavePetToDB(PetSaveMode mode);
         void Remove(PetSaveMode mode, bool returnreagent = false);
-        static void DeleteFromDB(uint32 guidlow);
+        static void DeleteFromDB(ObjectGuid::LowType guidlow);
 
         void setDeathState(DeathState s) override;                   // overwrite virtual Creature::setDeathState and Unit::setDeathState
         void Update(uint32 diff) override;                           // overwrite virtual Creature::Update and Unit::Update
@@ -130,8 +130,8 @@ class Pet : public Guardian
         static void resetTalentsForAllPetsOf(Player* owner, Pet* online_pet = nullptr);
         void InitTalentForLevel();
 
-        uint8 GetMaxTalentPointsForLevel(uint8 level);
-        uint8 GetFreeTalentPoints() { return GetByteValue(UNIT_FIELD_BYTES_1, 1); }
+        uint8 GetMaxTalentPointsForLevel(uint8 level) const;
+        uint8 GetFreeTalentPoints() const { return GetByteValue(UNIT_FIELD_BYTES_1, 1); }
         void SetFreeTalentPoints(uint8 points) { SetByteValue(UNIT_FIELD_BYTES_1, 1, points); }
 
         uint32  m_usedTalentCount;
@@ -159,11 +159,11 @@ class Pet : public Guardian
     private:
         void SaveToDB(uint32, uint8, uint32) override                // override of Creature::SaveToDB     - must not be called
         {
-            ASSERT(false);
+            ABORT();
         }
         void DeleteFromDB() override                                 // override of Creature::DeleteFromDB - must not be called
         {
-            ASSERT(false);
+            ABORT();
         }
 };
 #endif

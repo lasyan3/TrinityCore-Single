@@ -60,7 +60,6 @@ DoorData const doorData[] =
 
 MinionData const minionData[] =
 {
-    { NPC_FOLLOWER_WORSHIPPER,  BOSS_FAERLINA   },
     { NPC_DK_UNDERSTUDY,        BOSS_RAZUVIOUS  },
     { NPC_SIR,                  BOSS_HORSEMEN   },
     { NPC_THANE,                BOSS_HORSEMEN   },
@@ -78,12 +77,13 @@ ObjectData const objectData[] =
     { 0,                        0,                         }
 };
 
-float const HeiganPos[2] = { 2796.0f, -3707.0f };
+// from P2 teleport spell stored target
+float const HeiganPos[2] = { 2793.86f, -3707.38f };
 float const HeiganEruptionSlope[3] =
 {
-    (-3685.0f - HeiganPos[1]) / (2724.0f - HeiganPos[0]),
-    (-3647.0f - HeiganPos[1]) / (2749.0f - HeiganPos[0]),
-    (-3637.0f - HeiganPos[1]) / (2771.0f - HeiganPos[0])
+    (-3703.303223f - HeiganPos[1]) / (2777.494141f - HeiganPos[0]), // between right center and far right
+    (-3696.948242f - HeiganPos[1]) / (2785.624268f - HeiganPos[0]), // between left and right halves
+    (-3691.880615f - HeiganPos[1]) / (2790.280029f - HeiganPos[0]) // between far left and left center
 };
 
 // 0  H      x
@@ -125,6 +125,8 @@ class instance_naxxramas : public InstanceMapScript
                 minHorsemenDiedTime     = 0;
                 maxHorsemenDiedTime     = 0;
                 AbominationCount        = 0;
+                hadAnubRekhanGreet      = false;
+                hadFaerlinaGreet        = false;
                 CurrentWingTaunt        = SAY_KELTHUZAD_FIRST_WING_TAUNT;
 
                 playerDied              = 0;
@@ -134,6 +136,9 @@ class instance_naxxramas : public InstanceMapScript
             {
                 switch (creature->GetEntry())
                 {
+                    case NPC_ANUBREKHAN:
+                        AnubRekhanGUID = creature->GetGUID();
+                        break;
                     case NPC_FAERLINA:
                         FaerlinaGUID = creature->GetGUID();
                         break;
@@ -246,7 +251,6 @@ class instance_naxxramas : public InstanceMapScript
                 if (go->GetGOInfo()->displayId == 6785 || go->GetGOInfo()->displayId == 1287)
                 {
                     uint32 section = GetEruptionSection(go->GetPositionX(), go->GetPositionY());
-
                     HeiganEruptionGUID[section].erase(go->GetGUID());
                     return;
                 }
@@ -319,6 +323,14 @@ class instance_naxxramas : public InstanceMapScript
                     case DATA_ABOMINATION_KILLED:
                         AbominationCount = value;
                         break;
+                    case DATA_HAD_ANUBREKHAN_GREET:
+                        hadAnubRekhanGreet = (value == 1u);
+                        break;
+                    case DATA_HAD_FAERLINA_GREET:
+                        hadFaerlinaGreet = (value == 1u);
+                        break;
+                    default:
+                        break;
                 }
             }
 
@@ -328,6 +340,10 @@ class instance_naxxramas : public InstanceMapScript
                 {
                     case DATA_ABOMINATION_KILLED:
                         return AbominationCount;
+                    case DATA_HAD_ANUBREKHAN_GREET:
+                        return (uint32)hadAnubRekhanGreet;
+                    case DATA_HAD_FAERLINA_GREET:
+                        return (uint32)hadFaerlinaGreet;
                     default:
                         break;
                 }
@@ -339,6 +355,8 @@ class instance_naxxramas : public InstanceMapScript
             {
                 switch (id)
                 {
+                    case DATA_ANUBREKHAN:
+                        return AnubRekhanGUID;
                     case DATA_FAERLINA:
                         return FaerlinaGUID;
                     case DATA_THANE:
@@ -552,7 +570,7 @@ class instance_naxxramas : public InstanceMapScript
             // This Function is called in CheckAchievementCriteriaMeet and CheckAchievementCriteriaMeet is called before SetBossState(bossId, DONE),
             // so to check if all bosses are done the checker must exclude 1 boss, the last done, if there is at most 1 encouter in progress when is
             // called this function then all bosses are done. The one boss that check is the boss that calls this function, so it is dead.
-            bool AreAllEncoutersDone()
+            bool AreAllEncountersDone()
             {
                 uint32 numBossAlive = 0;
                 for (uint32 i = 0; i < EncounterCount; ++i)
@@ -589,7 +607,7 @@ class instance_naxxramas : public InstanceMapScript
                     case 13239: // Loatheb
                     case 13240: // Thaddius
                     case 7617:  // Kel'Thuzad
-                        if (AreAllEncoutersDone() && !playerDied)
+                        if (AreAllEncountersDone() && !playerDied)
                             return true;
                         return false;
                 }
@@ -599,6 +617,8 @@ class instance_naxxramas : public InstanceMapScript
 
         protected:
             /* The Arachnid Quarter */
+            // Anub'rekhan
+            ObjectGuid AnubRekhanGUID;
             // Grand Widow Faerlina
             ObjectGuid FaerlinaGUID;
 
@@ -635,6 +655,8 @@ class instance_naxxramas : public InstanceMapScript
             ObjectGuid KelthuzadDoorGUID;
             ObjectGuid LichKingGUID;
             uint8 AbominationCount;
+            bool hadAnubRekhanGreet;
+            bool hadFaerlinaGreet;
             uint8 CurrentWingTaunt;
 
             /* The Immortal / The Undying */

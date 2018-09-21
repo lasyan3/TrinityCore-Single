@@ -36,7 +36,6 @@
 #include "LootMgr.h"
 #include "MoveSpline.h"
 #include "ObjectMgr.h"
-#include "Opcodes.h"
 #include "Player.h"
 #include "PoolMgr.h"
 #include "QuestDef.h"
@@ -139,8 +138,8 @@ bool ForcedDespawnDelayEvent::Execute(uint64 /*e_time*/, uint32 /*p_time*/)
 Creature::Creature(bool isWorldObject): Unit(isWorldObject), MapObject(),
 m_groupLootTimer(0), lootingGroupLowGUID(0), m_PlayerDamageReq(0),
 m_lootRecipient(), m_lootRecipientGroup(0), _skinner(), _pickpocketLootRestore(0), m_corpseRemoveTime(0), m_respawnTime(0),
-m_respawnDelay(300), m_corpseDelay(60), m_respawnradius(0.0f), m_reactState(REACT_AGGRESSIVE),
-m_defaultMovementType(IDLE_MOTION_TYPE), m_DBTableGuid(0), m_equipmentId(0), m_originalEquipmentId(0), m_AlreadyCallAssistance(false),
+m_respawnDelay(300), m_corpseDelay(60), m_respawnradius(0.0f), m_combatPulseTime(0), m_combatPulseDelay(0), m_reactState(REACT_AGGRESSIVE),
+m_defaultMovementType(IDLE_MOTION_TYPE), m_spawnId(0), m_equipmentId(0), m_originalEquipmentId(0), m_AlreadyCallAssistance(false),
 m_AlreadySearchedAssistance(false), m_regenHealth(true), m_AI_locked(false), m_meleeDamageSchoolMask(SPELL_SCHOOL_MASK_NORMAL),
 m_originalEntry(0), m_homePosition(), m_transportHomePosition(), m_creatureInfo(NULL), m_creatureData(NULL), m_waypointID(0), m_path_id(0), m_formation(NULL)
 {
@@ -177,7 +176,13 @@ void Creature::AddToWorld()
     {
         if (GetZoneScript())
             GetZoneScript()->OnCreatureCreate(this);
-        sObjectAccessor->AddObject(this);
+
+        GetMap()->GetObjectsStore().Insert<Creature>(GetGUID(), this);
+        if (m_spawnId)
+            GetMap()->GetCreatureBySpawnIdStore().insert(std::make_pair(m_spawnId, this));
+
+        TC_LOG_DEBUG("entities.unit", "Adding creature %u with entry %u and DBGUID %u to world in map %u", GetGUID().GetCounter(), GetEntry(), m_spawnId, GetMap()->GetId());
+
         Unit::AddToWorld();
         SearchFormation();
         AIM_Initialize();
@@ -192,10 +197,17 @@ void Creature::RemoveFromWorld()
     {
         if (GetZoneScript())
             GetZoneScript()->OnCreatureRemove(this);
+
         if (m_formation)
             sFormationMgr->RemoveCreatureFromGroup(m_formation, this);
+
         Unit::RemoveFromWorld();
-        sObjectAccessor->RemoveObject(this);
+
+        if (m_spawnId)
+            Trinity::Containers::MultimapErasePair(GetMap()->GetCreatureBySpawnIdStore(), m_spawnId, this);
+
+        TC_LOG_DEBUG("entities.unit", "Removing creature %u with entry %u and DBGUID %u to world in map %u", GetGUID().GetCounter(), GetEntry(), m_spawnId, GetMap()->GetId());
+        GetMap()->GetObjectsStore().Remove<Creature>(GetGUID());
     }
 }
 
@@ -214,7 +226,7 @@ void Creature::SearchFormation()
     if (IsSummon())
         return;
 
-    uint32 lowguid = GetDBTableGUIDLow();
+    ObjectGuid::LowType lowguid = GetSpawnId();
     if (!lowguid)
         return;
 
@@ -448,11 +460,11 @@ void Creature::Update(uint32 diff)
     {
         case JUST_RESPAWNED:
             // Must not be called, see Creature::setDeathState JUST_RESPAWNED -> ALIVE promoting.
-            TC_LOG_ERROR("entities.unit", "Creature (GUID: %u Entry: %u) in wrong state: JUST_RESPAWNED (4)", GetGUIDLow(), GetEntry());
+            TC_LOG_ERROR("entities.unit", "Creature (GUID: %u Entry: %u) in wrong state: JUST_RESPAWNED (4)", GetGUID().GetCounter(), GetEntry());
             break;
         case JUST_DIED:
             // Must not be called, see Creature::setDeathState JUST_DIED -> CORPSE promoting.
-            TC_LOG_ERROR("entities.unit", "Creature (GUID: %u Entry: %u) in wrong state: JUST_DEAD (1)", GetGUIDLow(), GetEntry());
+            TC_LOG_ERROR("entities.unit", "Creature (GUID: %u Entry: %u) in wrong state: JUST_DEAD (1)", GetGUID().GetCounter(), GetEntry());
             break;
         case DEAD:
         {
@@ -463,7 +475,7 @@ void Creature::Update(uint32 diff)
                 if (!allowed)                                               // Will be rechecked on next Update call
                     break;
 
-                ObjectGuid dbtableHighGuid(HIGHGUID_UNIT, GetEntry(), m_DBTableGuid);
+                ObjectGuid dbtableHighGuid(HighGuid::Unit, GetEntry(), m_spawnId);
                 time_t linkedRespawntime = GetMap()->GetLinkedRespawnTime(dbtableHighGuid);
                 if (!linkedRespawntime)             // Can respawn
                     Respawn();
@@ -527,10 +539,44 @@ void Creature::Update(uint32 diff)
                 LastCharmerGUID.Clear();
             }
 
+            // if periodic combat pulse is enabled and we are both in combat and in a dungeon, do this now
+            if (m_combatPulseDelay > 0 && IsInCombat() && GetMap()->IsDungeon())
+            {
+                if (diff > m_combatPulseTime)
+                    m_combatPulseTime = 0;
+                else
+                    m_combatPulseTime -= diff;
+
+                if (m_combatPulseTime == 0)
+                {
+                    Map::PlayerList const &players = GetMap()->GetPlayers();
+                    if (!players.isEmpty())
+                        for (Map::PlayerList::const_iterator it = players.begin(); it != players.end(); ++it)
+                        {
+                            if (Player* player = it->GetSource())
+                            {
+                                if (player->IsGameMaster())
+                                    continue;
+
+                                if (player->IsAlive() && this->IsHostileTo(player))
+                                {
+                                    if (CanHaveThreatList())
+                                        AddThreat(player, 0.0f);
+                                    this->SetInCombatWith(player);
+                                    player->SetInCombatWith(this);
+                                }
+                            }
+                        }
+
+                    m_combatPulseTime = m_combatPulseDelay * IN_MILLISECONDS;
+                }
+            }
+
             if (!IsInEvadeMode() && IsAIEnabled)
             {
                 // do not allow the AI to be changed during update
                 m_AI_locked = true;
+
                 i_AI->UpdateAI(diff);
                 m_AI_locked = false;
             }
@@ -729,7 +775,7 @@ void Creature::Motion_Initialize()
         GetMotionMaster()->Initialize();
 }
 
-bool Creature::Create(uint32 guidlow, Map* map, uint32 phaseMask, uint32 entry, float x, float y, float z, float ang, CreatureData const* data /*= nullptr*/, uint32 vehId /*= 0*/)
+bool Creature::Create(ObjectGuid::LowType guidlow, Map* map, uint32 phaseMask, uint32 entry, float x, float y, float z, float ang, CreatureData const* data /*= nullptr*/, uint32 vehId /*= 0*/)
 {
     ASSERT(map);
     SetMap(map);
@@ -919,7 +965,7 @@ void Creature::SaveToDB()
 {
     // this should only be used when the creature has already been loaded
     // preferably after adding to map, because mapid may not be valid otherwise
-    CreatureData const* data = sObjectMgr->GetCreatureData(m_DBTableGuid);
+    CreatureData const* data = sObjectMgr->GetCreatureData(m_spawnId);
     if (!data)
     {
         TC_LOG_ERROR("entities.unit", "Creature::SaveToDB failed, cannot get creature data!");
@@ -933,9 +979,10 @@ void Creature::SaveToDB()
 void Creature::SaveToDB(uint32 mapid, uint8 spawnMask, uint32 phaseMask)
 {
     // update in loaded data
-    if (!m_DBTableGuid)
-        m_DBTableGuid = GetGUIDLow();
-    CreatureData& data = sObjectMgr->NewOrExistCreatureData(m_DBTableGuid);
+    if (!m_spawnId)
+        m_spawnId = sObjectMgr->GenerateCreatureSpawnId();
+
+    CreatureData& data = sObjectMgr->NewOrExistCreatureData(m_spawnId);
 
     uint32 displayId = GetNativeDisplayId();
     uint32 npcflag = GetUInt32Value(UNIT_NPC_FLAGS);
@@ -999,13 +1046,14 @@ void Creature::SaveToDB(uint32 mapid, uint8 spawnMask, uint32 phaseMask)
     SQLTransaction trans = WorldDatabase.BeginTransaction();
 
     PreparedStatement* stmt = WorldDatabase.GetPreparedStatement(WORLD_DEL_CREATURE);
-    stmt->setUInt32(0, m_DBTableGuid);
+    stmt->setUInt32(0, m_spawnId);
+
     trans->Append(stmt);
 
     uint8 index = 0;
 
     stmt = WorldDatabase.GetPreparedStatement(WORLD_INS_CREATURE);
-    stmt->setUInt32(index++, m_DBTableGuid);
+    stmt->setUInt32(index++, m_spawnId);
     stmt->setUInt32(index++, GetEntry());
     stmt->setUInt16(index++, uint16(mapid));
     stmt->setUInt8(index++, spawnMask);
@@ -1150,7 +1198,7 @@ float Creature::GetSpellDamageMod(int32 Rank) const
     }
 }
 
-bool Creature::CreateFromProto(uint32 guidlow, uint32 entry, CreatureData const* data /*= nullptr*/, uint32 vehId /*= 0*/)
+bool Creature::CreateFromProto(ObjectGuid::LowType guidlow, uint32 entry, CreatureData const* data /*= nullptr*/, uint32 vehId /*= 0*/)
 {
     SetZoneScript();
     if (GetZoneScript() && data)
@@ -1169,7 +1217,7 @@ bool Creature::CreateFromProto(uint32 guidlow, uint32 entry, CreatureData const*
 
     SetOriginalEntry(entry);
 
-    Object::_Create(guidlow, entry, (vehId || cinfo->VehicleId) ? HIGHGUID_VEHICLE : HIGHGUID_UNIT);
+    Object::_Create(guidlow, entry, (vehId || cinfo->VehicleId) ? HighGuid::Vehicle : HighGuid::Unit);
 
     if (!UpdateEntry(entry, data))
         return false;
@@ -1191,26 +1239,18 @@ bool Creature::CreateFromProto(uint32 guidlow, uint32 entry, CreatureData const*
     return true;
 }
 
-bool Creature::LoadCreatureFromDB(uint32 guid, Map* map, bool addToMap)
+bool Creature::LoadCreatureFromDB(ObjectGuid::LowType spawnId, Map* map, bool addToMap)
 {
-    CreatureData const* data = sObjectMgr->GetCreatureData(guid);
+    CreatureData const* data = sObjectMgr->GetCreatureData(spawnId);
 
     if (!data)
     {
-        TC_LOG_ERROR("sql.sql", "Creature (GUID: %u) not found in table `creature`, can't load. ", guid);
+        TC_LOG_ERROR("sql.sql", "Creature (GUID: %u) not found in table `creature`, can't load. ", spawnId);
         return false;
     }
 
-    m_DBTableGuid = guid;
-    if (map->GetInstanceId() == 0)
-    {
-        if (map->GetCreature(ObjectGuid(HIGHGUID_UNIT, data->id, guid)))
-            return false;
-    }
-    else
-        guid = sObjectMgr->GenerateLowGuid(HIGHGUID_UNIT);
-
-    if (!Create(guid, map, data->phaseMask, data->id, data->posX, data->posY, data->posZ, data->orientation, data))
+    m_spawnId = spawnId;
+    if (!Create(map->GenerateLowGuid<HighGuid::Unit>(), map, data->phaseMask, data->id, data->posX, data->posY, data->posZ, data->orientation, data))
         return false;
 
     //We should set first home position, because then AI calls home movement
@@ -1221,7 +1261,7 @@ bool Creature::LoadCreatureFromDB(uint32 guid, Map* map, bool addToMap)
     m_respawnDelay = data->spawntimesecs;
     m_deathState = ALIVE;
 
-    m_respawnTime  = GetMap()->GetCreatureRespawnTime(m_DBTableGuid);
+    m_respawnTime  = GetMap()->GetCreatureRespawnTime(m_spawnId);
     if (m_respawnTime)                          // respawn on Update
     {
         m_deathState = DEAD;
@@ -1316,31 +1356,31 @@ bool Creature::hasInvolvedQuest(uint32 quest_id) const
 
 void Creature::DeleteFromDB()
 {
-    if (!m_DBTableGuid)
+    if (!m_spawnId)
     {
-        TC_LOG_ERROR("entities.unit", "Trying to delete not saved creature! LowGUID: %u, Entry: %u", GetGUIDLow(), GetEntry());
+        TC_LOG_ERROR("entities.unit", "Trying to delete not saved creature! LowGUID: %u, Entry: %u", GetGUID().GetCounter(), GetEntry());
         return;
     }
 
-    GetMap()->RemoveCreatureRespawnTime(m_DBTableGuid);
-    sObjectMgr->DeleteCreatureData(m_DBTableGuid);
+    GetMap()->RemoveCreatureRespawnTime(m_spawnId);
+    sObjectMgr->DeleteCreatureData(m_spawnId);
 
     SQLTransaction trans = WorldDatabase.BeginTransaction();
 
     PreparedStatement* stmt = WorldDatabase.GetPreparedStatement(WORLD_DEL_CREATURE);
-    stmt->setUInt32(0, m_DBTableGuid);
+    stmt->setUInt32(0, m_spawnId);
     trans->Append(stmt);
 
     stmt = WorldDatabase.GetPreparedStatement(WORLD_DEL_CREATURE_ADDON);
-    stmt->setUInt32(0, m_DBTableGuid);
+    stmt->setUInt32(0, m_spawnId);
     trans->Append(stmt);
 
     stmt = WorldDatabase.GetPreparedStatement(WORLD_DEL_GAME_EVENT_CREATURE);
-    stmt->setUInt32(0, m_DBTableGuid);
+    stmt->setUInt32(0, m_spawnId);
     trans->Append(stmt);
 
     stmt = WorldDatabase.GetPreparedStatement(WORLD_DEL_GAME_EVENT_MODEL_EQUIP);
-    stmt->setUInt32(0, m_DBTableGuid);
+    stmt->setUInt32(0, m_spawnId);
     trans->Append(stmt);
 
     WorldDatabase.CommitTransaction(trans);
@@ -1537,8 +1577,8 @@ void Creature::Respawn(bool force)
 
     if (getDeathState() == DEAD)
     {
-        if (m_DBTableGuid)
-            GetMap()->RemoveCreatureRespawnTime(m_DBTableGuid);
+        if (m_spawnId)
+            GetMap()->RemoveCreatureRespawnTime(m_spawnId);
 
         TC_LOG_DEBUG("entities.unit", "Respawning creature %s (%s)",
             GetName().c_str(), GetGUID().ToString().c_str());
@@ -1571,9 +1611,9 @@ void Creature::Respawn(bool force)
             TriggerJustRespawned = true;//delay event to next tick so all creatures are created on the map before processing
         }
 
-        uint32 poolid = GetDBTableGUIDLow() ? sPoolMgr->IsPartOfAPool<Creature>(GetDBTableGUIDLow()) : 0;
+        uint32 poolid = GetSpawnId() ? sPoolMgr->IsPartOfAPool<Creature>(GetSpawnId()) : 0;
         if (poolid)
-            sPoolMgr->UpdatePool<Creature>(poolid, GetDBTableGUIDLow());
+            sPoolMgr->UpdatePool<Creature>(poolid, GetSpawnId());
 
         //Re-initialize reactstate that could be altered by movementgenerators
         InitializeReactState();
@@ -1794,7 +1834,7 @@ Unit* Creature::SelectNearestTargetInAttackDistance(float dist) const
 
     if (dist > MAX_VISIBILITY_DISTANCE)
     {
-        TC_LOG_ERROR("entities.unit", "Creature (GUID: %u Entry: %u) SelectNearestTargetInAttackDistance called with dist > MAX_VISIBILITY_DISTANCE. Distance set to ATTACK_DISTANCE.", GetGUIDLow(), GetEntry());
+        TC_LOG_ERROR("entities.unit", "Creature (GUID: %u Entry: %u) SelectNearestTargetInAttackDistance called with dist > MAX_VISIBILITY_DISTANCE. Distance set to ATTACK_DISTANCE.", GetGUID().GetCounter(), GetEntry());
         dist = ATTACK_DISTANCE;
     }
 
@@ -1977,10 +2017,10 @@ bool Creature::_IsTargetAcceptable(const Unit* target) const
 
 void Creature::SaveRespawnTime()
 {
-    if (IsSummon() || !m_DBTableGuid || (m_creatureData && !m_creatureData->dbData))
+    if (IsSummon() || !m_spawnId || (m_creatureData && !m_creatureData->dbData))
         return;
 
-    GetMap()->SaveCreatureRespawnTime(m_DBTableGuid, m_respawnTime);
+    GetMap()->SaveCreatureRespawnTime(m_spawnId, m_respawnTime);
 }
 
 // this should not be called by petAI or
@@ -2012,9 +2052,9 @@ bool Creature::CanCreatureAttack(Unit const* victim, bool /*force*/) const
 
 CreatureAddon const* Creature::GetCreatureAddon() const
 {
-    if (m_DBTableGuid)
+    if (m_spawnId)
     {
-        if (CreatureAddon const* addon = sObjectMgr->GetCreatureAddon(m_DBTableGuid))
+        if (CreatureAddon const* addon = sObjectMgr->GetCreatureAddon(m_spawnId))
             return addon;
     }
 
@@ -2083,7 +2123,7 @@ bool Creature::LoadCreaturesAddon(bool reload)
             SpellInfo const* AdditionalSpellInfo = sSpellMgr->GetSpellInfo(*itr);
             if (!AdditionalSpellInfo)
             {
-                TC_LOG_ERROR("sql.sql", "Creature (GUID: %u Entry: %u) has wrong spell %u defined in `auras` field.", GetGUIDLow(), GetEntry(), *itr);
+                TC_LOG_ERROR("sql.sql", "Creature (GUID: %u Entry: %u) has wrong spell %u defined in `auras` field.", GetGUID().GetCounter(), GetEntry(), *itr);
                 continue;
             }
 
@@ -2091,13 +2131,13 @@ bool Creature::LoadCreaturesAddon(bool reload)
             if (HasAura(*itr))
             {
                 if (!reload)
-                    TC_LOG_ERROR("sql.sql", "Creature (GUID: %u Entry: %u) has duplicate aura (spell %u) in `auras` field.", GetDBTableGUIDLow(), GetEntry(), *itr);
+                    TC_LOG_ERROR("sql.sql", "Creature (GUID: %u Entry: %u) has duplicate aura (spell %u) in `auras` field.", GetSpawnId(), GetEntry(), *itr);
 
                 continue;
             }
 
             AddAura(*itr, this);
-            TC_LOG_DEBUG("entities.unit", "Spell: %u added to creature (GUID: %u Entry: %u)", *itr, GetGUIDLow(), GetEntry());
+            TC_LOG_DEBUG("entities.unit", "Spell: %u added to creature (GUID: %u Entry: %u)", *itr, GetGUID().GetCounter(), GetEntry());
         }
     }
 
@@ -2177,9 +2217,9 @@ time_t Creature::GetRespawnTimeEx() const
 
 void Creature::GetRespawnPosition(float &x, float &y, float &z, float* ori, float* dist) const
 {
-    if (m_DBTableGuid)
+    if (m_spawnId)
     {
-        if (CreatureData const* data = sObjectMgr->GetCreatureData(GetDBTableGUIDLow()))
+        if (CreatureData const* data = sObjectMgr->GetCreatureData(GetSpawnId()))
         {
             x = data->posX;
             y = data->posY;
@@ -2554,7 +2594,7 @@ void Creature::UpdateMovementFlags()
         return;
 
     // Set the movement flags if the creature is in that mode. (Only fly if actually in air, only swim if in water, etc)
-    float ground = GetMap()->GetHeight(GetPositionX(), GetPositionY(), GetPositionZMinusOffset());
+    float ground = GetMap()->GetHeight(GetPhaseMask(), GetPositionX(), GetPositionY(), GetPositionZMinusOffset());
 
     bool isInAir = (G3D::fuzzyGt(GetPositionZMinusOffset(), ground + 0.05f) || G3D::fuzzyLt(GetPositionZMinusOffset(), ground - 0.05f)); // Can be underground too, prevent the falling
 
@@ -2647,7 +2687,7 @@ void Creature::SetTextRepeatId(uint8 textGroup, uint8 id)
     if (std::find(repeats.begin(), repeats.end(), id) == repeats.end())
         repeats.push_back(id);
     else
-        TC_LOG_ERROR("sql.sql", "CreatureTextMgr: TextGroup %u for Creature(%s) GuidLow %u Entry %u, id %u already added", uint32(textGroup), GetName().c_str(), GetGUIDLow(), GetEntry(), uint32(id));
+        TC_LOG_ERROR("sql.sql", "CreatureTextMgr: TextGroup %u for Creature(%s) GuidLow %u Entry %u, id %u already added", uint32(textGroup), GetName().c_str(), GetGUID().GetCounter(), GetEntry(), uint32(id));
 }
 
 CreatureTextRepeatIds Creature::GetTextRepeatGroup(uint8 textGroup)

@@ -17,7 +17,6 @@
 
 #include "AccountMgr.h"
 #include "InstanceScript.h"
-#include "Map.h"
 #include "ObjectMgr.h"
 #include "Player.h"
 #include "PoolMgr.h"
@@ -26,7 +25,6 @@
 #include "Transport.h"
 #include "TransportMgr.h"
 #include "WorldPacket.h"
-#include "WorldSession.h"
 #include "icecrown_citadel.h"
 
 enum EventIds
@@ -419,14 +417,14 @@ class instance_icecrown_citadel : public InstanceMapScript
 
                         if (creature->AI()->GetData(1/*DATA_FROSTWYRM_OWNER*/) == DATA_SPINESTALKER)
                         {
-                            SpinestalkerTrash.erase(creature->GetDBTableGUIDLow());
+                            SpinestalkerTrash.erase(creature->GetSpawnId());
                             if (SpinestalkerTrash.empty())
                                 if (Creature* spinestalk = instance->GetCreature(SpinestalkerGUID))
                                     spinestalk->AI()->DoAction(ACTION_START_FROSTWYRM);
                         }
                         else
                         {
-                            RimefangTrash.erase(creature->GetDBTableGUIDLow());
+                            RimefangTrash.erase(creature->GetSpawnId());
                             if (RimefangTrash.empty())
                                 if (Creature* spinestalk = instance->GetCreature(RimefangGUID))
                                     spinestalk->AI()->DoAction(ACTION_START_FROSTWYRM);
@@ -441,7 +439,7 @@ class instance_icecrown_citadel : public InstanceMapScript
                         if (GetBossState(DATA_SINDRAGOSA) == DONE)
                             return;
 
-                        FrostwyrmGUIDs.erase(creature->GetDBTableGUIDLow());
+                        FrostwyrmGUIDs.erase(creature->GetSpawnId());
                         if (FrostwyrmGUIDs.empty())
                         {
                             instance->LoadGrid(SindragosaSpawnPos.GetPositionX(), SindragosaSpawnPos.GetPositionY());
@@ -1121,7 +1119,7 @@ class instance_icecrown_citadel : public InstanceMapScript
 
             bool CheckRequiredBosses(uint32 bossId, Player const* player = nullptr) const override
             {
-                if (player && player->GetSession()->HasPermission(rbac::RBAC_PERM_SKIP_CHECK_INSTANCE_REQUIRED_BOSSES))
+                if (_SkipCheckRequiredBosses(player))
                     return true;
 
                 switch (bossId)

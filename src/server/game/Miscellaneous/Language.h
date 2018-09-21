@@ -379,7 +379,8 @@ enum TrinityStrings
     LANG_COMMAND_CHEAT_POWER            = 361,
     LANG_COMMAND_CHEAT_WW               = 362,
     LANG_COMMAND_WHISPEROFFPLAYER       = 363,
-    // Room for more level 2              364-399 not used
+    LANG_COMMAND_CHEAT_TAXINODES        = 364,
+    // Room for more level 2              365-399 not used
 
     // level 3 chat
     LANG_SCRIPTS_RELOADED               = 400,
@@ -1202,5 +1203,6 @@ enum TrinityStrings
 
     LANG_NPCINFO_INHABIT_TYPE                     = 11008,
     LANG_NPCINFO_FLAGS_EXTRA                      = 11009
+
 };
 #endif

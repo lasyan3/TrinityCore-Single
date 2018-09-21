@@ -58,7 +58,7 @@ void LFGMgr::_LoadFromDB(Field* fields, ObjectGuid guid)
     if (!guid.IsGroup())
         return;
 
-    SetLeader(guid, ObjectGuid(HIGHGUID_PLAYER, fields[0].GetUInt32()));
+    SetLeader(guid, ObjectGuid(HighGuid::Player, fields[0].GetUInt32()));
 
     uint32 dungeon = fields[17].GetUInt32();
     uint8 state = fields[18].GetUInt8();
@@ -585,7 +585,7 @@ void LFGMgr::JoinLfg(Player* player, uint8 roles, LfgDungeonSet& dungeons, const
 
    @param[in]     guid Player or group guid
 */
-void LFGMgr::LeaveLfg(ObjectGuid guid)
+void LFGMgr::LeaveLfg(ObjectGuid guid, bool disconnected)
 {
     ObjectGuid gguid = guid.IsGroup() ? guid : GetGroup(guid);
 
@@ -646,7 +646,7 @@ void LFGMgr::LeaveLfg(ObjectGuid guid)
             break;
         case LFG_STATE_DUNGEON:
         case LFG_STATE_FINISHED_DUNGEON:
-            if (guid != gguid) // Player
+            if (guid != gguid && !disconnected) // Player
                 SetState(guid, LFG_STATE_NONE);
             break;
     }

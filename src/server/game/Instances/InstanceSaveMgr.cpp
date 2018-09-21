@@ -555,7 +555,10 @@ void InstanceSaveManager::_ResetInstance(uint32 mapid, uint32 instanceId)
         ((InstanceMap*)iMap)->Reset(INSTANCE_RESET_RESPAWN_DELAY);
 
     if (iMap)
+    {
         iMap->DeleteRespawnTimes();
+        iMap->DeleteCorpseData();
+    }
     else
         Map::DeleteRespawnTimesInDB(mapid, instanceId);
 
@@ -660,19 +663,19 @@ void InstanceSaveManager::_ResetOrWarnAll(uint32 mapid, Difficulty difficulty, b
     /// @todo delete creature/gameobject respawn times even if the maps are not loaded
 }
 
-uint32 InstanceSaveManager::GetNumBoundPlayersTotal()
+uint32 InstanceSaveManager::GetNumBoundPlayersTotal() const
 {
     uint32 ret = 0;
-    for (InstanceSaveHashMap::iterator itr = m_instanceSaveById.begin(); itr != m_instanceSaveById.end(); ++itr)
+    for (InstanceSaveHashMap::const_iterator itr = m_instanceSaveById.begin(); itr != m_instanceSaveById.end(); ++itr)
         ret += itr->second->GetPlayerCount();
 
     return ret;
 }
 
-uint32 InstanceSaveManager::GetNumBoundGroupsTotal()
+uint32 InstanceSaveManager::GetNumBoundGroupsTotal() const
 {
     uint32 ret = 0;
-    for (InstanceSaveHashMap::iterator itr = m_instanceSaveById.begin(); itr != m_instanceSaveById.end(); ++itr)
+    for (InstanceSaveHashMap::const_iterator itr = m_instanceSaveById.begin(); itr != m_instanceSaveById.end(); ++itr)
         ret += itr->second->GetGroupCount();
 
     return ret;

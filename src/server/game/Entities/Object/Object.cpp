@@ -67,7 +67,7 @@ WorldObject::~WorldObject()
         {
             TC_LOG_FATAL("misc", "WorldObject::~WorldObject Corpse Type: %d (%s) deleted but still in map!!",
                 ToCorpse()->GetType(), GetGUID().ToString().c_str());
-            ASSERT(false);
+            ABORT();
         }
         ResetMap();
     }
@@ -80,15 +80,13 @@ Object::~Object()
         TC_LOG_FATAL("misc", "Object::~Object %s deleted but still in world!!", GetGUID().ToString().c_str());
         if (isType(TYPEMASK_ITEM))
             TC_LOG_FATAL("misc", "Item slot %u", ((Item*)this)->GetSlot());
-        ASSERT(false);
-        RemoveFromWorld();
+        ABORT();
     }
 
     if (m_objectUpdated)
     {
         TC_LOG_FATAL("misc", "Object::~Object %s deleted but still in update list!!", GetGUID().ToString().c_str());
-        ASSERT(false);
-        sObjectAccessor->RemoveUpdateObject(this);
+        ABORT();
     }
 
     delete [] m_uint32Values;
@@ -105,7 +103,7 @@ void Object::_InitValues()
     m_objectUpdated = false;
 }
 
-void Object::_Create(uint32 guidlow, uint32 entry, HighGuid guidhigh)
+void Object::_Create(ObjectGuid::LowType guidlow, uint32 entry, HighGuid guidhigh)
 {
     if (!m_uint32Values) _InitValues();
 
@@ -133,7 +131,8 @@ void Object::AddToWorld()
     m_inWorld = true;
 
     // synchronize values mirror with values array (changes will send in updatecreate opcode any way
-    ClearUpdateMask(true);
+    ASSERT(!m_objectUpdated);
+    ClearUpdateMask(false);
 }
 
 void Object::RemoveFromWorld()
@@ -418,7 +417,7 @@ void Object::BuildMovementUpdate(ByteBuffer* data, uint16 flags) const
             case TYPEID_GAMEOBJECT:
             case TYPEID_DYNAMICOBJECT:
             case TYPEID_CORPSE:
-                *data << uint32(GetGUIDLow());              // GetGUIDLow()
+                *data << uint32(GetGUID().GetCounter());              // GetGUID().GetCounter()
                 break;
             //! Unit, Player and default here are sending wrong values.
             /// @todo Research the proper formula
@@ -509,6 +508,15 @@ void Object::BuildValuesUpdate(uint8 updateType, ByteBuffer* data, Player* targe
     data->append(fieldBuffer);
 }
 
+void Object::AddToObjectUpdateIfNeeded()
+{
+    if (m_inWorld && !m_objectUpdated)
+    {
+        AddToObjectUpdate();
+        m_objectUpdated = true;
+    }
+}
+
 void Object::ClearUpdateMask(bool remove)
 {
     _changesMask.Clear();
@@ -516,7 +524,8 @@ void Object::ClearUpdateMask(bool remove)
     if (m_objectUpdated)
     {
         if (remove)
-            sObjectAccessor->RemoveUpdateObject(this);
+            RemoveFromObjectUpdate();
+
         m_objectUpdated = false;
     }
 }
@@ -614,11 +623,7 @@ void Object::SetInt32Value(uint16 index, int32 value)
         m_int32Values[index] = value;
         _changesMask.SetBit(index);
 
-        if (m_inWorld && !m_objectUpdated)
-        {
-            sObjectAccessor->AddUpdateObject(this);
-            m_objectUpdated = true;
-        }
+        AddToObjectUpdateIfNeeded();
     }
 }
 
@@ -631,11 +636,7 @@ void Object::SetUInt32Value(uint16 index, uint32 value)
         m_uint32Values[index] = value;
         _changesMask.SetBit(index);
 
-        if (m_inWorld && !m_objectUpdated)
-        {
-            sObjectAccessor->AddUpdateObject(this);
-            m_objectUpdated = true;
-        }
+        AddToObjectUpdateIfNeeded();
     }
 }
 
@@ -657,11 +658,7 @@ void Object::SetUInt64Value(uint16 index, uint64 value)
         _changesMask.SetBit(index);
         _changesMask.SetBit(index + 1);
 
-        if (m_inWorld && !m_objectUpdated)
-        {
-            sObjectAccessor->AddUpdateObject(this);
-            m_objectUpdated = true;
-        }
+        AddToObjectUpdateIfNeeded();
     }
 }
 
@@ -674,11 +671,7 @@ bool Object::AddGuidValue(uint16 index, ObjectGuid value)
         _changesMask.SetBit(index);
         _changesMask.SetBit(index + 1);
 
-        if (m_inWorld && !m_objectUpdated)
-        {
-            sObjectAccessor->AddUpdateObject(this);
-            m_objectUpdated = true;
-        }
+        AddToObjectUpdateIfNeeded();
 
         return true;
     }
@@ -696,11 +689,7 @@ bool Object::RemoveGuidValue(uint16 index, ObjectGuid value)
         _changesMask.SetBit(index);
         _changesMask.SetBit(index + 1);
 
-        if (m_inWorld && !m_objectUpdated)
-        {
-            sObjectAccessor->AddUpdateObject(this);
-            m_objectUpdated = true;
-        }
+        AddToObjectUpdateIfNeeded();
 
         return true;
     }
@@ -717,11 +706,7 @@ void Object::SetFloatValue(uint16 index, float value)
         m_floatValues[index] = value;
         _changesMask.SetBit(index);
 
-        if (m_inWorld && !m_objectUpdated)
-        {
-            sObjectAccessor->AddUpdateObject(this);
-            m_objectUpdated = true;
-        }
+        AddToObjectUpdateIfNeeded();
     }
 }
 
@@ -741,11 +726,8 @@ void Object::SetByteValue(uint16 index, uint8 offset, uint8 value)
         m_uint32Values[index] |= uint32(uint32(value) << (offset * 8));
         _changesMask.SetBit(index);
 
-        if (m_inWorld && !m_objectUpdated)
-        {
-            sObjectAccessor->AddUpdateObject(this);
-            m_objectUpdated = true;
-        }
+        AddToObjectUpdateIfNeeded();
+
     }
 }
 
@@ -765,11 +747,7 @@ void Object::SetUInt16Value(uint16 index, uint8 offset, uint16 value)
         m_uint32Values[index] |= uint32(uint32(value) << (offset * 16));
         _changesMask.SetBit(index);
 
-        if (m_inWorld && !m_objectUpdated)
-        {
-            sObjectAccessor->AddUpdateObject(this);
-            m_objectUpdated = true;
-        }
+        AddToObjectUpdateIfNeeded();
     }
 }
 
@@ -782,11 +760,7 @@ void Object::SetGuidValue(uint16 index, ObjectGuid value)
         _changesMask.SetBit(index);
         _changesMask.SetBit(index + 1);
 
-        if (m_inWorld && !m_objectUpdated)
-        {
-            sObjectAccessor->AddUpdateObject(this);
-            m_objectUpdated = true;
-        }
+        AddToObjectUpdateIfNeeded();
     }
 }
 
@@ -856,11 +830,7 @@ void Object::SetFlag(uint16 index, uint32 newFlag)
         m_uint32Values[index] = newval;
         _changesMask.SetBit(index);
 
-        if (m_inWorld && !m_objectUpdated)
-        {
-            sObjectAccessor->AddUpdateObject(this);
-            m_objectUpdated = true;
-        }
+        AddToObjectUpdateIfNeeded();
     }
 }
 
@@ -877,11 +847,7 @@ void Object::RemoveFlag(uint16 index, uint32 oldFlag)
         m_uint32Values[index] = newval;
         _changesMask.SetBit(index);
 
-        if (m_inWorld && !m_objectUpdated)
-        {
-            sObjectAccessor->AddUpdateObject(this);
-            m_objectUpdated = true;
-        }
+        AddToObjectUpdateIfNeeded();
     }
 }
 
@@ -921,11 +887,7 @@ void Object::SetByteFlag(uint16 index, uint8 offset, uint8 newFlag)
         m_uint32Values[index] |= uint32(uint32(newFlag) << (offset * 8));
         _changesMask.SetBit(index);
 
-        if (m_inWorld && !m_objectUpdated)
-        {
-            sObjectAccessor->AddUpdateObject(this);
-            m_objectUpdated = true;
-        }
+        AddToObjectUpdateIfNeeded();
     }
 }
 
@@ -944,11 +906,7 @@ void Object::RemoveByteFlag(uint16 index, uint8 offset, uint8 oldFlag)
         m_uint32Values[index] &= ~uint32(uint32(oldFlag) << (offset * 8));
         _changesMask.SetBit(index);
 
-        if (m_inWorld && !m_objectUpdated)
-        {
-            sObjectAccessor->AddUpdateObject(this);
-            m_objectUpdated = true;
-        }
+        AddToObjectUpdateIfNeeded();
     }
 }
 
@@ -1108,7 +1066,7 @@ void WorldObject::CleanupsBeforeDelete(bool /*finalCleanup*/)
         transport->RemovePassenger(this);
 }
 
-void WorldObject::_Create(uint32 guidlow, HighGuid guidhigh, uint32 phaseMask)
+void WorldObject::_Create(ObjectGuid::LowType guidlow, HighGuid guidhigh, uint32 phaseMask)
 {
     Object::_Create(guidlow, 0, guidhigh);
     m_phaseMask = phaseMask;
@@ -1158,7 +1116,7 @@ bool WorldObject::_IsWithinDist(WorldObject const* obj, float dist2compare, bool
     float sizefactor = GetObjectSize() + obj->GetObjectSize();
     float maxdist = dist2compare + sizefactor;
 
-    if (GetTransport() && obj->GetTransport() && obj->GetTransport()->GetGUIDLow() == GetTransport()->GetGUIDLow())
+    if (GetTransport() && obj->GetTransport() && obj->GetTransport()->GetGUID().GetCounter() == GetTransport()->GetGUID().GetCounter())
     {
         float dtx = m_movementInfo.transport.pos.m_positionX - obj->m_movementInfo.transport.pos.m_positionX;
         float dty = m_movementInfo.transport.pos.m_positionY - obj->m_movementInfo.transport.pos.m_positionY;
@@ -1539,7 +1497,7 @@ float WorldObject::GetSightRange(const WorldObject* target) const
     return 0.0f;
 }
 
-bool WorldObject::CanSeeOrDetect(WorldObject const* obj, bool ignoreStealth, bool distanceCheck) const
+bool WorldObject::CanSeeOrDetect(WorldObject const* obj, bool ignoreStealth, bool distanceCheck, bool checkAlert) const
 {
     if (this == obj)
         return true;
@@ -1611,7 +1569,7 @@ bool WorldObject::CanSeeOrDetect(WorldObject const* obj, bool ignoreStealth, boo
     if (obj->IsInvisibleDueToDespawn())
         return false;
 
-    if (!CanDetect(obj, ignoreStealth))
+    if (!CanDetect(obj, ignoreStealth, checkAlert))
         return false;
 
     return true;
@@ -1622,7 +1580,7 @@ bool WorldObject::CanNeverSee(WorldObject const* obj) const
     return GetMap() != obj->GetMap() || !InSamePhase(obj);
 }
 
-bool WorldObject::CanDetect(WorldObject const* obj, bool ignoreStealth) const
+bool WorldObject::CanDetect(WorldObject const* obj, bool ignoreStealth, bool checkAlert) const
 {
     const WorldObject* seer = this;
 
@@ -1637,7 +1595,7 @@ bool WorldObject::CanDetect(WorldObject const* obj, bool ignoreStealth) const
     if (!ignoreStealth && !seer->CanDetectInvisibilityOf(obj))
         return false;
 
-    if (!ignoreStealth && !seer->CanDetectStealthOf(obj))
+    if (!ignoreStealth && !seer->CanDetectStealthOf(obj, checkAlert))
         return false;
 
     return true;
@@ -1674,7 +1632,7 @@ bool WorldObject::CanDetectInvisibilityOf(WorldObject const* obj) const
     return true;
 }
 
-bool WorldObject::CanDetectStealthOf(WorldObject const* obj) const
+bool WorldObject::CanDetectStealthOf(WorldObject const* obj, bool checkAlert) const
 {
     // Combat reach is the minimal distance (both in front and behind),
     //   and it is also used in the range calculation.
@@ -1724,8 +1682,18 @@ bool WorldObject::CanDetectStealthOf(WorldObject const* obj) const
         // Calculate max distance
         float visibilityRange = float(detectionValue) * 0.3f + combatReach;
 
-        if (visibilityRange > MAX_PLAYER_STEALTH_DETECT_RANGE)
+        // If this unit is an NPC then player detect range doesn't apply
+        if (unit && unit->GetTypeId() == TYPEID_PLAYER && visibilityRange > MAX_PLAYER_STEALTH_DETECT_RANGE)
             visibilityRange = MAX_PLAYER_STEALTH_DETECT_RANGE;
+
+        // When checking for alert state, look 8% further, and then 1.5 yards more than that.
+        if (checkAlert)
+            visibilityRange += (visibilityRange * 0.08f) + 1.5f;
+
+        // If checking for alert, and creature's visibility range is greater than aggro distance, No alert
+        Unit const* tunit = obj->ToUnit();
+        if (checkAlert && unit && unit->ToCreature() && visibilityRange >= unit->ToCreature()->GetAttackDistance(tunit) + unit->ToCreature()->m_CombatDistance)
+            return false;
 
         if (distance > visibilityRange)
             return false;
@@ -1737,11 +1705,7 @@ bool WorldObject::CanDetectStealthOf(WorldObject const* obj) const
 void Object::ForceValuesUpdateAtIndex(uint32 i)
 {
     _changesMask.SetBit(i);
-    if (m_inWorld && !m_objectUpdated)
-    {
-        sObjectAccessor->AddUpdateObject(this);
-        m_objectUpdated = true;
-    }
+    AddToObjectUpdateIfNeeded();
 }
 
 void Unit::BuildHeartBeatMsg(WorldPacket* data) const
@@ -1779,13 +1743,13 @@ void WorldObject::SendObjectDeSpawnAnim(ObjectGuid guid)
 void WorldObject::SetMap(Map* map)
 {
     ASSERT(map);
-    ASSERT(!IsInWorld() || GetTypeId() == TYPEID_CORPSE);
+    ASSERT(!IsInWorld());
     if (m_currMap == map) // command add npc: first create, than loadfromdb
         return;
     if (m_currMap)
     {
         TC_LOG_FATAL("misc", "WorldObject::SetMap: obj %u new map %u %u, old map %u %u", (uint32)GetTypeId(), map->GetId(), map->GetInstanceId(), m_currMap->GetId(), m_currMap->GetInstanceId());
-        ASSERT(false);
+        ABORT();
     }
     m_currMap = map;
     m_mapId = map->GetId();
@@ -1819,7 +1783,7 @@ void WorldObject::AddObjectToRemoveList()
     Map* map = FindMap();
     if (!map)
     {
-        TC_LOG_ERROR("misc", "Object (TypeId: %u Entry: %u GUID: %u) at attempt add to move list not have valid map (Id: %u).", GetTypeId(), GetEntry(), GetGUIDLow(), GetMapId());
+        TC_LOG_ERROR("misc", "Object (TypeId: %u Entry: %u GUID: %u) at attempt add to move list not have valid map (Id: %u).", GetTypeId(), GetEntry(), GetGUID().GetCounter(), GetMapId());
         return;
     }
 
@@ -1899,8 +1863,8 @@ TempSummon* Map::SummonCreature(uint32 entry, Position const& pos, SummonPropert
             summon = new Minion(properties, summoner, false);
             break;
     }
-
-    if (!summon->Create(sObjectMgr->GenerateLowGuid(HIGHGUID_UNIT), this, phase, entry, pos.GetPositionX(), pos.GetPositionY(), pos.GetPositionZ(), pos.GetOrientation(), nullptr, vehId))
+    
+    if (!summon->Create(GenerateLowGuid<HighGuid::Unit>(), this, phase, entry, pos.GetPositionX(), pos.GetPositionY(), pos.GetPositionZ(), pos.GetOrientation(), nullptr, vehId))
     {
         delete summon;
         return NULL;
@@ -1954,6 +1918,11 @@ void WorldObject::SetZoneScript()
     }
 }
 
+void WorldObject::ClearZoneScript()
+{
+    m_zoneScript = NULL;
+}
+
 TempSummon* WorldObject::SummonCreature(uint32 entry, const Position &pos, TempSummonType spwtype, uint32 duration, uint32 /*vehId*/) const
 {
     if (Map* map = FindMap())
@@ -1994,7 +1963,7 @@ GameObject* WorldObject::SummonGameObject(uint32 entry, float x, float y, float 
 
     Map* map = GetMap();
     GameObject* go = new GameObject();
-    if (!go->Create(sObjectMgr->GenerateLowGuid(HIGHGUID_GAMEOBJECT), entry, map, GetPhaseMask(), x, y, z, ang, rotation0, rotation1, rotation2, rotation3, 100, GO_STATE_READY))
+    if (!go->Create(map->GenerateLowGuid<HighGuid::GameObject>(), entry, map, GetPhaseMask(), x, y, z, ang, rotation0, rotation1, rotation2, rotation3, 100, GO_STATE_READY))
     {
         delete go;
         return NULL;
@@ -2278,7 +2247,7 @@ void WorldObject::MovePosition(Position &pos, float dist, float angle)
     if (!Trinity::IsValidMapCoord(destx, desty, pos.m_positionZ))
     {
         TC_LOG_FATAL("misc", "WorldObject::MovePosition: Object (TypeId: %u Entry: %u GUID: %u) has invalid coordinates X: %f and Y: %f were passed!",
-            GetTypeId(), GetEntry(), GetGUIDLow(), destx, desty);
+            GetTypeId(), GetEntry(), GetGUID().GetCounter(), destx, desty);
         return;
     }
 
@@ -2551,6 +2520,16 @@ void WorldObject::BuildUpdate(UpdateDataMapType& data_map)
     cell.Visit(p, player_notifier, map, *this, GetVisibilityRange());
 
     ClearUpdateMask(false);
+}
+
+void WorldObject::AddToObjectUpdate()
+{
+    GetMap()->AddUpdateObject(this);
+}
+
+void WorldObject::RemoveFromObjectUpdate()
+{
+    GetMap()->RemoveUpdateObject(this);
 }
 
 ObjectGuid WorldObject::GetTransGUID() const

@@ -99,7 +99,7 @@ class BfCapturePoint
         GameObject* GetCapturePointGo();
         uint32 GetCapturePointEntry() const { return m_capturePointEntry; }
 
-        TeamId GetTeamId() { return m_team; }
+        TeamId GetTeamId() const { return m_team; }
 
     protected:
         bool DelCapturePoint();
@@ -193,7 +193,7 @@ class Battlefield : public ZoneScript
         virtual ~Battlefield();
 
         /// typedef of map witch store capturepoint and the associate gameobject entry
-        typedef std::map<uint32 /*lowguid */, BfCapturePoint*> BfCapturePointMap;
+        typedef std::map<ObjectGuid::LowType /*lowguid */, BfCapturePoint*> BfCapturePointMap;
 
         /// Call this to init the Battlefield
         virtual bool SetupBattlefield() { return true; }
@@ -220,18 +220,18 @@ class Battlefield : public ZoneScript
         /// Called when a Unit is kill in battlefield zone
         virtual void HandleKill(Player* /*killer*/, Unit* /*killed*/) { };
 
-        uint32 GetTypeId() { return m_TypeId; }
-        uint32 GetZoneId() { return m_ZoneId; }
+        uint32 GetTypeId() const { return m_TypeId; }
+        uint32 GetZoneId() const { return m_ZoneId; }
 
         void TeamApplyBuff(TeamId team, uint32 spellId, uint32 spellId2 = 0);
 
         /// Return true if battle is start, false if battle is not started
-        bool IsWarTime() { return m_isActive; }
+        bool IsWarTime() const { return m_isActive; }
 
         /// Enable or Disable battlefield
         void ToggleBattlefield(bool enable) { m_IsEnabled = enable; }
         /// Return if battlefield is enable
-        bool IsEnabled() { return m_IsEnabled; }
+        bool IsEnabled() const { return m_IsEnabled; }
 
         /**
          * \brief Kick player from battlefield and teleport him to kick-point location
@@ -254,9 +254,9 @@ class Battlefield : public ZoneScript
         virtual void UpdateData(uint32 index, int32 pad) { m_Data32[index] += pad; }
 
         // Battlefield - generic methods
-        TeamId GetDefenderTeam() { return m_DefenderTeam; }
-        TeamId GetAttackerTeam() { return TeamId(1 - m_DefenderTeam); }
-        TeamId GetOtherTeam(TeamId team) { return (team == TEAM_HORDE ? TEAM_ALLIANCE : TEAM_HORDE); }
+        TeamId GetDefenderTeam() const { return m_DefenderTeam; }
+        TeamId GetAttackerTeam() const { return TeamId(1 - m_DefenderTeam); }
+        TeamId GetOtherTeam(TeamId team) const { return (team == TEAM_HORDE ? TEAM_ALLIANCE : TEAM_HORDE); }
         void SetDefenderTeam(TeamId team) { m_DefenderTeam = team; }
 
         // Group methods
@@ -308,7 +308,7 @@ class Battlefield : public ZoneScript
 
         void PlayerAcceptInviteToQueue(Player* player);
         void PlayerAcceptInviteToWar(Player* player);
-        uint32 GetBattleId() { return m_BattleId; }
+        uint32 GetBattleId() const { return m_BattleId; }
         void AskToLeaveQueue(Player* player);
 
         virtual void DoCompleteOrIncrementAchievement(uint32 /*achievement*/, Player* /*player*/, uint8 /*incrementNumber = 1*/) { }
@@ -328,9 +328,9 @@ class Battlefield : public ZoneScript
         void HideNpc(Creature* creature);
         void ShowNpc(Creature* creature, bool aggressive);
 
-        GraveyardVect GetGraveyardVector() { return m_GraveyardList; }
+        GraveyardVect GetGraveyardVector() const { return m_GraveyardList; }
 
-        uint32 GetTimer() { return m_Timer; }
+        uint32 GetTimer() const { return m_Timer; }
         void SetTimer(uint32 timer) { m_Timer = timer; }
 
         void DoPlaySoundToAll(uint32 SoundID);
@@ -400,7 +400,7 @@ class Battlefield : public ZoneScript
         // CapturePoint system
         void AddCapturePoint(BfCapturePoint* cp) { m_capturePoints[cp->GetCapturePointEntry()] = cp; }
 
-        BfCapturePoint* GetCapturePoint(uint32 lowguid) const
+        BfCapturePoint* GetCapturePoint(ObjectGuid::LowType lowguid) const
         {
             Battlefield::BfCapturePointMap::const_iterator itr = m_capturePoints.find(lowguid);
             if (itr != m_capturePoints.end())

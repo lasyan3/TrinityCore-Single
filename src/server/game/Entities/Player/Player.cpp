@@ -21788,9 +21788,6 @@ void Player::UpdatePvP(bool state, bool _override)
     }
 }
 
-	if (sWorld->getBoolConfig(CONFIG_NO_COOLDOWN))
-		return;
-    SpellCooldown sc;
 void Player::UpdatePotionCooldown(Spell* spell)
 {
     // no potion used i combat or still in combat

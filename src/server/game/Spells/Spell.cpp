@@ -2975,9 +2975,6 @@ void Spell::prepare(SpellCastTargets const* targets, AuraEffect const* triggered
         if (!m_casttime && !m_spellInfo->StartRecoveryTime && !m_castItemGUID && GetCurrentContainer() == CURRENT_GENERIC_SPELL)
             cast(true);
     }
-	if (sWorld->getBoolConfig(CONFIG_NO_COOLDOWN))
-		if (m_caster->GetTypeId() == TYPEID_PLAYER)
-			((Player*)m_caster)->RemoveSpellCooldown(m_spellInfo->Id, true);
 }
 
 void Spell::cancel()
@@ -4665,7 +4662,7 @@ SpellCastResult Spell::CheckCast(bool strict)
         {
             if (m_triggeredByAuraSpell)
                 return SPELL_FAILED_DONT_REPORT;
-			else if (!sWorld->getBoolConfig(CONFIG_NO_COOLDOWN))
+			else
 				return SPELL_FAILED_NOT_READY;
 		}
     }
@@ -4677,9 +4674,8 @@ SpellCastResult Spell::CheckCast(bool strict)
     }
 
     // Check global cooldown
-	if (!sWorld->getBoolConfig(CONFIG_NO_COOLDOWN))
-		if (strict && !(_triggeredCastFlags & TRIGGERED_IGNORE_GCD) && HasGlobalCooldown())
-			return SPELL_FAILED_NOT_READY;
+	if (strict && !(_triggeredCastFlags & TRIGGERED_IGNORE_GCD) && HasGlobalCooldown())
+		return SPELL_FAILED_NOT_READY;
 
     // only triggered spells can be processed an ended battleground
     if (!IsTriggered() && m_caster->GetTypeId() == TYPEID_PLAYER)

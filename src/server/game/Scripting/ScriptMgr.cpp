@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2015 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2016 TrinityCore <http://www.trinitycore.org/>
  * Copyright (C) 2005-2009 MaNGOS <http://getmangos.com/>
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -22,10 +22,10 @@
 #include "DBCStores.h"
 #include "ObjectMgr.h"
 #include "OutdoorPvPMgr.h"
-#include "ScriptLoader.h"
 #include "ScriptSystem.h"
 #include "Transport.h"
 #include "Vehicle.h"
+#include "SmartAI.h"
 #include "SpellInfo.h"
 #include "SpellScript.h"
 #include "GossipDef.h"
@@ -37,7 +37,6 @@
 
 // namespace
 // {
-    UnusedScriptContainer UnusedScripts;
     UnusedScriptNamesContainer UnusedScriptNames;
 // }
 
@@ -107,8 +106,9 @@ class ScriptRegistry
         // The actual list of scripts. This will be accessed concurrently, so it must not be modified
         // after server startup.
         static ScriptMap ScriptPointerList;
+        static std::vector<TScript*> Scripts;
 
-        static void AddScript(TScript* const script)
+        static void AddScript(TScript* const script, bool addToDeleteContainer = true)
         {
             ASSERT(script);
 
@@ -126,6 +126,8 @@ class ScriptRegistry
             }
 
             AddScript(is_script_database_bound<TScript>{}, script);
+            if (addToDeleteContainer)
+                Scripts.push_back(script);
         }
 
         // Gets a script by its ID (assigned by ObjectMgr).
@@ -186,11 +188,6 @@ class ScriptRegistry
             {
                 // The script uses a script name from database, but isn't assigned to anything.
                 TC_LOG_ERROR("sql.sql", "Script named '%s' does not have a script name assigned in database.", script->GetName().c_str());
-
-                // Avoid calling "delete script;" because we are currently in the script constructor
-                // In a valid scenario this will not happen because every script has a name assigned in the database
-                UnusedScripts.push_back(script);
-                return;
             }
         }
 
@@ -210,6 +207,7 @@ class ScriptRegistry
 #define SCR_REG_MAP(T) ScriptRegistry<T>::ScriptMap
 #define SCR_REG_ITR(T) ScriptRegistry<T>::ScriptMapIterator
 #define SCR_REG_LST(T) ScriptRegistry<T>::ScriptPointerList
+#define SCR_REG_VEC(T) ScriptRegistry<T>::Scripts
 
 // Utility macros for looping over scripts.
 #define FOR_SCRIPTS(T, C, E) \
@@ -242,11 +240,18 @@ struct TSpellSummary
     uint8 Effects;                                          // set of enum SelectEffect
 } *SpellSummary;
 
-ScriptMgr::ScriptMgr() : _scriptCount(0), _scheduledScripts(0)
+ScriptMgr::ScriptMgr()
+  : _scriptCount(0), _scheduledScripts(0), _script_loader_callback(nullptr)
 {
 }
 
 ScriptMgr::~ScriptMgr() { }
+
+ScriptMgr* ScriptMgr::instance()
+{
+    static ScriptMgr instance;
+    return &instance;
+}
 
 void ScriptMgr::Initialize()
 {
@@ -257,7 +262,13 @@ void ScriptMgr::Initialize()
     TC_LOG_INFO("server.loading", "Loading C++ scripts");
 
     FillSpellSummary();
-    AddScripts();
+
+    AddSC_SmartScripts();
+
+    ASSERT(_script_loader_callback,
+           "Script loader callback wasn't registered!");
+
+    _script_loader_callback();
 
 #ifdef SCRIPTS
     for (std::string const& scriptName : UnusedScriptNames)
@@ -266,17 +277,15 @@ void ScriptMgr::Initialize()
     }
 #endif
 
-    UnloadUnusedScripts();
-
     TC_LOG_INFO("server.loading", ">> Loaded %u C++ scripts in %u ms", GetScriptCount(), GetMSTimeDiffToNow(oldMSTime));
 }
 
 void ScriptMgr::Unload()
 {
     #define SCR_CLEAR(T) \
-        for (SCR_REG_ITR(T) itr = SCR_REG_LST(T).begin(); itr != SCR_REG_LST(T).end(); ++itr) \
-            delete itr->second; \
-        SCR_REG_LST(T).clear();
+        for (T* scr : SCR_REG_VEC(T)) \
+            delete scr; \
+        SCR_REG_VEC(T).clear();
 
     // Clear scripts for every script type.
     SCR_CLEAR(SpellScriptLoader);
@@ -308,17 +317,8 @@ void ScriptMgr::Unload()
 
     #undef SCR_CLEAR
 
-    UnloadUnusedScripts();
-
     delete[] SpellSummary;
     delete[] UnitAI::AISpellInfo;
-}
-
-void ScriptMgr::UnloadUnusedScripts()
-{
-    for (size_t i = 0; i < UnusedScripts.size(); ++i)
-        delete UnusedScripts[i];
-    UnusedScripts.clear();
 }
 
 void ScriptMgr::LoadDatabase()
@@ -512,17 +512,6 @@ void ScriptMgr::OnPacketSend(WorldSession* session, WorldPacket const& packet)
 
     WorldPacket copy(packet);
     FOREACH_SCRIPT(ServerScript)->OnPacketSend(session, copy);
-}
-
-void ScriptMgr::OnUnknownPacketReceive(WorldSession* session, WorldPacket const& packet)
-{
-    ASSERT(session);
-
-    if (SCR_REG_LST(ServerScript).empty())
-        return;
-
-    WorldPacket copy(packet);
-    FOREACH_SCRIPT(ServerScript)->OnUnknownPacketReceive(session, copy);
 }
 
 void ScriptMgr::OnOpenStateChange(bool open)
@@ -1042,6 +1031,12 @@ std::vector<ChatCommand> ScriptMgr::GetChatCommands()
         table.insert(table.end(), cmds.begin(), cmds.end());
     }
 
+    // Sort commands in alphabetical order
+    std::sort(table.begin(), table.end(), [](const ChatCommand& a, const ChatCommand&b)
+    {
+        return strcmp(a.Name, b.Name) < 0;
+    });
+
     return table;
 }
 
@@ -1362,9 +1357,9 @@ void ScriptMgr::OnPlayerSave(Player* player)
     FOREACH_SCRIPT(PlayerScript)->OnSave(player);
 }
 
-void ScriptMgr::OnPlayerBindToInstance(Player* player, Difficulty difficulty, uint32 mapid, bool permanent)
+void ScriptMgr::OnPlayerBindToInstance(Player* player, Difficulty difficulty, uint32 mapid, bool permanent, uint8 extendState)
 {
-    FOREACH_SCRIPT(PlayerScript)->OnBindToInstance(player, difficulty, mapid, permanent);
+    FOREACH_SCRIPT(PlayerScript)->OnBindToInstance(player, difficulty, mapid, permanent, extendState);
 }
 
 void ScriptMgr::OnPlayerUpdateZone(Player* player, uint32 newZone, uint32 newArea)
@@ -1549,8 +1544,7 @@ FormulaScript::FormulaScript(const char* name)
 UnitScript::UnitScript(const char* name, bool addToScripts)
     : ScriptObject(name)
 {
-    if (addToScripts)
-        ScriptRegistry<UnitScript>::AddScript(this);
+    ScriptRegistry<UnitScript>::AddScript(this, addToScripts);
 }
 
 WorldMapScript::WorldMapScript(const char* name, uint32 mapId)
@@ -1690,35 +1684,36 @@ GroupScript::GroupScript(const char* name)
 
 // Instantiate static members of ScriptRegistry.
 template<class TScript> std::map<uint32, TScript*> ScriptRegistry<TScript>::ScriptPointerList;
+template<class TScript> std::vector<TScript*> ScriptRegistry<TScript>::Scripts;
 template<class TScript> uint32 ScriptRegistry<TScript>::_scriptIdCounter = 0;
 
 // Specialize for each script type class like so:
-template class ScriptRegistry<SpellScriptLoader>;
-template class ScriptRegistry<ServerScript>;
-template class ScriptRegistry<WorldScript>;
-template class ScriptRegistry<FormulaScript>;
-template class ScriptRegistry<WorldMapScript>;
-template class ScriptRegistry<InstanceMapScript>;
-template class ScriptRegistry<BattlegroundMapScript>;
-template class ScriptRegistry<ItemScript>;
-template class ScriptRegistry<CreatureScript>;
-template class ScriptRegistry<GameObjectScript>;
-template class ScriptRegistry<AreaTriggerScript>;
-template class ScriptRegistry<BattlegroundScript>;
-template class ScriptRegistry<OutdoorPvPScript>;
-template class ScriptRegistry<CommandScript>;
-template class ScriptRegistry<WeatherScript>;
-template class ScriptRegistry<AuctionHouseScript>;
-template class ScriptRegistry<ConditionScript>;
-template class ScriptRegistry<VehicleScript>;
-template class ScriptRegistry<DynamicObjectScript>;
-template class ScriptRegistry<TransportScript>;
-template class ScriptRegistry<AchievementCriteriaScript>;
-template class ScriptRegistry<PlayerScript>;
-template class ScriptRegistry<GuildScript>;
-template class ScriptRegistry<GroupScript>;
-template class ScriptRegistry<UnitScript>;
-template class ScriptRegistry<AccountScript>;
+template class TC_GAME_API ScriptRegistry<SpellScriptLoader>;
+template class TC_GAME_API ScriptRegistry<ServerScript>;
+template class TC_GAME_API ScriptRegistry<WorldScript>;
+template class TC_GAME_API ScriptRegistry<FormulaScript>;
+template class TC_GAME_API ScriptRegistry<WorldMapScript>;
+template class TC_GAME_API ScriptRegistry<InstanceMapScript>;
+template class TC_GAME_API ScriptRegistry<BattlegroundMapScript>;
+template class TC_GAME_API ScriptRegistry<ItemScript>;
+template class TC_GAME_API ScriptRegistry<CreatureScript>;
+template class TC_GAME_API ScriptRegistry<GameObjectScript>;
+template class TC_GAME_API ScriptRegistry<AreaTriggerScript>;
+template class TC_GAME_API ScriptRegistry<BattlegroundScript>;
+template class TC_GAME_API ScriptRegistry<OutdoorPvPScript>;
+template class TC_GAME_API ScriptRegistry<CommandScript>;
+template class TC_GAME_API ScriptRegistry<WeatherScript>;
+template class TC_GAME_API ScriptRegistry<AuctionHouseScript>;
+template class TC_GAME_API ScriptRegistry<ConditionScript>;
+template class TC_GAME_API ScriptRegistry<VehicleScript>;
+template class TC_GAME_API ScriptRegistry<DynamicObjectScript>;
+template class TC_GAME_API ScriptRegistry<TransportScript>;
+template class TC_GAME_API ScriptRegistry<AchievementCriteriaScript>;
+template class TC_GAME_API ScriptRegistry<PlayerScript>;
+template class TC_GAME_API ScriptRegistry<GuildScript>;
+template class TC_GAME_API ScriptRegistry<GroupScript>;
+template class TC_GAME_API ScriptRegistry<UnitScript>;
+template class TC_GAME_API ScriptRegistry<AccountScript>;
 
 // Undefine utility macros.
 #undef GET_SCRIPT_RET

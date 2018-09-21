@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2015 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2016 TrinityCore <http://www.trinitycore.org/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -338,14 +338,14 @@ struct dummy_dragonAI : public ScriptedAI
                 if (instance->GetBossState(DATA_SARTHARION) != IN_PROGRESS)
                     instance->SetBossState(DATA_SHADRON, DONE);
                 if (Creature* acolyte = me->FindNearestCreature(NPC_ACOLYTE_OF_SHADRON, 100.0f))
-                    acolyte->Kill(acolyte);
+                    acolyte->KillSelf();
                 break;
             case NPC_VESPERON:
                 spellId = SPELL_POWER_OF_VESPERON;
                 if (instance->GetBossState(DATA_SARTHARION) != IN_PROGRESS)
                     instance->SetBossState(DATA_VESPERON, DONE);
                 if (Creature* acolyte = me->FindNearestCreature(NPC_ACOLYTE_OF_VESPERON, 100.0f))
-                    acolyte->Kill(acolyte);
+                    acolyte->KillSelf();
                 break;
         }
 
@@ -948,7 +948,7 @@ public:
                 //DoCastVictim(57620, true);
                 //DoCastVictim(57874, true);
                 me->RemoveAllAuras();
-                me->Kill(me);
+                me->KillSelf();
             }
         }
 

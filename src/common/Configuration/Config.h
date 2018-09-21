@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2015 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2016 TrinityCore <http://www.trinitycore.org/>
  * Copyright (C) 2005-2009 MaNGOS <http://getmangos.com/>
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -19,32 +19,32 @@
 #ifndef CONFIG_H
 #define CONFIG_H
 
+#include "Define.h"
+
 #include <string>
 #include <list>
 #include <mutex>
 #include <boost/property_tree/ptree.hpp>
 
-class ConfigMgr
+class TC_COMMON_API ConfigMgr
 {
-    ConfigMgr() { }
-    ~ConfigMgr() { }
+    ConfigMgr() = default;
+    ConfigMgr(ConfigMgr const&) = delete;
+    ConfigMgr& operator=(ConfigMgr const&) = delete;
+    ~ConfigMgr() = default;
 
 public:
     /// Method used only for loading main configuration files (authserver.conf and worldserver.conf)
     bool LoadInitial(std::string const& file, std::string& error);
 
-    static ConfigMgr* instance()
-    {
-        static ConfigMgr instance;
-        return &instance;
-    }
+    static ConfigMgr* instance();
 
     bool Reload(std::string& error);
 
-    std::string GetStringDefault(std::string const& name, const std::string& def);
-    bool GetBoolDefault(std::string const& name, bool def);
-    int GetIntDefault(std::string const& name, int def);
-    float GetFloatDefault(std::string const& name, float def);
+    std::string GetStringDefault(std::string const& name, const std::string& def) const;
+    bool GetBoolDefault(std::string const& name, bool def) const;
+    int GetIntDefault(std::string const& name, int def) const;
+    float GetFloatDefault(std::string const& name, float def) const;
 
     std::string const& GetFilename();
     std::list<std::string> GetKeysByString(std::string const& name);
@@ -54,8 +54,8 @@ private:
     boost::property_tree::ptree _config;
     std::mutex _configLock;
 
-    ConfigMgr(ConfigMgr const&);
-    ConfigMgr& operator=(ConfigMgr const&);
+    template<class T>
+    T GetValueDefault(std::string const& name, T def) const;
 };
 
 #define sConfigMgr ConfigMgr::instance()

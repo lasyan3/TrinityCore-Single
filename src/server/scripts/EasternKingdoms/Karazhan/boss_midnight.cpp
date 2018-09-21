@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2015 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2016 TrinityCore <http://www.trinitycore.org/>
  * Copyright (C) 2006-2009 ScriptDev2 <https://scriptdev2.svn.sourceforge.net/>
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -26,6 +26,7 @@ EndScriptData */
 #include "ScriptMgr.h"
 #include "ScriptedCreature.h"
 #include "SpellInfo.h"
+#include "karazhan.h"
 
 enum Midnight
 {
@@ -91,9 +92,9 @@ public:
             Initialize();
         }
 
-        void EnterEvadeMode() override
+        void EnterEvadeMode(EvadeReason why) override
         {
-            ScriptedAI::EnterEvadeMode();
+            ScriptedAI::EnterEvadeMode(why);
             ResetTimer = 2000;
         }
 
@@ -108,7 +109,10 @@ public:
         {
             Talk(SAY_DEATH);
             if (Unit* midnight = ObjectAccessor::GetUnit(*me, Midnight))
-                midnight->Kill(midnight);
+                midnight->KillSelf();
+
+            if (InstanceScript* instance = me->GetInstanceScript())
+                instance->SetBossState(DATA_ATTUMEN, DONE);
         }
 
         void UpdateAI(uint32 diff) override;
@@ -157,7 +161,11 @@ public:
             me->SetVisible(true);
         }
 
-        void EnterCombat(Unit* /*who*/) override { }
+        void EnterCombat(Unit* /*who*/) override
+        {
+            if (InstanceScript* instance = me->GetInstanceScript())
+                instance->SetBossState(DATA_ATTUMEN, IN_PROGRESS);
+        }
 
         void KilledUnit(Unit* /*victim*/) override
         {
@@ -264,7 +272,7 @@ void boss_attumen::boss_attumenAI::UpdateAI(uint32 diff)
             }
             Midnight.Clear();
             me->SetVisible(false);
-            me->Kill(me);
+            me->KillSelf();
         } else ResetTimer -= diff;
     }
 

@@ -89,7 +89,7 @@ public:
                     me->UpdateEntry(NPC_TAMED_KODO);
                     me->CombatStop();
                     me->DeleteThreatList();
-                    me->SetSpeed(MOVE_RUN, 0.6f, true);
+                    me->SetSpeedRate(MOVE_RUN, 0.6f);
                     me->GetMotionMaster()->MoveFollow(caster, PET_FOLLOW_DIST, me->GetFollowAngle());
                     me->setActive(true);
                 }
@@ -114,7 +114,7 @@ public:
             player->RemoveAurasDueToSpell(SPELL_KODO_KOMBO_PLAYER_BUFF);
         }
 
-        player->SEND_GOSSIP_MENU(player->GetGossipTextId(creature), creature->GetGUID());
+        SendGossipMenuFor(player, player->GetGossipTextId(creature), creature->GetGUID());
         return true;
     }
 

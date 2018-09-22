@@ -1,10 +1,10 @@
 # set up output paths for executable binaries (.exe-files, and .dll-files on DLL-capable platforms)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
-set(MSVC_EXPECTED_VERSION 18.0)
+set(MSVC_EXPECTED_VERSION 19.0)
 
 if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS MSVC_EXPECTED_VERSION)
-  message(FATAL_ERROR "MSVC: TrinityCore requires version ${MSVC_EXPECTED_VERSION} (MSVC 2013) to build but found ${CMAKE_CXX_COMPILER_VERSION}")
+  message(FATAL_ERROR "MSVC: TrinityCore requires version ${MSVC_EXPECTED_VERSION} (MSVC 2015) to build but found ${CMAKE_CXX_COMPILER_VERSION}")
 endif()
 
 # set up output paths ofr static libraries etc (commented out - shown here as an example only)
@@ -42,7 +42,7 @@ endif()
 # multithreaded compiling on VS
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /MP")
 
-if((PLATFORM EQUAL 64) OR (NOT CMAKE_CXX_COMPILER_VERSION VERSION_LESS 19.0.23026.0) OR WITH_DYNAMIC_LINKING)
+if((PLATFORM EQUAL 64) OR (NOT CMAKE_CXX_COMPILER_VERSION VERSION_LESS 19.0.23026.0) OR BUILD_SHARED_LIBS)
   # Enable extended object support
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /bigobj")
   message(STATUS "MSVC: Enabled increased number of sections in object files")
@@ -80,7 +80,7 @@ if(NOT WITH_WARNINGS)
   message(STATUS "MSVC: Disabled generic compiletime warnings")
 endif()
 
-if (WITH_DYNAMIC_LINKING)
+if (BUILD_SHARED_LIBS)
   # C4251: needs to have dll-interface to be used by clients of class '...'
   # C4275: non dll-interface class ...' used as base for dll-interface class '...'
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd4251 /wd4275")

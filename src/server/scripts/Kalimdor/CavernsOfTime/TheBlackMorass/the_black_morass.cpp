@@ -16,19 +16,6 @@
  * with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-/*
-Name: The_Black_Morass
-%Complete: 30
-Comment: Misc NPC's and mobs for instance. Most here far from complete.
-Category: Caverns of Time, The Black Morass
-*/
-
-/* ContentData
-npc_medivh_bm
-npc_time_rift
-npc_saat
-EndContentData */
-
 #include "ScriptMgr.h"
 #include "ScriptedCreature.h"
 #include "ScriptedGossip.h"
@@ -365,57 +352,8 @@ public:
 
 };
 
-enum Saat
-{
-    SPELL_CHRONO_BEACON     = 34975,
-    ITEM_CHRONO_BEACON      = 24289
-};
-
-#define GOSSIP_ITEM_OBTAIN      "[PH] Obtain Chrono-Beacon"
-
-class npc_saat : public CreatureScript
-{
-public:
-    npc_saat() : CreatureScript("npc_saat") { }
-
-    bool OnGossipSelect(Player* player, Creature* creature, uint32 /*sender*/, uint32 action) override
-    {
-        player->PlayerTalkClass->ClearMenus();
-        if (action == GOSSIP_ACTION_INFO_DEF+1)
-        {
-            player->CLOSE_GOSSIP_MENU();
-            creature->CastSpell(player, SPELL_CHRONO_BEACON, false);
-        }
-        return true;
-    }
-
-    bool OnGossipHello(Player* player, Creature* creature) override
-    {
-        if (creature->IsQuestGiver())
-            player->PrepareQuestMenu(creature->GetGUID());
-
-        if (player->GetQuestStatus(QUEST_OPENING_PORTAL) == QUEST_STATUS_INCOMPLETE && !player->HasItemCount(ITEM_CHRONO_BEACON))
-        {
-            player->ADD_GOSSIP_ITEM(GOSSIP_ICON_CHAT, GOSSIP_ITEM_OBTAIN, GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF+1);
-            player->SEND_GOSSIP_MENU(10000, creature->GetGUID());
-            return true;
-        }
-        else if (player->GetQuestRewardStatus(QUEST_OPENING_PORTAL) && !player->HasItemCount(ITEM_CHRONO_BEACON))
-        {
-            player->ADD_GOSSIP_ITEM(GOSSIP_ICON_CHAT, GOSSIP_ITEM_OBTAIN, GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF+1);
-            player->SEND_GOSSIP_MENU(10001, creature->GetGUID());
-            return true;
-        }
-
-        player->SEND_GOSSIP_MENU(10002, creature->GetGUID());
-        return true;
-    }
-
-};
-
 void AddSC_the_black_morass()
 {
     new npc_medivh_bm();
     new npc_time_rift();
-    new npc_saat();
 }

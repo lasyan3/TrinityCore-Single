@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2017 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2018 TrinityCore <https://www.trinitycore.org/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -16,10 +16,13 @@
  */
 
 #include "ScriptMgr.h"
+#include "GameObject.h"
+#include "InstanceScript.h"
+#include "MotionMaster.h"
 #include "ScriptedCreature.h"
-#include "utgarde_keep.h"
+#include "SpellInfo.h"
 #include "SpellScript.h"
-#include "SpellAuraEffects.h"
+#include "utgarde_keep.h"
 
 uint32 ForgeSearch[3] =
 {
@@ -62,7 +65,7 @@ class npc_dragonflayer_forge_master : public CreatureScript
                     _instance->SetData(DATA_FORGE_1 + _forgeId - 1, DONE);
             }
 
-            void EnterCombat(Unit* /*who*/) override
+            void JustEngagedWith(Unit* /*who*/) override
             {
                 if (!_forgeId)
                     _forgeId = GetForgeMasterType();
@@ -130,9 +133,7 @@ class spell_ticking_time_bomb : public SpellScriptLoader
 
             bool Validate(SpellInfo const* /*spellInfo*/) override
             {
-                if (!sSpellMgr->GetSpellInfo(SPELL_TICKING_TIME_BOMB_EXPLODE))
-                    return false;
-                return true;
+                return ValidateSpellInfo({ SPELL_TICKING_TIME_BOMB_EXPLODE });
             }
 
             void HandleOnEffectRemove(AuraEffect const* /* aurEff */, AuraEffectHandleModes /* mode */)
@@ -169,9 +170,7 @@ class spell_fixate : public SpellScriptLoader
 
             bool Validate(SpellInfo const* /*spellInfo*/) override
             {
-                if (!sSpellMgr->GetSpellInfo(SPELL_FIXATE_TRIGGER))
-                    return false;
-                return true;
+                return ValidateSpellInfo({ SPELL_FIXATE_TRIGGER });
             }
 
             void HandleScriptEffect(SpellEffIndex /*effIndex*/)
@@ -208,9 +207,7 @@ class spell_uk_second_wind : public SpellScriptLoader
 
             bool Validate(SpellInfo const* /*spellInfo*/) override
             {
-                if (!sSpellMgr->GetSpellInfo(SPELL_SECOND_WIND_TRIGGER))
-                    return false;
-                return true;
+                return ValidateSpellInfo({ SPELL_SECOND_WIND_TRIGGER });
             }
 
             bool CheckProc(ProcEventInfo& eventInfo)
@@ -226,7 +223,7 @@ class spell_uk_second_wind : public SpellScriptLoader
             {
                 PreventDefaultAction();
                 Unit* caster = eventInfo.GetActionTarget();
-                caster->CastSpell(caster, SPELL_SECOND_WIND_TRIGGER, true, nullptr, aurEff);
+                caster->CastSpell(caster, SPELL_SECOND_WIND_TRIGGER, aurEff);
             }
 
             void Register() override
@@ -342,7 +339,7 @@ class npc_enslaved_proto_drake : public CreatureScript
 
         CreatureAI* GetAI(Creature* creature) const override
         {
-            return new npc_enslaved_proto_drakeAI(creature);
+            return GetUtgardeKeepAI<npc_enslaved_proto_drakeAI>(creature);
         }
 };
 

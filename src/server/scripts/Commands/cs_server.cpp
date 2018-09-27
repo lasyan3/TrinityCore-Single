@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2017 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2018 TrinityCore <https://www.trinitycore.org/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -22,17 +22,21 @@ Comment: All server related commands
 Category: commandscripts
 EndScriptData */
 
+#include "ScriptMgr.h"
 #include "Chat.h"
 #include "Config.h"
+#include "GameTime.h"
+#include "GitRevision.h"
 #include "Language.h"
+#include "Log.h"
 #include "ObjectAccessor.h"
 #include "Player.h"
-#include "ScriptMgr.h"
-#include "GitRevision.h"
-#include "Util.h"
+#include "RBAC.h"
 #include "ServerMotd.h"
-#include "GameTime.h"
 #include "UpdateTime.h"
+#include "Util.h"
+#include "World.h"
+#include "WorldSession.h"
 
 class server_commandscript : public CommandScript
 {

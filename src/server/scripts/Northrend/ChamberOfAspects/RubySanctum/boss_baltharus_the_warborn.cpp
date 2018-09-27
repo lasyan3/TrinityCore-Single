@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2017 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2018 TrinityCore <https://www.trinitycore.org/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -15,11 +15,12 @@
  * with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "ScriptedCreature.h"
 #include "ScriptMgr.h"
-#include "SpellScript.h"
-#include "SpellAuraEffects.h"
+#include "InstanceScript.h"
 #include "ruby_sanctum.h"
+#include "ScriptedCreature.h"
+#include "SpellAuraEffects.h"
+#include "SpellScript.h"
 
 enum Texts
 {
@@ -72,8 +73,7 @@ class boss_baltharus_the_warborn : public CreatureScript
 
         struct boss_baltharus_the_warbornAI : public BossAI
         {
-            boss_baltharus_the_warbornAI(Creature* creature) : BossAI(creature, DATA_BALTHARUS_THE_WARBORN),
-                _cloneCount(0), _introDone(false) { }
+            boss_baltharus_the_warbornAI(Creature* creature) : BossAI(creature, DATA_BALTHARUS_THE_WARBORN), _cloneCount(0) { }
 
             void Reset() override
             {
@@ -90,10 +90,8 @@ class boss_baltharus_the_warborn : public CreatureScript
                 switch (action)
                 {
                     case ACTION_INTRO_BALTHARUS:
-                        if (_introDone)
-                            return;
-                        _introDone = true;
                         me->setActive(true);
+                        me->SetFarVisible(true);
                         events.ScheduleEvent(EVENT_INTRO_TALK, Seconds(7), 0, PHASE_INTRO);
                         break;
                     case ACTION_CLONE:
@@ -109,10 +107,10 @@ class boss_baltharus_the_warborn : public CreatureScript
                 }
             }
 
-            void EnterCombat(Unit* /*who*/) override
+            void JustEngagedWith(Unit* /*who*/) override
             {
                 me->InterruptNonMeleeSpells(false);
-                _EnterCombat();
+                _JustEngagedWith();
                 events.Reset();
                 events.SetPhase(PHASE_COMBAT);
                 events.ScheduleEvent(EVENT_CLEAVE, Seconds(13), 0, PHASE_COMBAT);
@@ -186,10 +184,10 @@ class boss_baltharus_the_warborn : public CreatureScript
                 if (!events.IsInPhase(PHASE_INTRO))
                     me->SetHealth(instance->GetData(DATA_BALTHARUS_SHARED_HEALTH));
 
+                events.Update(diff);
+
                 if (!events.IsInPhase(PHASE_INTRO) && me->HasUnitState(UNIT_STATE_CASTING))
                     return;
-
-                events.Update(diff);
 
                 while (uint32 eventId = events.ExecuteEvent())
                 {
@@ -231,7 +229,6 @@ class boss_baltharus_the_warborn : public CreatureScript
 
         private:
             uint8 _cloneCount;
-            bool _introDone;
         };
 
         CreatureAI* GetAI(Creature* creature) const override
@@ -255,7 +252,7 @@ class npc_baltharus_the_warborn_clone : public CreatureScript
                 me->SetReactState(REACT_DEFENSIVE);
             }
 
-            void EnterCombat(Unit* /*who*/) override
+            void JustEngagedWith(Unit* /*who*/) override
             {
                 DoZoneInCombat();
                 events.Reset();
@@ -277,7 +274,7 @@ class npc_baltharus_the_warborn_clone : public CreatureScript
             {
                 // This is here because DamageTaken wont trigger if the damage is deadly.
                 if (Creature* baltharus = instance->GetCreature(DATA_BALTHARUS_THE_WARBORN))
-                    killer->Kill(baltharus);
+                    Unit::Kill(killer, baltharus);
             }
 
             void UpdateAI(uint32 diff) override
@@ -338,16 +335,22 @@ class spell_baltharus_enervating_brand_trigger : public SpellScriptLoader
         {
             PrepareSpellScript(spell_baltharus_enervating_brand_trigger_SpellScript);
 
-            void CheckDistance()
+            bool Validate(SpellInfo const* /*spell*/) override
             {
-                Unit* caster = GetCaster();
-                Unit* target = GetHitUnit();
-                target->CastSpell(caster, SPELL_SIPHONED_MIGHT, true);
+                return ValidateSpellInfo({ SPELL_SIPHONED_MIGHT });
+            }
+
+            void HandleSiphonedMight()
+            {
+                if (SpellInfo const* spellInfo = GetTriggeringSpell())
+                    if (Aura* triggerAura = GetCaster()->GetAura(spellInfo->Id))
+                        if (Unit* caster = triggerAura->GetCaster())
+                            GetHitUnit()->CastSpell(caster, SPELL_SIPHONED_MIGHT, true);
             }
 
             void Register() override
             {
-                OnHit += SpellHitFn(spell_baltharus_enervating_brand_trigger_SpellScript::CheckDistance);
+                OnHit += SpellHitFn(spell_baltharus_enervating_brand_trigger_SpellScript::HandleSiphonedMight);
             }
         };
 

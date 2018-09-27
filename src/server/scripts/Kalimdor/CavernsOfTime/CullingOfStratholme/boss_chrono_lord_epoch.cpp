@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2017 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2018 TrinityCore <https://www.trinitycore.org/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -24,8 +24,8 @@ SDCategory:
 Script Data End */
 
 #include "ScriptMgr.h"
-#include "ScriptedCreature.h"
 #include "culling_of_stratholme.h"
+#include "ScriptedCreature.h"
 
 enum Spells
 {
@@ -61,10 +61,10 @@ class boss_epoch : public CreatureScript
         {
             boss_epochAI(Creature* creature) : BossAI(creature, DATA_EPOCH) { }
 
-            void EnterCombat(Unit* /*who*/) override
+            void JustEngagedWith(Unit* /*who*/) override
             {
                 Talk(SAY_AGGRO);
-                _EnterCombat();
+                _JustEngagedWith();
 
                 events.ScheduleEvent(EVENT_CURSE_OF_EXERTION, 9300);
                 events.ScheduleEvent(EVENT_TIME_WARP, 25300);
@@ -114,7 +114,7 @@ class boss_epoch : public CreatureScript
 
         CreatureAI* GetAI(Creature* creature) const override
         {
-            return GetInstanceAI<boss_epochAI>(creature);
+            return GetCullingOfStratholmeAI<boss_epochAI>(creature);
         }
 };
 

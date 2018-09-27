@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2017 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2018 TrinityCore <https://www.trinitycore.org/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -76,14 +76,14 @@ class boss_archavon : public CreatureScript
             {
             }
 
-            void EnterCombat(Unit* /*who*/) override
+            void JustEngagedWith(Unit* /*who*/) override
             {
                 events.ScheduleEvent(EVENT_ROCK_SHARDS, 15000);
                 events.ScheduleEvent(EVENT_CHOKING_CLOUD, 30000);
                 events.ScheduleEvent(EVENT_STOMP, 45000);
                 events.ScheduleEvent(EVENT_BERSERK, 300000);
 
-                _EnterCombat();
+                _JustEngagedWith();
             }
 
             // Below UpdateAI may need review/debug.
@@ -138,7 +138,7 @@ class boss_archavon : public CreatureScript
 
         CreatureAI* GetAI(Creature* creature) const override
         {
-            return new boss_archavonAI(creature);
+            return GetVaultOfArchavonAI<boss_archavonAI>(creature);
         }
 };
 
@@ -166,7 +166,7 @@ class npc_archavon_warder : public CreatureScript
                 events.ScheduleEvent(EVENT_WHIRL, 7500);
             }
 
-            void EnterCombat(Unit* /*who*/) override
+            void JustEngagedWith(Unit* /*who*/) override
             {
                 DoZoneInCombat();
             }
@@ -212,7 +212,7 @@ class npc_archavon_warder : public CreatureScript
 
         CreatureAI* GetAI(Creature* creature) const override
         {
-            return new npc_archavon_warderAI(creature);
+            return GetVaultOfArchavonAI<npc_archavon_warderAI>(creature);
         }
 };
 
@@ -228,12 +228,13 @@ class spell_archavon_rock_shards : public SpellScriptLoader
 
             bool Validate(SpellInfo const* /*spellInfo*/) override
             {
-                if (!sSpellMgr->GetSpellInfo(SPELL_ROCK_SHARDS_VISUAL_L)
-                    || !sSpellMgr->GetSpellInfo(SPELL_ROCK_SHARDS_VISUAL_R)
-                    || !sSpellMgr->GetSpellInfo(SPELL_ROCK_SHARDS_DAMAGE_L)
-                    || !sSpellMgr->GetSpellInfo(SPELL_ROCK_SHARDS_DAMAGE_R))
-                    return false;
-                return true;
+                return ValidateSpellInfo(
+                {
+                    SPELL_ROCK_SHARDS_VISUAL_L,
+                    SPELL_ROCK_SHARDS_VISUAL_R,
+                    SPELL_ROCK_SHARDS_DAMAGE_L,
+                    SPELL_ROCK_SHARDS_DAMAGE_R
+                });
             }
 
             void HandleScript(SpellEffIndex /*effIndex*/)
@@ -242,12 +243,12 @@ class spell_archavon_rock_shards : public SpellScriptLoader
 
                 for (uint8 i = 0; i < 3; ++i)
                 {
-                    caster->CastSpell((Unit*)NULL, SPELL_ROCK_SHARDS_VISUAL_L, true);
-                    caster->CastSpell((Unit*)NULL, SPELL_ROCK_SHARDS_VISUAL_R, true);
+                    caster->CastSpell(nullptr, SPELL_ROCK_SHARDS_VISUAL_L, true);
+                    caster->CastSpell(nullptr, SPELL_ROCK_SHARDS_VISUAL_R, true);
                 }
 
-                caster->CastSpell((Unit*)NULL, SPELL_ROCK_SHARDS_DAMAGE_L, true);
-                caster->CastSpell((Unit*)NULL, SPELL_ROCK_SHARDS_DAMAGE_R, true);
+                caster->CastSpell(nullptr, SPELL_ROCK_SHARDS_DAMAGE_L, true);
+                caster->CastSpell(nullptr, SPELL_ROCK_SHARDS_DAMAGE_R, true);
             }
 
             void Register() override

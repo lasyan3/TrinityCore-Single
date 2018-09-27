@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2017 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2018 TrinityCore <https://www.trinitycore.org/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -78,9 +78,9 @@ class boss_elder_nadox : public CreatureScript
                 Initialize();
             }
 
-            void EnterCombat(Unit* /*who*/) override
+            void JustEngagedWith(Unit* /*who*/) override
             {
-                _EnterCombat();
+                _JustEngagedWith();
                 Talk(SAY_AGGRO);
 
                 events.ScheduleEvent(EVENT_PLAGUE, 13 * IN_MILLISECONDS);
@@ -224,7 +224,7 @@ class npc_ahnkahar_nerubian : public CreatureScript
 
         CreatureAI* GetAI(Creature* creature) const override
         {
-            return new npc_ahnkahar_nerubianAI(creature);
+            return GetAhnKahetAI<npc_ahnkahar_nerubianAI>(creature);
         }
 };
 
@@ -238,18 +238,9 @@ class spell_ahn_kahet_swarm : public SpellScriptLoader
         {
             PrepareSpellScript(spell_ahn_kahet_swarm_SpellScript);
 
-        public:
-            spell_ahn_kahet_swarm_SpellScript()
-            {
-                _targetCount = 0;
-            }
-
-        private:
             bool Validate(SpellInfo const* /*spellInfo*/) override
             {
-                if (!sSpellMgr->GetSpellInfo(SPELL_SWARM_BUFF))
-                    return false;
-                return true;
+                return ValidateSpellInfo({ SPELL_SWARM_BUFF });
             }
 
             void CountTargets(std::list<WorldObject*>& targets)
@@ -267,7 +258,12 @@ class spell_ahn_kahet_swarm : public SpellScriptLoader
                         aura->RefreshDuration();
                     }
                     else
-                        GetCaster()->CastCustomSpell(SPELL_SWARM_BUFF, SPELLVALUE_AURA_STACK, _targetCount, GetCaster(), TRIGGERED_FULL_MASK);
+                    {
+                        CastSpellExtraArgs args;
+                        args.TriggerFlags = TRIGGERED_FULL_MASK;
+                        args.AddSpellMod(SPELLVALUE_AURA_STACK, _targetCount);
+                        GetCaster()->CastSpell(GetCaster(), SPELL_SWARM_BUFF, args);
+                    }
                 }
                 else
                     GetCaster()->RemoveAurasDueToSpell(SPELL_SWARM_BUFF);
@@ -279,7 +275,7 @@ class spell_ahn_kahet_swarm : public SpellScriptLoader
                 OnEffectHit += SpellEffectFn(spell_ahn_kahet_swarm_SpellScript::HandleDummy, EFFECT_0, SPELL_EFFECT_DUMMY);
             }
 
-            uint32 _targetCount;
+            uint32 _targetCount = 0;
         };
 
         SpellScript* GetSpellScript() const override

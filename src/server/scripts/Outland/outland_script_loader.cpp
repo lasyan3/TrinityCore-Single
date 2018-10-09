@@ -37,6 +37,7 @@ void AddSC_boss_ambassador_hellmaw();
 void AddSC_boss_blackheart_the_inciter();
 void AddSC_boss_grandmaster_vorpil();
 void AddSC_boss_murmur();
+void AddSC_shadow_labyrinth();
 void AddSC_instance_shadow_labyrinth();
 
 // Black Temple
@@ -72,6 +73,7 @@ void AddSC_instance_the_slave_pens();
 void AddSC_boss_mennu_the_betrayer();
 void AddSC_boss_rokmar_the_crackler();
 void AddSC_boss_quagmirran();
+void AddSC_boss_ahune();
 
 // Coilfang Reservoir - The Underbog
 void AddSC_instance_the_underbog();
@@ -158,6 +160,7 @@ void AddOutlandScripts()
     AddSC_boss_blackheart_the_inciter();
     AddSC_boss_grandmaster_vorpil();
     AddSC_boss_murmur();
+    AddSC_shadow_labyrinth();
     AddSC_instance_shadow_labyrinth();
 
     // Black Temple
@@ -193,6 +196,7 @@ void AddOutlandScripts()
     AddSC_boss_mennu_the_betrayer();
     AddSC_boss_rokmar_the_crackler();
     AddSC_boss_quagmirran();
+    AddSC_boss_ahune();
 
     // Coilfang Reservoir - The Underbog
     AddSC_instance_the_underbog();

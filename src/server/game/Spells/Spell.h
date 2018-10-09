@@ -218,6 +218,8 @@ enum SpellEffectHandleMode
 
 typedef std::list<std::pair<uint32, ObjectGuid>> DispelList;
 
+static const uint32 SPELL_INTERRUPT_NONPLAYER = 32747;
+
 class TC_GAME_API Spell
 {
     friend void Unit::SetCurrentCastSpell(Spell* pSpell);
@@ -350,7 +352,7 @@ class TC_GAME_API Spell
         void EffectCastButtons(SpellEffIndex effIndex);
         void EffectRechargeManaGem(SpellEffIndex effIndex);
 
-        typedef std::set<Aura*> UsedSpellMods;
+        typedef std::unordered_set<Aura*> UsedSpellMods;
 
         Spell(Unit* caster, SpellInfo const* info, TriggerCastFlags triggerFlags, ObjectGuid originalCasterGUID = ObjectGuid::Empty, bool skipCheck = false);
         ~Spell();
@@ -505,6 +507,7 @@ class TC_GAME_API Spell
         void CancelGlobalCooldown();
 
         void SendLoot(ObjectGuid guid, LootType loottype);
+        std::pair<float, float> GetMinMaxRange(bool strict);
 
         Unit* const m_caster;
 
@@ -524,7 +527,6 @@ class TC_GAME_API Spell
         int32 m_channeledDuration;                          // Calculated channeled spell duration in order to calculate correct pushback.
         bool m_canReflect;                                  // can reflect this spell?
         bool m_autoRepeat;
-        bool m_isDelayedInstantCast;                        // whether this is a creature's delayed instant cast
         uint8 m_runesState;
 
         uint8 m_delayAtDamageCount;
@@ -575,8 +577,8 @@ class TC_GAME_API Spell
         // ******************************************
         uint32 m_procAttacker;                // Attacker trigger flags
         uint32 m_procVictim;                  // Victim   trigger flags
-        uint32 m_procEx;
-        void   prepareDataForTriggerSystem(AuraEffect const* triggeredByAura);
+        uint32 m_hitMask;
+        void   prepareDataForTriggerSystem();
 
         // *****************************************
         // Spell target subsystem
@@ -693,14 +695,6 @@ class TC_GAME_API Spell
         PathGenerator m_preGeneratedPath;
 
         ByteBuffer * m_effectExecuteData[MAX_SPELL_EFFECTS];
-
-#ifdef MAP_BASED_RAND_GEN
-        int32 irand(int32 min, int32 max)       { return int32 (m_caster->GetMap()->mtRand.randInt(max - min)) + min; }
-        uint32 urand(uint32 min, uint32 max)    { return m_caster->GetMap()->mtRand.randInt(max - min) + min; }
-        int32 rand32()                          { return m_caster->GetMap()->mtRand.randInt(); }
-        double rand_norm()                      { return m_caster->GetMap()->mtRand.randExc(); }
-        double rand_chance()                    { return m_caster->GetMap()->mtRand.randExc(100.0); }
-#endif
 
         Spell(Spell const& right) = delete;
         Spell& operator=(Spell const& right) = delete;

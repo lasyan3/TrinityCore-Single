@@ -528,6 +528,7 @@ class boss_the_lich_king : public CreatureScript
             void SetupEncounter()
             {
                 _Reset();
+                me->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_PC);
                 me->SetReactState(REACT_PASSIVE);
                 events.SetPhase(PHASE_INTRO);
                 Initialize();
@@ -763,7 +764,7 @@ class boss_the_lich_king : public CreatureScript
                     {
                         summons.Summon(summon);
                         summon->SetReactState(REACT_PASSIVE);
-                        summon->SetSpeed(MOVE_FLIGHT, 0.5f);
+                        summon->SetSpeedRate(MOVE_FLIGHT, 0.5f);
                         summon->GetMotionMaster()->MoveRandom(10.0f);
                         if (!events.IsInPhase(PHASE_FROSTMOURNE))
                             summon->m_Events.AddEvent(new VileSpiritActivateEvent(summon), summon->m_Events.CalculateTime(15000));
@@ -833,7 +834,7 @@ class boss_the_lich_king : public CreatureScript
                         events.ScheduleEvent(EVENT_INTRO_TALK_1, 9000, 0, PHASE_INTRO);
                         break;
                     case POINT_CENTER_1:
-                        me->SetFacingTo(0.0f);
+                        me->SetFacingTo(0.0f, true);
                         Talk(SAY_LK_REMORSELESS_WINTER);
                         me->GetMap()->SetZoneMusic(AREA_THE_FROZEN_THRONE, MUSIC_SPECIAL);
                         DoCast(me, SPELL_REMORSELESS_WINTER_1);
@@ -848,7 +849,7 @@ class boss_the_lich_king : public CreatureScript
                         events.ScheduleEvent(EVENT_SOUL_REAPER, 94000, 0, PHASE_TWO);
                         break;
                     case POINT_CENTER_2:
-                        me->SetFacingTo(0.0f);
+                        me->SetFacingTo(0.0f, true);
                         Talk(SAY_LK_REMORSELESS_WINTER);
                         me->GetMap()->SetZoneMusic(AREA_THE_FROZEN_THRONE, MUSIC_SPECIAL);
                         DoCast(me, SPELL_REMORSELESS_WINTER_2);
@@ -1124,6 +1125,9 @@ class boss_the_lich_king : public CreatureScript
                         default:
                             break;
                     }
+
+                    if (me->HasUnitState(UNIT_STATE_CASTING) && !(events.IsInPhase(PHASE_TRANSITION) || events.IsInPhase(PHASE_OUTRO) || events.IsInPhase(PHASE_FROSTMOURNE)))
+                        return;
                 }
 
                 DoMeleeAttackIfReady();
@@ -1448,7 +1452,7 @@ class npc_valkyr_shadowguard : public CreatureScript
                 _events.Reset();
                 me->SetReactState(REACT_PASSIVE);
                 DoCast(me, SPELL_WINGS_OF_THE_DAMNED, false);
-                me->SetSpeed(MOVE_FLIGHT, 0.642857f, true);
+                me->SetSpeedRate(MOVE_FLIGHT, 0.642857f);
             }
 
             void IsSummonedBy(Unit* /*summoner*/) override
@@ -2987,8 +2991,12 @@ class spell_the_lich_king_dark_hunger : public SpellScriptLoader
             void HandleProc(AuraEffect const* aurEff, ProcEventInfo& eventInfo)
             {
                 PreventDefaultAction();
-                int32 heal = int32(eventInfo.GetDamageInfo()->GetDamage() / 2);
-                GetTarget()->CastCustomSpell(SPELL_DARK_HUNGER_HEAL, SPELLVALUE_BASE_POINT0, heal, GetTarget(), true, NULL, aurEff);
+                DamageInfo* damageInfo = eventInfo.GetDamageInfo();
+                if (!damageInfo || !damageInfo->GetDamage())
+                    return;
+
+                int32 heal = static_cast<int32>(damageInfo->GetDamage()) / 2;
+                GetTarget()->CastCustomSpell(SPELL_DARK_HUNGER_HEAL, SPELLVALUE_BASE_POINT0, heal, GetTarget(), true, nullptr, aurEff);
             }
 
             void Register() override

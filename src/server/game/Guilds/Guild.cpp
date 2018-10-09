@@ -1443,17 +1443,17 @@ void Guild::HandleSetBankTabInfo(WorldSession* session, uint8 tabId, std::string
     _BroadcastEvent(GE_BANK_TAB_UPDATED, ObjectGuid::Empty, aux, name.c_str(), icon.c_str());
 }
 
-void Guild::HandleSetMemberNote(WorldSession* session, std::string const& name, std::string const& note, bool isPublic)
+void Guild::HandleSetMemberNote(WorldSession* session, std::string const& name, std::string const& note, bool officer)
 {
     // Player must have rights to set public/officer note
-    if (!_HasRankRight(session->GetPlayer(), isPublic ? GR_RIGHT_EPNOTE : GR_RIGHT_EOFFNOTE))
+    if (!_HasRankRight(session->GetPlayer(), officer ? GR_RIGHT_EOFFNOTE : GR_RIGHT_EPNOTE))
         SendCommandResult(session, GUILD_COMMAND_PUBLIC_NOTE, ERR_GUILD_PERMISSIONS);
     else if (Member* member = GetMember(name))
     {
-        if (isPublic)
-            member->SetPublicNote(note);
-        else
+        if (officer)
             member->SetOfficerNote(note);
+        else
+            member->SetPublicNote(note);
 
         HandleRoster(session);
     }
@@ -2855,8 +2855,7 @@ void Guild::_BroadcastEvent(GuildEvents guildEvent, ObjectGuid guid, const char*
 
     BroadcastPacket(&data);
 
-    if (sLog->ShouldLog("guild", LOG_LEVEL_DEBUG))
-        TC_LOG_DEBUG("guild", "SMSG_GUILD_EVENT [Broadcast] Event: %s (%u)", _GetGuildEventString(guildEvent).c_str(), guildEvent);
+    TC_LOG_DEBUG("guild", "SMSG_GUILD_EVENT [Broadcast] Event: %s (%u)", _GetGuildEventString(guildEvent).c_str(), guildEvent);
 }
 
 void Guild::_SendBankList(WorldSession* session /* = NULL*/, uint8 tabId /*= 0*/, bool sendAllSlots /*= false*/, SlotIds *slots /*= NULL*/) const

@@ -19,6 +19,7 @@
 #include "MotionMaster.h"
 #include "CreatureAISelector.h"
 #include "Creature.h"
+#include "ScriptSystem.h"
 
 #include "ConfusedMovementGenerator.h"
 #include "FleeingMovementGenerator.h"
@@ -28,6 +29,7 @@
 #include "TargetedMovementGenerator.h"
 #include "WaypointMovementGenerator.h"
 #include "RandomMovementGenerator.h"
+#include "SplineChainMovementGenerator.h"
 #include "MoveSpline.h"
 #include "MoveSplineInit.h"
 
@@ -241,7 +243,7 @@ void MotionMaster::MoveConfused()
 void MotionMaster::MoveChase(Unit* target, float dist, float angle)
 {
     // ignore movement request if target not exist
-    if (!target || target == _owner || _owner->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_DISABLE_MOVE))
+    if (!target || target == _owner)
         return;
 
     //_owner->ClearUnitState(UNIT_STATE_FOLLOW);
@@ -266,7 +268,7 @@ void MotionMaster::MoveChase(Unit* target, float dist, float angle)
 void MotionMaster::MoveFollow(Unit* target, float dist, float angle, MovementSlot slot)
 {
     // ignore movement request if target not exist
-    if (!target || target == _owner || _owner->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_DISABLE_MOVE))
+    if (!target || target == _owner)
         return;
 
     //_owner->AddUnitState(UNIT_STATE_FOLLOW);
@@ -299,6 +301,27 @@ void MotionMaster::MovePoint(uint32 id, float x, float y, float z, bool generate
         TC_LOG_DEBUG("misc", "Creature (Entry: %u GUID: %u) targeted point (ID: %u X: %f Y: %f Z: %f).",
             _owner->GetEntry(), _owner->GetGUID().GetCounter(), id, x, y, z);
         Mutate(new PointMovementGenerator<Creature>(id, x, y, z, generatePath), MOTION_SLOT_ACTIVE);
+    }
+}
+
+void MotionMaster::MoveCloserAndStop(uint32 id, Unit* target, float distance)
+{
+    float distanceToTravel = _owner->GetExactDist2d(target) - distance;
+    if (distanceToTravel > 0.0f)
+    {
+        float angle = _owner->GetAngle(target);
+        float destx = _owner->GetPositionX() + distanceToTravel * std::cos(angle);
+        float desty = _owner->GetPositionY() + distanceToTravel * std::sin(angle);
+        MovePoint(id, destx, desty, target->GetPositionZ());
+    }
+    else
+    {
+        // we are already close enough. We just need to turn toward the target without changing position.
+        Movement::MoveSplineInit init(_owner);
+        init.MoveTo(_owner->GetPositionX(), _owner->GetPositionY(), _owner->GetPositionZMinusOffset());
+        init.SetFacing(target);
+        init.Launch();
+        Mutate(new EffectMovementGenerator(id), MOTION_SLOT_ACTIVE);
     }
 }
 
@@ -428,7 +451,11 @@ void MotionMaster::MoveCirclePath(float x, float y, float z, float radius, bool 
 void MotionMaster::MoveSmoothPath(uint32 pointId, G3D::Vector3 const* pathPoints, size_t pathSize, bool walk)
 {
     Movement::PointsArray path(pathPoints, pathPoints + pathSize);
+    MoveSmoothPath(pointId, path, walk);
+}
 
+void MotionMaster::MoveSmoothPath(uint32 pointId, Movement::PointsArray const& path, bool walk)
+{
     Movement::MoveSplineInit init(_owner);
     init.MovebyPath(path);
     init.SetSmooth();
@@ -441,6 +468,38 @@ void MotionMaster::MoveSmoothPath(uint32 pointId, G3D::Vector3 const* pathPoints
     Mutate(new EffectMovementGenerator(pointId), MOTION_SLOT_ACTIVE);
     //Position pos(pathPoints[pathSize - 1].x, pathPoints[pathSize - 1].y, pathPoints[pathSize - 1].z);
     //MovePoint(EVENT_CHARGE_PREPATH, pos, false);
+}
+
+void MotionMaster::MoveAlongSplineChain(uint32 pointId, uint16 dbChainId, bool walk)
+{
+    Creature* owner = _owner->ToCreature();
+    if (!owner)
+    {
+        TC_LOG_ERROR("misc", "MotionMaster::MoveAlongSplineChain: non-creature %s tried to walk along DB spline chain. Ignoring.", _owner->GetGUID().ToString().c_str());
+        return;
+    }
+    SplineChain const* chain = sScriptSystemMgr->GetSplineChain(owner, dbChainId);
+    if (!chain)
+    {
+        TC_LOG_ERROR("misc", "MotionMaster::MoveAlongSplineChain: creature with entry %u tried to walk along non-existing spline chain with DB id %u.", owner->GetEntry(), dbChainId);
+        return;
+    }
+    MoveAlongSplineChain(pointId, *chain, walk);
+}
+
+void MotionMaster::MoveAlongSplineChain(uint32 pointId, SplineChain const& chain, bool walk)
+{
+    Mutate(new SplineChainMovementGenerator(pointId, chain, walk), MOTION_SLOT_ACTIVE);
+}
+
+void MotionMaster::ResumeSplineChain(SplineChainResumeInfo const& info)
+{
+    if (info.Empty())
+    {
+        TC_LOG_ERROR("misc", "MotionMaster::ResumeSplineChain: unit with entry %u tried to resume a spline chain from empty info.", _owner->GetEntry());
+        return;
+    }
+    Mutate(new SplineChainMovementGenerator(info), MOTION_SLOT_ACTIVE);
 }
 
 void MotionMaster::MoveFall(uint32 id /*=0*/)
@@ -458,11 +517,12 @@ void MotionMaster::MoveFall(uint32 id /*=0*/)
     if (std::fabs(_owner->GetPositionZ() - tz) < 0.1f)
         return;
 
+    _owner->AddUnitMovementFlag(MOVEMENTFLAG_FALLING);
+    _owner->m_movementInfo.SetFallTime(0);
+
+    // don't run spline movement for players
     if (_owner->GetTypeId() == TYPEID_PLAYER)
-    {
-        _owner->AddUnitMovementFlag(MOVEMENTFLAG_FALLING);
-        _owner->m_movementInfo.SetFallTime(0);
-    }
+        return;
 
     Movement::MoveSplineInit init(_owner);
     init.MoveTo(_owner->GetPositionX(), _owner->GetPositionY(), tz, false);
@@ -513,6 +573,7 @@ void MotionMaster::MoveSeekAssistance(float x, float y, float z)
         TC_LOG_DEBUG("misc", "Creature (Entry: %u GUID: %u) seek assistance (X: %f Y: %f Z: %f)",
             _owner->GetEntry(), _owner->GetGUID().GetCounter(), x, y, z);
         _owner->AttackStop();
+        _owner->CastStop();
         _owner->ToCreature()->SetReactState(REACT_PASSIVE);
         Mutate(new AssistanceMovementGenerator(x, y, z), MOTION_SLOT_ACTIVE);
     }

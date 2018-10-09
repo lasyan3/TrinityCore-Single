@@ -1721,10 +1721,7 @@ class npc_gunship_mage : public CreatureScript
                 me->SetReactState(REACT_PASSIVE);
             }
 
-            void EnterEvadeMode(EvadeReason why) override
-            {
-                ScriptedAI::EnterEvadeMode(why);
-            }
+            void EnterEvadeMode(EvadeReason /*why*/) override { }
 
             void MovementInform(uint32 type, uint32 pointId) override
             {
@@ -2461,6 +2458,33 @@ class spell_igb_teleport_players_on_victory : public SpellScriptLoader
         }
 };
 
+// 71201 - Battle Experience - proc should never happen, handled in script
+class spell_igb_battle_experience_check : public SpellScriptLoader
+{
+public:
+    spell_igb_battle_experience_check() : SpellScriptLoader("spell_igb_battle_experience_check") { }
+
+    class spell_igb_battle_experience_check_AuraScript : public AuraScript
+    {
+        PrepareAuraScript(spell_igb_battle_experience_check_AuraScript);
+
+        bool CheckProc(ProcEventInfo& /*eventInfo*/)
+        {
+            return false;
+        }
+
+        void Register() override
+        {
+            DoCheckProc += AuraCheckProcFn(spell_igb_battle_experience_check_AuraScript::CheckProc);
+        }
+    };
+
+    AuraScript* GetAuraScript() const override
+    {
+        return new spell_igb_battle_experience_check_AuraScript();
+    }
+};
+
 class achievement_im_on_a_boat : public AchievementCriteriaScript
 {
     public:
@@ -2500,5 +2524,6 @@ void AddSC_boss_icecrown_gunship_battle()
     new spell_igb_gunship_fall_teleport();
     new spell_igb_check_for_players();
     new spell_igb_teleport_players_on_victory();
+    new spell_igb_battle_experience_check();
     new achievement_im_on_a_boat();
 }

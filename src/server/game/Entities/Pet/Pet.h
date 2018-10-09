@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2015 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2016 TrinityCore <http://www.trinitycore.org/>
  * Copyright (C) 2005-2009 MaNGOS <http://getmangos.com/>
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -37,7 +37,7 @@ typedef std::vector<uint32> AutoSpellList;
 
 class Player;
 
-class Pet : public Guardian
+class TC_GAME_API Pet : public Guardian
 {
     public:
         explicit Pet(Player* owner, PetType type = MAX_PET_TYPE);
@@ -152,7 +152,7 @@ class Pet : public Guardian
         int32   m_duration;                                 // time until unsummon (used mostly for summoned guardians and not used for controlled pets)
         uint64  m_auraRaidUpdateMask;
         bool    m_loading;
-        uint32  m_regenTimer;
+        uint32  m_focusRegenTimer;
 
         DeclinedName *m_declinedname;
 

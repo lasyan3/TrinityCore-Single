@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2015 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2016 TrinityCore <http://www.trinitycore.org/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -449,8 +449,6 @@ class npc_eye_of_acherus : public CreatureScript
 ## npc_death_knight_initiate
 ######*/
 
-#define GOSSIP_ACCEPT_DUEL      "I challenge you, death knight!"
-
 enum Spells_DKI
 {
     SPELL_DUEL                  = 52996,
@@ -511,7 +509,7 @@ public:
             if (player->IsInCombat() || creature->IsInCombat())
                 return true;
 
-            player->ADD_GOSSIP_ITEM(GOSSIP_ICON_CHAT, GOSSIP_ACCEPT_DUEL, GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF);
+            player->ADD_GOSSIP_ITEM_DB(Player::GetDefaultGossipMenuForSource(creature), 0, GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF);
             player->SEND_GOSSIP_MENU(player->GetGossipTextId(creature), creature->GetGUID());
         }
         return true;

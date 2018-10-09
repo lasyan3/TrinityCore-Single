@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2015 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2016 TrinityCore <http://www.trinitycore.org/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -489,7 +489,7 @@ void SmartScript::ProcessAction(SmartScriptHolder& e, Unit* unit, uint32 var0, u
                             // unless target is outside spell range, out of mana, or LOS.
 
                             bool _allowMove = false;
-                            SpellInfo const* spellInfo = sSpellMgr->EnsureSpellInfo(e.action.cast.spell);
+                            SpellInfo const* spellInfo = sSpellMgr->AssertSpellInfo(e.action.cast.spell);
                             int32 mana = me->GetPower(POWER_MANA);
 
                             if (me->GetDistance(*itr) > spellInfo->GetMaxRange(true) ||
@@ -979,7 +979,7 @@ void SmartScript::ProcessAction(SmartScriptHolder& e, Unit* unit, uint32 var0, u
         {
             if (me && !me->isDead())
             {
-                me->Kill(me);
+                me->KillSelf();
                 TC_LOG_DEBUG("scripts.ai", "SmartScript::ProcessAction: SMART_ACTION_DIE: Creature %u", me->GetGUID().GetCounter());
             }
             break;
@@ -1026,16 +1026,21 @@ void SmartScript::ProcessAction(SmartScriptHolder& e, Unit* unit, uint32 var0, u
 
             for (ObjectList::const_iterator itr = targets->begin(); itr != targets->end(); ++itr)
             {
-                if (!IsCreature(*itr))
-                    continue;
-
-                if ((*itr)->ToUnit()->IsAlive() && IsSmart((*itr)->ToCreature()))
+                if (Creature* target = (*itr)->ToCreature())
                 {
-                    ENSURE_AI(SmartAI, (*itr)->ToCreature()->AI())->SetDespawnTime(e.action.forceDespawn.delay + 1); // Next tick
-                    ENSURE_AI(SmartAI, (*itr)->ToCreature()->AI())->StartDespawn();
+                    if (target->IsAlive() && IsSmart(target))
+                    {
+                        ENSURE_AI(SmartAI, target->AI())->SetDespawnTime(e.action.forceDespawn.delay + 1); // Next tick
+                        ENSURE_AI(SmartAI, target->AI())->StartDespawn();
+                    }
+                    else
+                        target->DespawnOrUnsummon(e.action.forceDespawn.delay);
                 }
-                else
-                    (*itr)->ToCreature()->DespawnOrUnsummon(e.action.forceDespawn.delay);
+                else if (GameObject* goTarget = (*itr)->ToGameObject())
+                {
+                    if (IsSmartGO(goTarget))
+                        goTarget->SetRespawnTime(e.action.forceDespawn.delay + 1);
+                }
             }
 
             delete targets;
@@ -1244,7 +1249,7 @@ void SmartScript::ProcessAction(SmartScriptHolder& e, Unit* unit, uint32 var0, u
                 if (!IsUnit(*itr))
                     continue;
 
-                (*itr)->ToUnit()->Kill((*itr)->ToUnit());
+                (*itr)->ToUnit()->KillSelf();
             }
 
             delete targets;
@@ -1993,7 +1998,7 @@ void SmartScript::ProcessAction(SmartScriptHolder& e, Unit* unit, uint32 var0, u
                 if (Creature* creature = (*itr)->ToCreature())
                 {
                     creature->GetMotionMaster()->Clear();
-                    creature->GetMotionMaster()->MoveJump(e.target.x, e.target.y, e.target.z, (float)e.action.jump.speedxy, (float)e.action.jump.speedz);
+                    creature->GetMotionMaster()->MoveJump(e.target.x, e.target.y, e.target.z, 0.0f, (float)e.action.jump.speedxy, (float)e.action.jump.speedz); // @todo add optional jump orientation support?
                 }
             }
             /// @todo Resume path when reached jump location
@@ -2298,6 +2303,46 @@ void SmartScript::ProcessAction(SmartScriptHolder& e, Unit* unit, uint32 var0, u
 
                 delete targets;
             }
+            break;
+        }
+        case SMART_ACTION_RANDOM_SOUND:
+        {
+            std::vector<uint32> sounds;
+            std::copy_if(e.action.randomSound.sounds.begin(), e.action.randomSound.sounds.end(),
+                std::back_inserter(sounds), [](uint32 sound) { return sound != 0; });
+
+            bool onlySelf = e.action.randomSound.onlySelf != 0;
+
+            if (ObjectList* targets = GetTargets(e, unit))
+            {
+                for (WorldObject* const obj : *targets)
+                {
+                    if (IsUnit(obj))
+                    {
+                        uint32 sound = Trinity::Containers::SelectRandomContainerElement(sounds);
+                        obj->PlayDirectSound(sound, onlySelf ? obj->ToPlayer() : nullptr);
+                        TC_LOG_DEBUG("scripts.ai", "SmartScript::ProcessAction:: SMART_ACTION_RANDOM_SOUND: target: %s (%s), sound: %u, onlyself: %s",
+                            obj->GetName().c_str(), obj->GetGUID().ToString().c_str(), sound, onlySelf ? "true" : "false");
+                    }
+                }
+
+                delete targets;
+                break;
+            }
+        }
+        case SMART_ACTION_SET_CORPSE_DELAY:
+        {
+            ObjectList* targets = GetTargets(e, unit);
+            if (!targets)
+                break;
+
+            for (ObjectList::const_iterator itr = targets->begin(); itr != targets->end(); ++itr)
+            {
+                if (IsCreature(*itr))
+                    (*itr)->ToCreature()->SetCorpseDelay(e.action.corpseDelay.timer);
+            }
+
+            delete targets;
             break;
         }
         default:

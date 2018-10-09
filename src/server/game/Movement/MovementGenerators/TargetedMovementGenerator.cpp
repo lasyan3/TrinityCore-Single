@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2015 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2016 TrinityCore <http://www.trinitycore.org/>
  * Copyright (C) 2005-2009 MaNGOS <http://getmangos.com/>
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -37,6 +37,9 @@ void TargetedMovementGeneratorMedium<T, D>::_setTargetLocation(T* owner, bool up
         return;
 
     if (owner->GetTypeId() == TYPEID_UNIT && !i_target->isInAccessiblePlaceFor(owner->ToCreature()))
+        return;
+
+    if (owner->GetTypeId() == TYPEID_UNIT && owner->ToCreature()->IsFocusing(nullptr, true))
         return;
 
     float x, y, z;

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2015 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2016 TrinityCore <http://www.trinitycore.org/>
  * Copyright (C) 2005-2009 MaNGOS <http://getmangos.com/>
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -541,10 +541,7 @@ void AuraEffect::CalculatePeriodic(Unit* caster, bool create, bool load)
         {
             // Haste modifies periodic time of channeled spells
             if (m_spellInfo->IsChanneled())
-            {
-                if (m_spellInfo->HasAttribute(SPELL_ATTR5_HASTE_AFFECT_DURATION))
-                    caster->ModSpellCastTime(m_spellInfo, m_amplitude);
-            }
+                caster->ModSpellDurationTime(m_spellInfo, m_amplitude);
             // and periodic time of auras affected by SPELL_AURA_PERIODIC_HASTE
             else if (caster->HasAuraTypeWithAffectMask(SPELL_AURA_PERIODIC_HASTE, m_spellInfo) || m_spellInfo->HasAttribute(SPELL_ATTR5_HASTE_AFFECT_DURATION))
                 m_amplitude = int32(m_amplitude * caster->GetFloatValue(UNIT_MOD_CAST_SPEED));
@@ -1106,18 +1103,11 @@ void AuraEffect::HandleShapeshiftBoosts(Unit* target, bool apply) const
 
     if (apply)
     {
-        // Remove cooldown of spells triggered on stance change - they may share cooldown with stance spell
         if (spellId)
-        {
-            target->GetSpellHistory()->ResetCooldown(spellId);
             target->CastSpell(target, spellId, true, NULL, this);
-        }
 
         if (spellId2)
-        {
-            target->GetSpellHistory()->ResetCooldown(spellId2);
             target->CastSpell(target, spellId2, true, NULL, this);
-        }
 
         if (target->GetTypeId() == TYPEID_PLAYER)
         {
@@ -1866,43 +1856,43 @@ void AuraEffect::HandleAuraTransform(AuraApplication const* aurApp, uint8 mode, 
                         {
                             // Blood Elf
                             case RACE_BLOODELF:
-                                target->SetDisplayId(target->getGender() == GENDER_MALE ? 17829 : 17830);
+                                target->SetDisplayId(target->getGender() == GENDER_FEMALE ? 17830 : 17829);
                                 break;
                             // Orc
                             case RACE_ORC:
-                                target->SetDisplayId(target->getGender() == GENDER_MALE ? 10139 : 10140);
+                                target->SetDisplayId(target->getGender() == GENDER_FEMALE ? 10140 : 10139);
                                 break;
                             // Troll
                             case RACE_TROLL:
-                                target->SetDisplayId(target->getGender() == GENDER_MALE ? 10135 : 10134);
+                                target->SetDisplayId(target->getGender() == GENDER_FEMALE ? 10134 : 10135);
                                 break;
                             // Tauren
                             case RACE_TAUREN:
-                                target->SetDisplayId(target->getGender() == GENDER_MALE ? 10136 : 10147);
+                                target->SetDisplayId(target->getGender() == GENDER_FEMALE ? 10147 : 10136);
                                 break;
                             // Undead
                             case RACE_UNDEAD_PLAYER:
-                                target->SetDisplayId(target->getGender() == GENDER_MALE ? 10146 : 10145);
+                                target->SetDisplayId(target->getGender() == GENDER_FEMALE ? 10145 : 10146);
                                 break;
                             // Draenei
                             case RACE_DRAENEI:
-                                target->SetDisplayId(target->getGender() == GENDER_MALE ? 17827 : 17828);
+                                target->SetDisplayId(target->getGender() == GENDER_FEMALE ? 17828 : 17827);
                                 break;
                             // Dwarf
                             case RACE_DWARF:
-                                target->SetDisplayId(target->getGender() == GENDER_MALE ? 10141 : 10142);
+                                target->SetDisplayId(target->getGender() == GENDER_FEMALE ? 10142 : 10141);
                                 break;
                             // Gnome
                             case RACE_GNOME:
-                                target->SetDisplayId(target->getGender() == GENDER_MALE ? 10148 : 10149);
+                                target->SetDisplayId(target->getGender() == GENDER_FEMALE ? 10149 : 10148);
                                 break;
                             // Human
                             case RACE_HUMAN:
-                                target->SetDisplayId(target->getGender() == GENDER_MALE ? 10137 : 10138);
+                                target->SetDisplayId(target->getGender() == GENDER_FEMALE ? 10138 : 10137);
                                 break;
                             // Night Elf
                             case RACE_NIGHTELF:
-                                target->SetDisplayId(target->getGender() == GENDER_MALE ? 10143 : 10144);
+                                target->SetDisplayId(target->getGender() == GENDER_FEMALE ? 10144 : 10143);
                                 break;
                             default:
                                 break;
@@ -4646,17 +4636,10 @@ void AuraEffect::HandleAuraDummy(AuraApplication const* aurApp, uint8 mode, bool
                 {
                     if (caster)
                     {
-                        switch (caster->getGender())
-                        {
-                            case GENDER_FEMALE:
-                                caster->CastSpell(target, 37095, true, NULL, this); // Blood Elf Disguise
-                                break;
-                            case GENDER_MALE:
-                                caster->CastSpell(target, 37093, true, NULL, this);
-                                break;
-                            default:
-                                break;
-                        }
+                        if (caster->getGender() == GENDER_FEMALE)
+                            caster->CastSpell(target, 37095, true, NULL, this); // Blood Elf Disguise
+                        else
+                            caster->CastSpell(target, 37093, true, NULL, this);
                     }
                     break;
                 }
@@ -4686,15 +4669,10 @@ void AuraEffect::HandleAuraDummy(AuraApplication const* aurApp, uint8 mode, bool
                 case 46354:                                     // Blood Elf Illusion
                     if (caster)
                     {
-                        switch (caster->getGender())
-                        {
-                            case GENDER_FEMALE:
-                                caster->CastSpell(target, 46356, true, NULL, this);
-                                break;
-                            case GENDER_MALE:
-                                caster->CastSpell(target, 46355, true, NULL, this);
-                                break;
-                        }
+                        if (caster->getGender() == GENDER_FEMALE)
+                            caster->CastSpell(target, 46356, true, NULL, this);
+                        else
+                            caster->CastSpell(target, 46355, true, NULL, this);
                     }
                     break;
                 case 46361:                                     // Reinforced Net
@@ -4705,11 +4683,6 @@ void AuraEffect::HandleAuraDummy(AuraApplication const* aurApp, uint8 mode, bool
                     if (target->GetTypeId() == TYPEID_PLAYER)
                         target->ToPlayer()->RemoveAmmo();      // not use ammo and not allow use
                     break;
-                case 52916: // Honor Among Thieves
-                    if (target->GetTypeId() == TYPEID_PLAYER)
-                        if (Unit* spellTarget = ObjectAccessor::GetUnit(*target, target->ToPlayer()->GetComboTarget()))
-                            target->CastSpell(spellTarget, 51699, true);
-                   break;
                 case 71563:
                     if (Aura* newAura = target->AddAura(71564, target))
                         newAura->SetStackAmount(newAura->GetSpellInfo()->StackAmount);
@@ -4835,7 +4808,7 @@ void AuraEffect::HandleAuraDummy(AuraApplication const* aurApp, uint8 mode, bool
                     uint32 spellId = 24659;
                     if (apply && caster)
                     {
-                        SpellInfo const* spell = sSpellMgr->EnsureSpellInfo(spellId);
+                        SpellInfo const* spell = sSpellMgr->AssertSpellInfo(spellId);
 
                         for (uint32 i = 0; i < spell->StackAmount; ++i)
                             caster->CastSpell(target, spell->Id, true, NULL, NULL, GetCasterGUID());
@@ -4850,7 +4823,7 @@ void AuraEffect::HandleAuraDummy(AuraApplication const* aurApp, uint8 mode, bool
                     uint32 spellId = 24662;
                     if (apply && caster)
                     {
-                        SpellInfo const* spell = sSpellMgr->EnsureSpellInfo(spellId);
+                        SpellInfo const* spell = sSpellMgr->AssertSpellInfo(spellId);
                         for (uint32 i = 0; i < spell->StackAmount; ++i)
                             caster->CastSpell(target, spell->Id, true, NULL, NULL, GetCasterGUID());
                         break;
@@ -5577,7 +5550,7 @@ void AuraEffect::HandlePeriodicTriggerSpellAuraTick(Unit* target, Unit* caster) 
                     case 31347:
                     {
                         target->CastSpell(target, 31350, true, NULL, this);
-                        target->Kill(target);
+                        target->KillSelf();
                         return;
                     }
                     // Spellcloth
@@ -5639,25 +5612,6 @@ void AuraEffect::HandlePeriodicTriggerSpellAuraTick(Unit* target, Unit* caster) 
                         // Need remove self if Lightning Shield not active
                         if (!target->GetAuraEffect(SPELL_AURA_PROC_TRIGGER_SPELL, SPELLFAMILY_SHAMAN, 0x400, 0, 0))
                             target->RemoveAurasDueToSpell(28820);
-                        return;
-                    }
-                    // Totemic Mastery (Skyshatter Regalia (Shaman Tier 6) - bonus)
-                    case 38443:
-                    {
-                        bool all = true;
-                        for (int i = SUMMON_SLOT_TOTEM; i < MAX_TOTEM_SLOT; ++i)
-                        {
-                            if (!target->m_SummonSlot[i])
-                            {
-                                all = false;
-                                break;
-                            }
-                        }
-
-                        if (all)
-                            target->CastSpell(target, 38437, true, NULL, this);
-                        else
-                            target->RemoveAurasDueToSpell(38437);
                         return;
                     }
                 }

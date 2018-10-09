@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2015 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2016 TrinityCore <http://www.trinitycore.org/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -21,6 +21,7 @@
 #include "UpdateFetcher.h"
 #include "DatabaseLoader.h"
 #include "Config.h"
+#include "BuiltInConfig.h"
 
 #include <fstream>
 #include <iostream>
@@ -35,23 +36,17 @@ using namespace boost::process;
 using namespace boost::process::initializers;
 using namespace boost::iostreams;
 
-std::string DBUpdaterUtil::GetMySqlCli()
+std::string DBUpdaterUtil::GetCorrectedMySQLExecutable()
 {
     if (!corrected_path().empty())
         return corrected_path();
     else
-    {
-        std::string const entry = sConfigMgr->GetStringDefault("Updates.MySqlCLIPath", "");
-        if (!entry.empty())
-            return entry;
-        else
-            return GitRevision::GetMySQLExecutable();
-    }
+        return BuiltInConfig::GetMySQLExecutable();
 }
 
 bool DBUpdaterUtil::CheckExecutable()
 {
-    boost::filesystem::path exe(GetMySqlCli());
+    boost::filesystem::path exe(GetCorrectedMySQLExecutable());
     if (!exists(exe))
     {
         exe.clear();
@@ -85,16 +80,6 @@ std::string& DBUpdaterUtil::corrected_path()
     return path;
 }
 
-template<class T>
-std::string DBUpdater<T>::GetSourceDirectory()
-{
-    std::string const entry = sConfigMgr->GetStringDefault("Updates.SourcePath", "");
-    if (!entry.empty())
-        return entry;
-    else
-        return GitRevision::GetSourceDirectory();
-}
-
 // Auth Database
 template<>
 std::string DBUpdater<LoginDatabaseConnection>::GetConfigEntry()
@@ -111,7 +96,8 @@ std::string DBUpdater<LoginDatabaseConnection>::GetTableName()
 template<>
 std::string DBUpdater<LoginDatabaseConnection>::GetBaseFile()
 {
-    return DBUpdater<LoginDatabaseConnection>::GetSourceDirectory() + "/sql/base/auth_database.sql";
+    return BuiltInConfig::GetSourceDirectory() +
+        "/sql/base/auth_database.sql";
 }
 
 template<>
@@ -169,7 +155,8 @@ std::string DBUpdater<CharacterDatabaseConnection>::GetTableName()
 template<>
 std::string DBUpdater<CharacterDatabaseConnection>::GetBaseFile()
 {
-    return DBUpdater<CharacterDatabaseConnection>::GetSourceDirectory() + "/sql/base/characters_database.sql";
+    return BuiltInConfig::GetSourceDirectory() +
+        "/sql/base/characters_database.sql";
 }
 
 template<>
@@ -239,7 +226,7 @@ bool DBUpdater<T>::Update(DatabaseWorkerPool<T>& pool)
 
     TC_LOG_INFO("sql.updates", "Updating %s database...", DBUpdater<T>::GetTableName().c_str());
 
-    Path const sourceDirectory(GetSourceDirectory());
+    Path const sourceDirectory(BuiltInConfig::GetSourceDirectory());
 
     if (!is_directory(sourceDirectory))
     {
@@ -311,7 +298,7 @@ bool DBUpdater<T>::Populate(DatabaseWorkerPool<T>& pool)
             }
             case LOCATION_DOWNLOAD:
             {
-                TC_LOG_ERROR("sql.updates", ">> File \"%s\" is missing, download it from \"http://www.trinitycore.org/f/files/category/1-database/\"" \
+                TC_LOG_ERROR("sql.updates", ">> File \"%s\" is missing, download it from \"https://github.com/TrinityCore/TrinityCore/releases\"" \
                     " and place it in your server directory.", base.filename().generic_string().c_str());
                 break;
             }
@@ -410,7 +397,7 @@ void DBUpdater<T>::ApplyFile(DatabaseWorkerPool<T>& pool, std::string const& hos
         boost::process::pipe errPipe = create_pipe();
 
         child c = execute(run_exe(
-                    boost::filesystem::absolute(DBUpdaterUtil::GetMySqlCli()).generic_string()),
+                    boost::filesystem::absolute(DBUpdaterUtil::GetCorrectedMySQLExecutable()).generic_string()),
                     set_args(args), bind_stdin(source), throw_on_error(),
                     bind_stdout(file_descriptor_sink(outPipe.sink, close_handle)),
                     bind_stderr(file_descriptor_sink(errPipe.sink, close_handle)));
@@ -449,6 +436,6 @@ void DBUpdater<T>::ApplyFile(DatabaseWorkerPool<T>& pool, std::string const& hos
     }
 }
 
-template class DBUpdater<LoginDatabaseConnection>;
-template class DBUpdater<WorldDatabaseConnection>;
-template class DBUpdater<CharacterDatabaseConnection>;
+template class TC_DATABASE_API DBUpdater<LoginDatabaseConnection>;
+template class TC_DATABASE_API DBUpdater<WorldDatabaseConnection>;
+template class TC_DATABASE_API DBUpdater<CharacterDatabaseConnection>;

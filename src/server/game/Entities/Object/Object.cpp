@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2015 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2016 TrinityCore <http://www.trinitycore.org/>
  * Copyright (C) 2005-2009 MaNGOS <http://getmangos.com/>
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -221,7 +221,10 @@ void Object::SendUpdateToPlayer(Player* player)
     UpdateData upd;
     WorldPacket packet;
 
-    BuildCreateUpdateBlockForPlayer(&upd, player);
+    if (player->HaveAtClient(this))
+        BuildValuesUpdateBlockForPlayer(&upd, player);
+    else
+        BuildCreateUpdateBlockForPlayer(&upd, player);
     upd.BuildPacket(&packet);
     player->GetSession()->SendPacket(&packet);
 }
@@ -1863,7 +1866,7 @@ TempSummon* Map::SummonCreature(uint32 entry, Position const& pos, SummonPropert
             summon = new Minion(properties, summoner, false);
             break;
     }
-    
+
     if (!summon->Create(GenerateLowGuid<HighGuid::Unit>(), this, phase, entry, pos.GetPositionX(), pos.GetPositionY(), pos.GetPositionZ(), pos.GetOrientation(), nullptr, vehId))
     {
         delete summon;
@@ -1878,7 +1881,9 @@ TempSummon* Map::SummonCreature(uint32 entry, Position const& pos, SummonPropert
     AddToMap(summon->ToCreature());
     summon->InitSummon();
 
-    //ObjectAccessor::UpdateObjectVisibility(summon);
+    // call MoveInLineOfSight for nearby creatures
+    Trinity::AIRelocationNotifier notifier(*summon);
+    summon->VisitNearbyObject(GetVisibilityRange(), notifier);
 
     return summon;
 }
@@ -2426,7 +2431,11 @@ void WorldObject::DestroyForNearbyPlayers()
         if (isType(TYPEMASK_UNIT) && ToUnit()->GetCharmerGUID() == player->GetGUID()) /// @todo this is for puppet
             continue;
 
-        DestroyForPlayer(player);
+        if (GetTypeId() == TYPEID_UNIT)
+            DestroyForPlayer(player, ToUnit()->IsDuringRemoveFromWorld() && ToCreature()->isDead()); // at remove from world (destroy) show kill animation
+        else
+            DestroyForPlayer(player);
+
         player->m_clientGUIDs.erase(GetGUID());
     }
 }

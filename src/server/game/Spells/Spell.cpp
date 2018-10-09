@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2015 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2016 TrinityCore <http://www.trinitycore.org/>
  * Copyright (C) 2005-2009 MaNGOS <http://getmangos.com/>
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -54,6 +54,7 @@
 #include "SpellHistory.h"
 #include "Battlefield.h"
 #include "BattlefieldMgr.h"
+#include "TradeData.h"
 
 extern pEffect SpellEffects[TOTAL_SPELL_EFFECTS];
 
@@ -602,6 +603,8 @@ m_caster((info->HasAttribute(SPELL_ATTR6_CAST_BY_CHARMER) && caster->GetCharmerO
 
     //Auto Shot & Shoot (wand)
     m_autoRepeat = m_spellInfo->IsAutoRepeatRangedSpell();
+
+    m_isDelayedInstantCast = false;
 
     m_runesState = 0;
     m_powerCost = 0;                                        // setup to correct value in Spell::prepare, must not be used before.
@@ -2359,7 +2362,7 @@ void Spell::DoAllEffectOnTarget(TargetInfo* target)
     // Do healing and triggers
     if (m_healing > 0)
     {
-        bool crit = caster->IsSpellCrit(unitTarget, m_spellInfo, m_spellSchoolMask);
+        bool crit = target->crit;
         uint32 addhealth = m_healing;
         if (crit)
         {
@@ -2384,7 +2387,7 @@ void Spell::DoAllEffectOnTarget(TargetInfo* target)
         SpellNonMeleeDamage damageInfo(caster, unitTarget, m_spellInfo->Id, m_spellSchoolMask);
 
         // Add bonuses and fill damageInfo struct
-        caster->CalculateSpellDamageTaken(&damageInfo, m_damage, m_spellInfo, m_attackType,  target->crit);
+        caster->CalculateSpellDamageTaken(&damageInfo, m_damage, m_spellInfo, m_attackType, target->crit);
         caster->DealDamageMods(damageInfo.target, damageInfo.damage, &damageInfo.absorb);
 
         // Send log damage message to client
@@ -2427,11 +2430,10 @@ void Spell::DoAllEffectOnTarget(TargetInfo* target)
 
     if (missInfo != SPELL_MISS_EVADE && !m_caster->IsFriendlyTo(unit) && (!m_spellInfo->IsPositive() || m_spellInfo->HasEffect(SPELL_EFFECT_DISPEL)))
     {
-        m_caster->CombatStart(unit, !m_spellInfo->HasAttribute(SPELL_ATTR3_NO_INITIAL_AGGRO));
+        m_caster->CombatStart(unit, m_spellInfo->HasInitialAggro());
 
-        if (m_spellInfo->HasAttribute(SPELL_ATTR0_CU_AURA_CC))
-            if (!unit->IsStandState())
-                unit->SetStandState(UNIT_STAND_STATE_STAND);
+        if (!unit->IsStandState())
+            unit->SetStandState(UNIT_STAND_STATE_STAND);
     }
 
     if (spellHitTarget)
@@ -2515,8 +2517,8 @@ SpellMissInfo Spell::DoSpellHitOnUnit(Unit* unit, uint32 effectMask, bool scaleA
         if (m_caster->_IsValidAttackTarget(unit, m_spellInfo))
         {
             unit->RemoveAurasWithInterruptFlags(AURA_INTERRUPT_FLAG_HITBYSPELL);
-            /// @todo This is a hack. But we do not know what types of stealth should be interrupted by CC
-            if (m_spellInfo->HasAttribute(SPELL_ATTR0_CU_AURA_CC) && unit->IsControlledByPlayer())
+
+            if (!m_spellInfo->HasAttribute(SPELL_ATTR0_CU_DONT_BREAK_STEALTH))
                 unit->RemoveAurasByType(SPELL_AURA_MOD_STEALTH);
         }
         else if (m_caster->IsFriendlyTo(unit))
@@ -2534,7 +2536,7 @@ SpellMissInfo Spell::DoSpellHitOnUnit(Unit* unit, uint32 effectMask, bool scaleA
                 if (m_caster->GetTypeId() == TYPEID_PLAYER)
                     m_caster->ToPlayer()->UpdatePvP(true);
             }
-            if (unit->IsInCombat() && !m_spellInfo->HasAttribute(SPELL_ATTR3_NO_INITIAL_AGGRO))
+            if (unit->IsInCombat() && m_spellInfo->HasInitialAggro())
             {
                 m_caster->SetInCombatState(unit->GetCombatTimer() > 0, unit);
                 unit->getHostileRefManager().threatAssist(m_caster, 0.0f);
@@ -2625,7 +2627,7 @@ SpellMissInfo Spell::DoSpellHitOnUnit(Unit* unit, uint32 effectMask, bool scaleA
 
                     // Haste modifies duration of channeled spells
                     if (m_spellInfo->IsChanneled())
-                        m_originalCaster->ModSpellCastTime(aurSpellInfo, duration, this);
+                        m_originalCaster->ModSpellDurationTime(aurSpellInfo, duration, this);
                     // and duration of auras affected by SPELL_AURA_PERIODIC_HASTE
                     else if (m_originalCaster->HasAuraTypeWithAffectMask(SPELL_AURA_PERIODIC_HASTE, aurSpellInfo) || m_spellInfo->HasAttribute(SPELL_ATTR5_HASTE_AFFECT_DURATION))
                         duration = int32(duration * m_originalCaster->GetFloatValue(UNIT_MOD_CAST_SPEED));
@@ -2937,6 +2939,27 @@ void Spell::prepare(SpellCastTargets const* targets, AuraEffect const* triggered
     else
         m_casttime = m_spellInfo->CalcCastTime(this);
 
+    if (m_caster->GetTypeId() == TYPEID_UNIT && !m_caster->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PLAYER_CONTROLLED)) // _UNIT actually means creature. for some reason.
+        if (!(IsNextMeleeSwingSpell() || IsAutoRepeat() || _triggeredCastFlags & TRIGGERED_IGNORE_SET_FACING))
+        {
+            if (m_targets.GetObjectTarget() && m_caster != m_targets.GetObjectTarget())
+            {
+                if (m_caster->ToCreature()->FocusTarget(this, m_targets.GetObjectTarget()))
+                {
+                    m_isDelayedInstantCast = true;
+                    m_timer = 100; // 100ms delay ensures client has updated creature orientation when cast goes off
+                }
+            }
+            else if (m_spellInfo->HasAttribute(SPELL_ATTR5_DONT_TURN_DURING_CAST))
+            {
+                if (m_caster->ToCreature()->FocusTarget(this, nullptr))
+                {
+                    m_isDelayedInstantCast = true;
+                    m_timer = 100;
+                }
+            }
+        }
+
     // don't allow channeled spells / spells with cast time to be cast while moving
     // (even if they are interrupted on moving, spells with almost immediate effect get to have their effect processed before movement interrupter kicks in)
     if ((m_spellInfo->IsChanneled() || m_casttime) && m_caster->GetTypeId() == TYPEID_PLAYER && m_caster->isMoving() && m_spellInfo->InterruptFlags & SPELL_INTERRUPT_FLAG_MOVEMENT)
@@ -2972,18 +2995,14 @@ void Spell::prepare(SpellCastTargets const* targets, AuraEffect const* triggered
         }
 
         m_caster->SetCurrentCastSpell(this);
-        SendSpellStart();
-
-        // set target for proper facing
-        if ((m_casttime || m_spellInfo->IsChanneled()) && !(_triggeredCastFlags & TRIGGERED_IGNORE_SET_FACING))
-            if (m_caster->GetTypeId() == TYPEID_UNIT && m_targets.GetObjectTarget() && m_caster != m_targets.GetObjectTarget())
-                m_caster->ToCreature()->FocusTarget(this, m_targets.GetObjectTarget());
+        if (!m_isDelayedInstantCast)
+            SendSpellStart();
 
         if (!(_triggeredCastFlags & TRIGGERED_IGNORE_GCD))
             TriggerGlobalCooldown();
 
         //item: first cast may destroy item and second cast causes crash
-        if (!m_casttime && !m_spellInfo->StartRecoveryTime && !m_castItemGUID && GetCurrentContainer() == CURRENT_GENERIC_SPELL)
+        if (!m_casttime && !m_isDelayedInstantCast && !m_spellInfo->StartRecoveryTime && !m_castItemGUID && GetCurrentContainer() == CURRENT_GENERIC_SPELL)
             cast(true);
     }
 }
@@ -2991,6 +3010,9 @@ void Spell::prepare(SpellCastTargets const* targets, AuraEffect const* triggered
 void Spell::cancel()
 {
     if (m_spellState == SPELL_STATE_FINISHED)
+        return;
+    // delayed instant casts are used for client-side visual orientation; they are treated as instant for all intents and purposes server-side, and thus cannot be interrupted by another cast
+    if (m_isDelayedInstantCast)
         return;
 
     uint32 oldState = m_spellState;
@@ -3060,6 +3082,9 @@ void Spell::cast(bool skipCheck)
         cancel();
         return;
     }
+
+    if (m_isDelayedInstantCast)
+        SendSpellStart();
 
     if (Player* playerCaster = m_caster->ToPlayer())
     {
@@ -3139,6 +3164,16 @@ void Spell::cast(bool skipCheck)
             }
         }
     }
+
+    // if the spell allows the creature to turn while casting, then adjust server-side orientation to face the target now
+    // client-side orientation is handled by the client itself, as the cast target is targeted due to Creature::FocusTarget
+    if (m_caster->GetTypeId() == TYPEID_UNIT && !m_caster->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PLAYER_CONTROLLED))
+        if (!m_spellInfo->HasAttribute(SPELL_ATTR5_DONT_TURN_DURING_CAST))
+            if (WorldObject* objTarget = m_targets.GetObjectTarget())
+            {
+                m_caster->SetInFront(objTarget);
+                m_caster->SetFacingToObject(objTarget);
+            }
 
     SelectSpellTargets();
 
@@ -3243,6 +3278,9 @@ void Spell::cast(bool skipCheck)
     }
 
     SetExecutedCurrently(false);
+
+    if (Creature* creatureCaster = m_caster->ToCreature())
+        creatureCaster->ReleaseFocus(this);
 }
 
 void Spell::handle_immediate()
@@ -3259,7 +3297,7 @@ void Spell::handle_immediate()
                 modOwner->ApplySpellMod(m_spellInfo->Id, SPELLMOD_DURATION, duration);
 
             // Apply haste mods
-            m_caster->ModSpellCastTime(m_spellInfo, duration, this);
+            m_caster->ModSpellDurationTime(m_spellInfo, duration, this);
 
             m_spellState = SPELL_STATE_CASTING;
             m_caster->AddInterruptMask(m_spellInfo->ChannelInterruptFlags);
@@ -3774,7 +3812,7 @@ void Spell::SendSpellStart()
     if ((IsTriggered() && !m_spellInfo->IsAutoRepeatRangedSpell()) || m_triggeredByAuraSpell)
         castFlags |= CAST_FLAG_PENDING;
 
-    if (m_spellInfo->HasAttribute(SPELL_ATTR0_REQ_AMMO))
+    if (m_spellInfo->HasAttribute(SPELL_ATTR0_REQ_AMMO) || m_spellInfo->HasAttribute(SPELL_ATTR0_CU_NEEDS_AMMO_DATA))
         castFlags |= CAST_FLAG_AMMO;
     if ((m_caster->GetTypeId() == TYPEID_PLAYER ||
         (m_caster->GetTypeId() == TYPEID_UNIT && m_caster->IsPet()))
@@ -3827,7 +3865,7 @@ void Spell::SendSpellGo()
     if ((IsTriggered() && !m_spellInfo->IsAutoRepeatRangedSpell()) || m_triggeredByAuraSpell)
         castFlags |= CAST_FLAG_PENDING;
 
-    if (m_spellInfo->HasAttribute(SPELL_ATTR0_REQ_AMMO))
+    if (m_spellInfo->HasAttribute(SPELL_ATTR0_REQ_AMMO) || m_spellInfo->HasAttribute(SPELL_ATTR0_CU_NEEDS_AMMO_DATA))
         castFlags |= CAST_FLAG_AMMO;                        // arrows/bullets visual
 
     if ((m_caster->GetTypeId() == TYPEID_PLAYER ||
@@ -4208,21 +4246,16 @@ void Spell::SendResurrectRequest(Player* target)
 {
     // get resurrector name for creature resurrections, otherwise packet will be not accepted
     // for player resurrections the name is looked up by guid
-    std::string const sentName(m_caster->GetTypeId() == TYPEID_PLAYER
-                               ? ""
-                               : m_caster->GetNameForLocaleIdx(target->GetSession()->GetSessionDbLocaleIndex()));
+    std::string const sentName(m_caster->GetTypeId() == TYPEID_PLAYER ?
+        "" : m_caster->GetNameForLocaleIdx(target->GetSession()->GetSessionDbLocaleIndex()));
 
-    WorldPacket data(SMSG_RESURRECT_REQUEST, (8+4+sentName.size()+1+1+1+4));
+    WorldPacket data(SMSG_RESURRECT_REQUEST, 8 + 4 + sentName.size() + 1 + 1 + 1);
     data << uint64(m_caster->GetGUID());
     data << uint32(sentName.size() + 1);
-
     data << sentName;
-    data << uint8(0); // null terminator
-
-    data << uint8(m_caster->GetTypeId() == TYPEID_PLAYER ? 0 : 1); // "you'll be afflicted with resurrection sickness"
+    data << uint8(m_caster->IsSpiritHealer()); // "you'll be afflicted with resurrection sickness"
     // override delay sent with SMSG_CORPSE_RECLAIM_DELAY, set instant resurrection for spells with this attribute
-    if (m_spellInfo->HasAttribute(SPELL_ATTR3_IGNORE_RESURRECTION_TIMER))
-        data << uint32(0);
+    data << uint8(!m_spellInfo->HasAttribute(SPELL_ATTR3_IGNORE_RESURRECTION_TIMER));
     target->GetSession()->SendPacket(&data);
 }
 
@@ -4579,8 +4612,7 @@ void Spell::HandleThreatSpells()
     if (m_UniqueTargetInfo.empty())
         return;
 
-    if (m_spellInfo->HasAttribute(SPELL_ATTR1_NO_THREAT) ||
-        m_spellInfo->HasAttribute(SPELL_ATTR3_NO_INITIAL_AGGRO))
+    if (!m_spellInfo->HasInitialAggro())
         return;
 
     float threat = 0.0f;
@@ -4591,7 +4623,7 @@ void Spell::HandleThreatSpells()
 
         threat += threatEntry->flatMod;
     }
-    else if (m_spellInfo->HasAttribute(SPELL_ATTR0_CU_NO_INITIAL_THREAT) == 0)
+    else if (!m_spellInfo->HasAttribute(SPELL_ATTR0_CU_NO_INITIAL_THREAT))
         threat += m_spellInfo->SpellLevel;
 
     // past this point only multiplicative effects occur
@@ -4669,7 +4701,7 @@ SpellCastResult Spell::CheckCast(bool strict)
                 return SPELL_FAILED_NOT_READY;
         }
 
-        if (!m_caster->GetSpellHistory()->IsReady(m_spellInfo, m_castItemEntry))
+        if (!m_caster->GetSpellHistory()->IsReady(m_spellInfo, m_castItemEntry, IsIgnoringCooldowns()))
         {
             if (m_triggeredByAuraSpell)
                 return SPELL_FAILED_DONT_REPORT;
@@ -4800,6 +4832,10 @@ SpellCastResult Spell::CheckCast(bool strict)
                     m_customError = SpellCustomErrors(condInfo.mLastFailedCondition->ErrorTextId);
                 return SpellCastResult(condInfo.mLastFailedCondition->ErrorType);
             }
+
+            if (_triggeredCastFlags & TRIGGERED_DONT_REPORT_CAST_ERROR)
+                return SPELL_FAILED_DONT_REPORT;
+
             if (!condInfo.mLastFailedCondition || !condInfo.mLastFailedCondition->ConditionTarget)
                 return SPELL_FAILED_CASTER_AURASTATE;
             return SPELL_FAILED_BAD_TARGETS;
@@ -5445,7 +5481,7 @@ SpellCastResult Spell::CheckCast(bool strict)
                 if (m_originalCaster && m_originalCaster->GetTypeId() == TYPEID_PLAYER && m_originalCaster->IsAlive())
                 {
                     Battlefield* Bf = sBattlefieldMgr->GetBattlefieldToZoneId(m_originalCaster->GetZoneId());
-                    if (AreaTableEntry const* area = GetAreaEntryByAreaID(m_originalCaster->GetAreaId()))
+                    if (AreaTableEntry const* area = sAreaTableStore.LookupEntry(m_originalCaster->GetAreaId()))
                         if (area->flags & AREA_FLAG_NO_FLY_ZONE  || (Bf && !Bf->CanFlyIn()))
                             return (_triggeredCastFlags & TRIGGERED_DONT_REPORT_CAST_ERROR) ? SPELL_FAILED_DONT_REPORT : SPELL_FAILED_NOT_HERE;
                 }
@@ -5513,7 +5549,7 @@ SpellCastResult Spell::CheckPetCast(Unit* target)
 
     // dead owner (pets still alive when owners ressed?)
     if (Unit* owner = m_caster->GetCharmerOrOwner())
-        if (!owner->IsAlive())
+        if (!owner->IsAlive() && !owner->IsGhouled())
             return SPELL_FAILED_CASTER_DEAD;
 
     if (!target && m_targets.GetUnitTarget())
@@ -5671,26 +5707,36 @@ bool Spell::CanAutoCast(Unit* target)
 {
     ObjectGuid targetguid = target->GetGUID();
 
-    for (uint32 j = 0; j < MAX_SPELL_EFFECTS; ++j)
+    // check if target already has the same or a more powerful aura
+    for (uint32 i = 0; i < MAX_SPELL_EFFECTS; ++i)
     {
-        if (m_spellInfo->Effects[j].Effect == SPELL_EFFECT_APPLY_AURA)
+        if (!GetSpellInfo()->Effects[i].IsAura())
+            continue;
+
+        AuraType const& auraType = AuraType(GetSpellInfo()->Effects[i].ApplyAuraName);
+        Unit::AuraEffectList const& auras = target->GetAuraEffectsByType(auraType);
+        for (Unit::AuraEffectList::const_iterator auraIt = auras.begin(); auraIt != auras.end(); ++auraIt)
         {
-            if (m_spellInfo->StackAmount <= 1)
-            {
-                if (target->HasAuraEffect(m_spellInfo->Id, j))
-                    return false;
-            }
-            else
-            {
-                if (AuraEffect* aureff = target->GetAuraEffect(m_spellInfo->Id, j))
-                    if (aureff->GetBase()->GetStackAmount() >= m_spellInfo->StackAmount)
-                        return false;
-            }
-        }
-        else if (m_spellInfo->Effects[j].IsAreaAuraEffect())
-        {
-            if (target->HasAuraEffect(m_spellInfo->Id, j))
+            if (GetSpellInfo()->Id == (*auraIt)->GetSpellInfo()->Id)
                 return false;
+
+            switch (sSpellMgr->CheckSpellGroupStackRules(GetSpellInfo(), (*auraIt)->GetSpellInfo()))
+            {
+                case SPELL_GROUP_STACK_RULE_EXCLUSIVE:
+                    return false;
+                case SPELL_GROUP_STACK_RULE_EXCLUSIVE_FROM_SAME_CASTER:
+                    if (GetCaster() == (*auraIt)->GetCaster())
+                        return false;
+                    break;
+                case SPELL_GROUP_STACK_RULE_EXCLUSIVE_SAME_EFFECT: // this one has further checks, but i don't think they're necessary for autocast logic
+                case SPELL_GROUP_STACK_RULE_EXCLUSIVE_HIGHEST:
+                    if (abs(GetSpellInfo()->Effects[i].BasePoints) <= abs((*auraIt)->GetAmount()))
+                        return false;
+                    break;
+                case SPELL_GROUP_STACK_RULE_DEFAULT:
+                default:
+                    break;
+            }
         }
     }
 

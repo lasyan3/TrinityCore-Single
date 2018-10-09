@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2015 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2016 TrinityCore <http://www.trinitycore.org/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -134,6 +134,7 @@ enum FrostwingData
     DATA_WHELP_MARKER           = 2,
     DATA_LINKED_GAMEOBJECT      = 3,
     DATA_TRAPPED_PLAYER         = 4,
+    DATA_IS_THIRD_PHASE         = 5
 };
 
 enum MovementPoints
@@ -168,7 +169,7 @@ class FrostwyrmLandEvent : public BasicEvent
     public:
         FrostwyrmLandEvent(Creature& owner, Position const& dest) : _owner(owner), _dest(dest) { }
 
-        bool Execute(uint64 /*eventTime*/, uint32 /*updateTime*/)
+        bool Execute(uint64 /*eventTime*/, uint32 /*updateTime*/) override
         {
             _owner.GetMotionMaster()->MoveLand(POINT_FROSTWYRM_LAND, _dest);
             return true;
@@ -184,7 +185,7 @@ class FrostBombExplosion : public BasicEvent
     public:
         FrostBombExplosion(Creature* owner, ObjectGuid sindragosaGUID) : _owner(owner), _sindragosaGUID(sindragosaGUID) { }
 
-        bool Execute(uint64 /*eventTime*/, uint32 /*updateTime*/)
+        bool Execute(uint64 /*eventTime*/, uint32 /*updateTime*/) override
         {
             _owner->CastSpell((Unit*)NULL, SPELL_FROST_BOMB, false, NULL, NULL, _sindragosaGUID);
             _owner->RemoveAurasDueToSpell(SPELL_FROST_BOMB_VISUAL);
@@ -196,20 +197,19 @@ class FrostBombExplosion : public BasicEvent
         ObjectGuid _sindragosaGUID;
 };
 
-class FrostBeaconSelector
+class FrostBeaconSelector : NonTankTargetSelector
 {
     public:
-        FrostBeaconSelector(Unit* source) : _source(source) { }
+        FrostBeaconSelector(Unit* source) : NonTankTargetSelector(source, true) { }
 
-        bool operator()(Unit* target) const
+        bool operator()(WorldObject* target) const
         {
-            return target->GetTypeId() == TYPEID_PLAYER &&
-                target != _source->GetVictim() &&
-                !target->HasAura(SPELL_ICE_TOMB_UNTARGETABLE);
-        }
+            if (Unit* unitTarget = target->ToUnit())
+                return !NonTankTargetSelector::operator()(unitTarget) ||
+                    unitTarget->HasAura(SPELL_ICE_TOMB_UNTARGETABLE);
 
-    private:
-        Unit* _source;
+            return false;
+        }
 };
 
 class boss_sindragosa : public CreatureScript
@@ -234,7 +234,6 @@ class boss_sindragosa : public CreatureScript
             void Reset() override
             {
                 BossAI::Reset();
-                me->SetReactState(REACT_DEFENSIVE);
                 DoCast(me, SPELL_TANK_MARKER, true);
                 events.ScheduleEvent(EVENT_BERSERK, 600000);
                 events.ScheduleEvent(EVENT_CLEAVE, 10000, EVENT_GROUP_LAND_PHASE);
@@ -266,7 +265,7 @@ class boss_sindragosa : public CreatureScript
             {
                 if (!instance->CheckRequiredBosses(DATA_SINDRAGOSA, victim->ToPlayer()))
                 {
-                    EnterEvadeMode();
+                    EnterEvadeMode(EVADE_REASON_SEQUENCE_BREAK);
                     instance->DoCastSpellOnPlayers(LIGHT_S_HAMMER_TELEPORT);
                     return;
                 }
@@ -275,6 +274,13 @@ class boss_sindragosa : public CreatureScript
                 DoCast(me, SPELL_FROST_AURA);
                 DoCast(me, SPELL_PERMAEATING_CHILL);
                 Talk(SAY_AGGRO);
+            }
+
+            void EnterEvadeMode(EvadeReason why) override
+            {
+                if (_isInAirPhase && why == EVADE_REASON_BOUNDARY)
+                    return;
+                BossAI::EnterEvadeMode(why);
             }
 
             void JustReachedHome() override
@@ -320,9 +326,15 @@ class boss_sindragosa : public CreatureScript
 
             uint32 GetData(uint32 type) const override
             {
-                if (type == DATA_MYSTIC_BUFFET_STACK)
-                    return _mysticBuffetStack;
-                return 0xFFFFFFFF;
+                switch (type)
+                {
+                    case DATA_MYSTIC_BUFFET_STACK:
+                        return _mysticBuffetStack;
+                    case DATA_IS_THIRD_PHASE:
+                        return _isThirdPhase;
+                    default:
+                        return 0xFFFFFFFF;
+                }
             }
 
             void MovementInform(uint32 type, uint32 point) override
@@ -413,12 +425,11 @@ class boss_sindragosa : public CreatureScript
                     if (spellId == spell->Id)
                         if (Aura const* mysticBuffet = target->GetAura(spell->Id))
                             _mysticBuffetStack = std::max<uint8>(_mysticBuffetStack, mysticBuffet->GetStackAmount());
-
             }
 
             void UpdateAI(uint32 diff) override
             {
-                if (!UpdateVictim() || !CheckInRoom())
+                if (!UpdateVictim())
                     return;
 
                 events.Update(diff);
@@ -488,11 +499,7 @@ class boss_sindragosa : public CreatureScript
                             me->GetMotionMaster()->MovePoint(POINT_AIR_PHASE_FAR, SindragosaAirPosFar);
                             break;
                         case EVENT_ICE_TOMB:
-                            if (Unit* target = SelectTarget(SELECT_TARGET_RANDOM, 1, FrostBeaconSelector(me)))
-                            {
-                                Talk(EMOTE_WARN_FROZEN_ORB, target);
-                                me->CastCustomSpell(SPELL_ICE_TOMB_TARGET, SPELLVALUE_MAX_TARGETS, 1, nullptr, TRIGGERED_FULL_MASK);
-                            }
+                            me->CastCustomSpell(SPELL_ICE_TOMB_TARGET, SPELLVALUE_MAX_TARGETS, 1, nullptr, TRIGGERED_FULL_MASK);
                             events.ScheduleEvent(EVENT_ICE_TOMB, urand(16000, 23000));
                             break;
                         case EVENT_FROST_BOMB:
@@ -659,7 +666,6 @@ class npc_spinestalker : public CreatureScript
                 _events.ScheduleEvent(EVENT_BELLOWING_ROAR, urand(20000, 25000));
                 _events.ScheduleEvent(EVENT_CLEAVE_SPINESTALKER, urand(10000, 15000));
                 _events.ScheduleEvent(EVENT_TAIL_SWEEP, urand(8000, 12000));
-                me->SetReactState(REACT_DEFENSIVE);
 
                 if (!_summoned)
                 {
@@ -699,6 +705,7 @@ class npc_spinestalker : public CreatureScript
                     me->GetMotionMaster()->MoveIdle();
                     me->StopMoving();
                     me->GetMotionMaster()->MovePoint(POINT_FROSTWYRM_FLY_IN, SpinestalkerFlyPos);
+                    me->SetReactState(REACT_DEFENSIVE);
                 }
             }
 
@@ -714,6 +721,7 @@ class npc_spinestalker : public CreatureScript
                 me->SetHomePosition(SpinestalkerLandPos);
                 me->SetFacingTo(SpinestalkerLandPos.GetOrientation());
                 me->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NON_ATTACKABLE);
+                me->SetReactState(REACT_AGGRESSIVE);
             }
 
             void UpdateAI(uint32 diff) override
@@ -794,7 +802,6 @@ class npc_rimefang : public CreatureScript
                 _events.Reset();
                 _events.ScheduleEvent(EVENT_FROST_BREATH_RIMEFANG, urand(12000, 15000));
                 _events.ScheduleEvent(EVENT_ICY_BLAST, urand(30000, 35000));
-                me->SetReactState(REACT_DEFENSIVE);
                 Initialize();
 
                 if (!_summoned)
@@ -835,6 +842,7 @@ class npc_rimefang : public CreatureScript
                     me->GetMotionMaster()->MoveIdle();
                     me->StopMoving();
                     me->GetMotionMaster()->MovePoint(POINT_FROSTWYRM_FLY_IN, RimefangFlyPos);
+                    me->SetReactState(REACT_DEFENSIVE);
                 }
             }
 
@@ -850,6 +858,7 @@ class npc_rimefang : public CreatureScript
                 me->SetHomePosition(RimefangLandPos);
                 me->SetFacingTo(RimefangLandPos.GetOrientation());
                 me->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_PC);
+                me->SetReactState(REACT_AGGRESSIVE);
             }
 
             void EnterCombat(Unit* /*victim*/) override
@@ -1568,6 +1577,41 @@ class spell_frostwarden_handler_focus_fire : public SpellScriptLoader
         }
 };
 
+class spell_sindragosa_ice_tomb_target : public SpellScriptLoader
+{
+public:
+    spell_sindragosa_ice_tomb_target() : SpellScriptLoader("spell_sindragosa_ice_tomb_target") { }
+
+    class spell_sindragosa_ice_tomb_target_SpellScript : public SpellScript
+    {
+        PrepareSpellScript(spell_sindragosa_ice_tomb_target_SpellScript);
+
+        void FilterTargets(std::list<WorldObject*>& unitList)
+        {
+            Unit* caster = GetCaster();
+            unitList.remove_if(FrostBeaconSelector(caster));
+        }
+
+        void HandleSindragosaTalk(SpellEffIndex /*effIndex*/)
+        {
+            if (Creature* creatureCaster = GetCaster()->ToCreature())
+                if (creatureCaster->GetAI()->GetData(DATA_IS_THIRD_PHASE))
+                    creatureCaster->AI()->Talk(EMOTE_WARN_FROZEN_ORB, GetHitUnit());
+        }
+
+        void Register() override
+        {
+            OnObjectAreaTargetSelect += SpellObjectAreaTargetSelectFn(spell_sindragosa_ice_tomb_target_SpellScript::FilterTargets, EFFECT_0, TARGET_UNIT_SRC_AREA_ENEMY);
+            OnEffectLaunchTarget += SpellEffectFn(spell_sindragosa_ice_tomb_target_SpellScript::HandleSindragosaTalk, EFFECT_0, SPELL_EFFECT_DUMMY);
+        }
+    };
+
+    SpellScript* GetSpellScript() const override
+    {
+        return new spell_sindragosa_ice_tomb_target_SpellScript();
+    }
+};
+
 class at_sindragosa_lair : public AreaTriggerScript
 {
     public:
@@ -1633,6 +1677,7 @@ void AddSC_boss_sindragosa()
     new spell_frostwarden_handler_focus_fire();
     new spell_trigger_spell_from_caster("spell_sindragosa_ice_tomb", SPELL_ICE_TOMB_DUMMY, TRIGGERED_IGNORE_SET_FACING);
     new spell_trigger_spell_from_caster("spell_sindragosa_ice_tomb_dummy", SPELL_FROST_BEACON);
+    new spell_sindragosa_ice_tomb_target();
     new at_sindragosa_lair();
     new achievement_all_you_can_eat();
 }

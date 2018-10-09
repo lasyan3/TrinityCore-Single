@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2016 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2017 TrinityCore <http://www.trinitycore.org/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -40,7 +40,7 @@ enum WarlockSpells
     SPELL_WARLOCK_DEMONIC_PACT_PROC                 = 48090,
     SPELL_WARLOCK_FEL_SYNERGY_HEAL                  = 54181,
     SPELL_WARLOCK_GLYPH_OF_SHADOWFLAME              = 63311,
-    SPELL_WARLOCK_GLYPH_OF_SIPHON_LIFE              = 63106,
+    SPELL_WARLOCK_GLYPH_OF_SIPHON_LIFE              = 56216,
     SPELL_WARLOCK_HAUNT                             = 48181,
     SPELL_WARLOCK_HAUNT_HEAL                        = 48210,
     SPELL_WARLOCK_IMPROVED_HEALTHSTONE_R1           = 18692,
@@ -74,6 +74,7 @@ enum WarlockSpells
     SPELL_WARLOCK_SHADOWFLAME                       = 37378,
     SPELL_WARLOCK_FLAMESHADOW                       = 37379,
     SPELL_WARLOCK_GLYPH_OF_SUCCUBUS                 = 56250,
+    SPELL_WARLOCK_IMPROVED_DRAIN_SOUL_R1            = 18213,
     SPELL_WARLOCK_IMPROVED_DRAIN_SOUL_PROC          = 18371
 };
 
@@ -366,7 +367,7 @@ class spell_warl_demonic_circle_teleport : public SpellScriptLoader
                     if (GameObject* circle = player->GetGameObject(SPELL_WARLOCK_DEMONIC_CIRCLE_SUMMON))
                     {
                         player->NearTeleportTo(circle->GetPositionX(), circle->GetPositionY(), circle->GetPositionZ(), circle->GetOrientation());
-                        player->RemoveMovementImpairingAuras();
+                        player->RemoveMovementImpairingAuras(false);
                     }
                 }
             }
@@ -446,6 +447,50 @@ class spell_warl_demonic_empowerment : public SpellScriptLoader
         SpellScript* GetSpellScript() const override
         {
             return new spell_warl_demonic_empowerment_SpellScript();
+        }
+};
+
+// -1120 - Drain Soul
+class spell_warl_drain_soul : public SpellScriptLoader
+{
+    public:
+        spell_warl_drain_soul() : SpellScriptLoader("spell_warl_drain_soul") { }
+
+        class spell_warl_drain_soul_AuraScript : public AuraScript
+        {
+            PrepareAuraScript(spell_warl_drain_soul_AuraScript);
+
+            bool Validate(SpellInfo const* /*spellInfo*/) override
+            {
+                if (!sSpellMgr->GetSpellInfo(SPELL_WARLOCK_IMPROVED_DRAIN_SOUL_R1) ||
+                    !sSpellMgr->GetSpellInfo(SPELL_WARLOCK_IMPROVED_DRAIN_SOUL_PROC))
+                    return false;
+                return true;
+            }
+
+            void HandleProc(AuraEffect const* aurEff, ProcEventInfo& eventInfo)
+            {
+                PreventDefaultAction();
+
+                Unit* caster = eventInfo.GetActor();
+                // Improved Drain Soul
+                Aura const* impDrainSoul = caster->GetAuraOfRankedSpell(SPELL_WARLOCK_IMPROVED_DRAIN_SOUL_R1, caster->GetGUID());
+                if (!impDrainSoul)
+                    return;
+
+                int32 amount = CalculatePct(caster->GetMaxPower(POWER_MANA), impDrainSoul->GetSpellInfo()->Effects[EFFECT_2].CalcValue());
+                caster->CastCustomSpell(SPELL_WARLOCK_IMPROVED_DRAIN_SOUL_PROC, SPELLVALUE_BASE_POINT0, amount, (Unit*)nullptr, true, nullptr, aurEff);
+            }
+
+            void Register() override
+            {
+                OnEffectProc += AuraEffectProcFn(spell_warl_drain_soul_AuraScript::HandleProc, EFFECT_2, SPELL_AURA_PROC_TRIGGER_SPELL);
+            }
+        };
+
+        AuraScript* GetAuraScript() const override
+        {
+            return new spell_warl_drain_soul_AuraScript();
         }
 };
 
@@ -551,11 +596,11 @@ class spell_warl_glyph_of_corruption_nightfall : public SpellScriptLoader
                 return true;
             }
 
-            void HandleProc(AuraEffect const* /*aurEff*/, ProcEventInfo& eventInfo)
+            void HandleProc(AuraEffect const* aurEff, ProcEventInfo& eventInfo)
             {
                 PreventDefaultAction();
                 Unit* caster = eventInfo.GetActor();
-                caster->CastSpell(caster, SPELL_WARLOCK_SHADOW_TRANCE, true);
+                caster->CastSpell(caster, SPELL_WARLOCK_SHADOW_TRANCE, true, nullptr, aurEff);
             }
 
             void Register() override
@@ -587,11 +632,11 @@ public:
             return true;
         }
 
-        void HandleProc(AuraEffect const* /*aurEff*/, ProcEventInfo& eventInfo)
+        void HandleProc(AuraEffect const* aurEff, ProcEventInfo& eventInfo)
         {
             PreventDefaultAction();
             Unit* caster = eventInfo.GetActor();
-            caster->CastSpell(caster, SPELL_WARLOCK_GLYPH_OF_LIFE_TAP_TRIGGERED, true);
+            caster->CastSpell(caster, SPELL_WARLOCK_GLYPH_OF_LIFE_TAP_TRIGGERED, true, nullptr, aurEff);
         }
 
         void Register() override
@@ -741,44 +786,6 @@ class spell_warl_health_funnel : public SpellScriptLoader
         AuraScript* GetAuraScript() const override
         {
             return new spell_warl_health_funnel_AuraScript();
-        }
-};
-
-// -18213 - Improved Drain Soul
-class spell_warl_improved_drain_soul : public SpellScriptLoader
-{
-    public:
-        spell_warl_improved_drain_soul() : SpellScriptLoader("spell_warl_improved_drain_soul") { }
-
-        class spell_warl_improved_drain_soul_AuraScript : public AuraScript
-        {
-            PrepareAuraScript(spell_warl_improved_drain_soul_AuraScript);
-
-            bool Validate(SpellInfo const* /*spellInfo*/) override
-            {
-                if (!sSpellMgr->GetSpellInfo(SPELL_WARLOCK_IMPROVED_DRAIN_SOUL_PROC))
-                    return false;
-                return true;
-            }
-
-            void HandleProc(AuraEffect const* aurEff, ProcEventInfo& /*eventInfo*/)
-            {
-                PreventDefaultAction();
-                
-                Unit* target = GetTarget();
-                int32 bp0 = CalculatePct(target->GetMaxPower(POWER_MANA), GetSpellInfo()->Effects[EFFECT_2].BasePoints);
-                target->CastCustomSpell(SPELL_WARLOCK_IMPROVED_DRAIN_SOUL_PROC, SPELLVALUE_BASE_POINT0, bp0, target, true, nullptr, aurEff);
-            }
-
-            void Register() override
-            {
-                OnEffectProc += AuraEffectProcFn(spell_warl_improved_drain_soul_AuraScript::HandleProc, EFFECT_0, SPELL_AURA_DUMMY);
-            }
-        };
-
-        AuraScript* GetAuraScript() const override
-        {
-            return new spell_warl_improved_drain_soul_AuraScript();
         }
 };
 
@@ -1128,7 +1135,7 @@ class spell_warl_seed_of_corruption_dummy : public SpellScriptLoader
                     return;
 
                 uint32 spellId = sSpellMgr->GetSpellWithRank(SPELL_WARLOCK_SEED_OF_CORRUPTION_DAMAGE_R1, GetSpellInfo()->GetRank());
-                caster->CastSpell(eventInfo.GetActionTarget(), spellId, true);
+                caster->CastSpell(eventInfo.GetActionTarget(), spellId, true, nullptr, aurEff);
             }
 
             void Register() override
@@ -1186,7 +1193,7 @@ class spell_warl_seed_of_corruption_generic : public SpellScriptLoader
                 if (!caster)
                     return;
 
-                caster->CastSpell(eventInfo.GetActionTarget(), SPELL_WARLOCK_SEED_OF_CORRUPTION_GENERIC, true);
+                caster->CastSpell(eventInfo.GetActionTarget(), SPELL_WARLOCK_SEED_OF_CORRUPTION_GENERIC, true, nullptr, aurEff);
             }
 
             void Register() override
@@ -1337,11 +1344,11 @@ class spell_warl_soul_leech : public SpellScriptLoader
                 uint32 selfSpellId = casterMana[impSoulLeechRank - 1];
                 uint32 petSpellId = petMana[impSoulLeechRank - 1];
 
-                caster->CastSpell((Unit*)nullptr, selfSpellId, true);
-                caster->CastSpell((Unit*)nullptr, petSpellId, true);
+                caster->CastSpell((Unit*)nullptr, selfSpellId, true, nullptr, aurEff);
+                caster->CastSpell((Unit*)nullptr, petSpellId, true, nullptr, aurEff);
 
                 if (roll_chance_i(impSoulLeech->GetAmount()))
-                    caster->CastSpell((Unit*)nullptr, SPELL_REPLENISHMENT, true);
+                    caster->CastSpell((Unit*)nullptr, SPELL_REPLENISHMENT, true, nullptr, aurEff);
             }
 
             void Register() override
@@ -1415,11 +1422,11 @@ class spell_warl_t4_2p_bonus : public SpellScriptLoader
                 return true;
             }
 
-            void HandleProc(AuraEffect const* /*aurEff*/, ProcEventInfo& eventInfo)
+            void HandleProc(AuraEffect const* aurEff, ProcEventInfo& eventInfo)
             {
                 PreventDefaultAction();
                 Unit* caster = eventInfo.GetActor();
-                caster->CastSpell(caster, Trigger, true);
+                caster->CastSpell(caster, Trigger, true, nullptr, aurEff);
             }
 
             void Register() override
@@ -1484,6 +1491,7 @@ void AddSC_warlock_spell_scripts()
     new spell_warl_demonic_circle_teleport();
     new spell_warl_demonic_empowerment();
     new spell_warl_demonic_pact();
+    new spell_warl_drain_soul();
     new spell_warl_everlasting_affliction();
     new spell_warl_fel_synergy();
     new spell_warl_glyph_of_life_tap();
@@ -1491,7 +1499,6 @@ void AddSC_warlock_spell_scripts()
     new spell_warl_haunt();
     new spell_warl_health_funnel();
     new spell_warl_glyph_of_corruption_nightfall();
-    new spell_warl_improved_drain_soul();
     new spell_warl_life_tap();
     new spell_warl_nether_protection();
     new spell_warl_ritual_of_doom_effect();

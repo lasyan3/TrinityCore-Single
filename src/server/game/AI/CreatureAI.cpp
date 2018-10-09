@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2016 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2017 TrinityCore <http://www.trinitycore.org/>
  * Copyright (C) 2005-2009 MaNGOS <http://getmangos.com/>
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -269,6 +269,7 @@ bool CreatureAI::_EnterEvadeMode(EvadeReason /*why*/)
     me->ResetPlayerDamageReq();
     me->SetLastDamagedTime(0);
     me->SetCannotReachTarget(false);
+    me->DoNotReacquireTarget();
 
     if (me->IsInEvadeMode())
         return false;
@@ -357,9 +358,21 @@ bool CreatureAI::CheckBoundary(Position const* who) const
         who = me;
 
     if (_boundary)
-        for (CreatureBoundary::const_iterator it = _boundary->begin(); it != _boundary->end(); ++it)
-            if (!(*it)->IsWithinBoundary(who))
+        for (AreaBoundary const* areaBoundary : *_boundary)
+            if (!areaBoundary->IsWithinBoundary(who))
                 return false;
+
+    return true;
+}
+
+bool CreatureAI::IsInBounds(CreatureBoundary const* boundary, Position const* pos)
+{
+    if (!boundary)
+        return true;
+
+    for (AreaBoundary const* areaBoundary : *boundary)
+        if (!areaBoundary->IsWithinBoundary(pos))
+            return false;
 
     return true;
 }

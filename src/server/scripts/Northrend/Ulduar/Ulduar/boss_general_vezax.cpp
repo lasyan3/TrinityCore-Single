@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2017 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2018 TrinityCore <https://www.trinitycore.org/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -16,11 +16,14 @@
  */
 
 #include "ScriptMgr.h"
-#include "ScriptedCreature.h"
-#include "SpellScript.h"
-#include "SpellAuraEffects.h"
-#include "ulduar.h"
+#include "InstanceScript.h"
+#include "Map.h"
+#include "MotionMaster.h"
 #include "Player.h"
+#include "ScriptedCreature.h"
+#include "SpellAuraEffects.h"
+#include "SpellScript.h"
+#include "ulduar.h"
 
 enum VezaxYells
 {
@@ -128,9 +131,9 @@ class boss_general_vezax : public CreatureScript
                 Initialize();
             }
 
-            void EnterCombat(Unit* /*who*/) override
+            void JustEngagedWith(Unit* /*who*/) override
             {
-                _EnterCombat();
+                _JustEngagedWith();
 
                 Talk(SAY_AGGRO);
                 DoCast(me, SPELL_AURA_OF_DESPAIR);
@@ -275,7 +278,7 @@ class boss_general_vezax : public CreatureScript
 
             /*  Player Range Check
                 Purpose: If there are playersMin people within rangeMin, rangeMax: return a random players in that range.
-                If not, return NULL and allow other target selection
+                If not, return nullptr and allow other target selection
             */
             Unit* CheckPlayersInRange(uint8 playersMin, float rangeMin, float rangeMax)
             {
@@ -294,11 +297,11 @@ class boss_general_vezax : public CreatureScript
                 }
 
                 if (PlayerList.empty())
-                    return NULL;
+                    return nullptr;
 
                 size_t size = PlayerList.size();
                 if (size < playersMin)
-                    return NULL;
+                    return nullptr;
 
                 return Trinity::Containers::SelectRandomContainerElement(PlayerList);
             }
@@ -371,7 +374,7 @@ class boss_saronite_animus : public CreatureScript
 
         CreatureAI* GetAI(Creature* creature) const override
         {
-            return GetInstanceAI<boss_saronite_animusAI>(creature);
+            return GetUlduarAI<boss_saronite_animusAI>(creature);
         }
 };
 
@@ -441,7 +444,7 @@ class npc_saronite_vapors : public CreatureScript
 
         CreatureAI* GetAI(Creature* creature) const override
         {
-            return GetInstanceAI<npc_saronite_vaporsAI>(creature);
+            return GetUlduarAI<npc_saronite_vaporsAI>(creature);
         }
 };
 
@@ -456,15 +459,17 @@ class spell_general_vezax_mark_of_the_faceless : public SpellScriptLoader
 
             bool Validate(SpellInfo const* /*spellInfo*/) override
             {
-                if (!sSpellMgr->GetSpellInfo(SPELL_MARK_OF_THE_FACELESS_DAMAGE))
-                    return false;
-                return true;
+                return ValidateSpellInfo({ SPELL_MARK_OF_THE_FACELESS_DAMAGE });
             }
 
             void HandleEffectPeriodic(AuraEffect const* aurEff)
             {
                 if (Unit* caster = GetCaster())
-                    caster->CastCustomSpell(SPELL_MARK_OF_THE_FACELESS_DAMAGE, SPELLVALUE_BASE_POINT1, aurEff->GetAmount(), GetTarget(), true);
+                {
+                    CastSpellExtraArgs args(TRIGGERED_FULL_MASK);
+                    args.AddSpellMod(SPELLVALUE_BASE_POINT1, aurEff->GetAmount());
+                    caster->CastSpell(GetTarget(), SPELL_MARK_OF_THE_FACELESS_DAMAGE, args);
+                }
             }
 
             void Register() override
@@ -519,9 +524,7 @@ class spell_general_vezax_saronite_vapors : public SpellScriptLoader
 
             bool Validate(SpellInfo const* /*spell*/) override
             {
-                if (!sSpellMgr->GetSpellInfo(SPELL_SARONITE_VAPORS_ENERGIZE) || !sSpellMgr->GetSpellInfo(SPELL_SARONITE_VAPORS_DAMAGE))
-                    return false;
-                return true;
+                return ValidateSpellInfo({ SPELL_SARONITE_VAPORS_ENERGIZE, SPELL_SARONITE_VAPORS_DAMAGE });
             }
 
             void HandleEffectApply(AuraEffect const* aurEff, AuraEffectHandleModes /*mode*/)
@@ -529,9 +532,11 @@ class spell_general_vezax_saronite_vapors : public SpellScriptLoader
                 if (Unit* caster = GetCaster())
                 {
                     int32 mana = int32(aurEff->GetAmount() * std::pow(2.0f, GetStackAmount())); // mana restore - bp * 2^stackamount
-                    int32 damage = mana * 2;
-                    caster->CastCustomSpell(GetTarget(), SPELL_SARONITE_VAPORS_ENERGIZE, &mana, NULL, NULL, true);
-                    caster->CastCustomSpell(GetTarget(), SPELL_SARONITE_VAPORS_DAMAGE, &damage, NULL, NULL, true);
+                    CastSpellExtraArgs args1(TRIGGERED_FULL_MASK), args2(TRIGGERED_FULL_MASK);
+                    args1.AddSpellBP0(mana);
+                    args2.AddSpellBP0(mana * 2);
+                    caster->CastSpell(GetTarget(), SPELL_SARONITE_VAPORS_ENERGIZE, args1);
+                    caster->CastSpell(GetTarget(), SPELL_SARONITE_VAPORS_DAMAGE, args2);
                 }
             }
 

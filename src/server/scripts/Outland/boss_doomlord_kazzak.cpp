@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2017 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2018 TrinityCore <https://www.trinitycore.org/>
  * Copyright (C) 2006-2009 ScriptDev2 <https://scriptdev2.svn.sourceforge.net/>
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -83,12 +83,12 @@ class boss_doomlord_kazzak : public CreatureScript
                 _events.ScheduleEvent(EVENT_BERSERK, 180000);
             }
 
-            void JustRespawned() override
+            void JustAppeared() override
             {
                 Talk(SAY_INTRO);
             }
 
-            void EnterCombat(Unit* /*who*/) override
+            void JustEngagedWith(Unit* /*who*/) override
             {
                 Talk(SAY_AGGRO);
             }
@@ -187,9 +187,7 @@ class spell_mark_of_kazzak : public SpellScriptLoader
 
             bool Validate(SpellInfo const* /*spell*/) override
             {
-                if (!sSpellMgr->GetSpellInfo(SPELL_MARK_OF_KAZZAK_DAMAGE))
-                    return false;
-                return true;
+                return ValidateSpellInfo({ SPELL_MARK_OF_KAZZAK_DAMAGE });
             }
 
             void CalculateAmount(AuraEffect const* /*aurEff*/, int32& amount, bool& /*canBeRecalculated*/)
@@ -204,7 +202,7 @@ class spell_mark_of_kazzak : public SpellScriptLoader
 
                 if (target->GetPower(POWER_MANA) == 0)
                 {
-                    target->CastSpell(target, SPELL_MARK_OF_KAZZAK_DAMAGE, true, NULL, aurEff);
+                    target->CastSpell(target, SPELL_MARK_OF_KAZZAK_DAMAGE, aurEff);
                     // Remove aura
                     SetDuration(0);
                 }
@@ -234,9 +232,7 @@ class spell_twisted_reflection : public SpellScriptLoader
 
             bool Validate(SpellInfo const* /*spellInfo*/) override
             {
-                if (!sSpellMgr->GetSpellInfo(SPELL_TWISTED_REFLECTION_HEAL))
-                    return false;
-                return true;
+                return ValidateSpellInfo({ SPELL_TWISTED_REFLECTION_HEAL });
             }
 
             void HandleProc(AuraEffect const* aurEff, ProcEventInfo& eventInfo)
@@ -246,7 +242,7 @@ class spell_twisted_reflection : public SpellScriptLoader
                 if (!damageInfo || !damageInfo->GetDamage())
                     return;
 
-                eventInfo.GetActionTarget()->CastSpell(eventInfo.GetActor(), SPELL_TWISTED_REFLECTION_HEAL, true, nullptr, aurEff);
+                eventInfo.GetActionTarget()->CastSpell(eventInfo.GetActor(), SPELL_TWISTED_REFLECTION_HEAL, aurEff);
             }
 
             void Register() override

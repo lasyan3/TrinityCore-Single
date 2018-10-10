@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2017 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2018 TrinityCore <https://www.trinitycore.org/>
  * Copyright (C) 2005-2009 MaNGOS <http://getmangos.com/>
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -26,7 +26,7 @@ template<class T>
 class ConfusedMovementGenerator : public MovementGeneratorMedium< T, ConfusedMovementGenerator<T> >
 {
     public:
-        explicit ConfusedMovementGenerator() : _path(nullptr), _timer(0), _reference(0.f, 0.f, 0.f), _interrupt(false) { }
+        explicit ConfusedMovementGenerator() : _path(nullptr), _timer(0), _x(0.f), _y(0.f), _z(0.f), _interrupt(false) { }
         ~ConfusedMovementGenerator();
 
         MovementGeneratorType GetMovementGeneratorType() const override { return CONFUSED_MOTION_TYPE; }
@@ -39,7 +39,7 @@ class ConfusedMovementGenerator : public MovementGeneratorMedium< T, ConfusedMov
     private:
         PathGenerator* _path;
         TimeTracker _timer;
-        G3D::Vector3 _reference;
+        float _x, _y, _z;
         bool _interrupt;
 };
 

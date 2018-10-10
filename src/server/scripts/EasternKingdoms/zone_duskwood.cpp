@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2017 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2018 TrinityCore <https://www.trinitycore.org/>
  * Copyright (C) 2006-2009 ScriptDev2 <https://scriptdev2.svn.sourceforge.net/>
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -26,6 +26,7 @@ EndScriptData */
 #include "ScriptMgr.h"
 #include "ScriptedCreature.h"
 #include "Player.h"
+#include "TemporarySummon.h"
 
 enum TwilightCorrupter
 {
@@ -71,7 +72,7 @@ public:
             Initialize();
         }
 
-        void EnterCombat(Unit* /*who*/) override
+        void JustEngagedWith(Unit* /*who*/) override
         {
             Talk(YELL_TWILIGHT_CORRUPTOR_AGGRO);
             _events.ScheduleEvent(EVENT_SOUL_CORRUPTION, 15000);
@@ -146,7 +147,7 @@ class at_twilight_grove : public AreaTriggerScript
     public:
         at_twilight_grove() : AreaTriggerScript("at_twilight_grove") { }
 
-        bool OnTrigger(Player* player, const AreaTriggerEntry* /*at*/) override
+        bool OnTrigger(Player* player, AreaTriggerEntry const* /*at*/) override
         {
             if (player->GetQuestStatus(QUEST_NIGHTMARES_CORRUPTION) == QUEST_STATUS_INCOMPLETE)
                 if (!player->FindNearestCreature(NPC_TWILIGHT_CORRUPTER, 500.0f, true))

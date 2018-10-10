@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2017 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2018 TrinityCore <https://www.trinitycore.org/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -15,17 +15,19 @@
  * with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "AccountMgr.h"
+#include "ScriptMgr.h"
+#include "AreaBoundary.h"
+#include "CreatureAI.h"
+#include "icecrown_citadel.h"
 #include "InstanceScript.h"
+#include "Map.h"
 #include "ObjectMgr.h"
 #include "Player.h"
 #include "PoolMgr.h"
-#include "ScriptMgr.h"
-#include "ScriptedCreature.h"
+#include "TemporarySummon.h"
 #include "Transport.h"
 #include "TransportMgr.h"
 #include "WorldPacket.h"
-#include "icecrown_citadel.h"
 
 enum EventIds
 {
@@ -145,6 +147,8 @@ class instance_icecrown_citadel : public InstanceMapScript
                 UpperSpireTeleporterActiveState = NOT_STARTED;
                 BloodQuickeningState = NOT_STARTED;
                 BloodQuickeningMinutes = 0;
+                BloodPrinceIntro = 1;
+                SindragosaIntro = 1;
             }
 
             // A function to help reduce the number of lines for teleporter management.
@@ -184,7 +188,7 @@ class instance_icecrown_citadel : public InstanceMapScript
             {
                 if (!TeamInInstance)
                 {
-                    Map::PlayerList const &players = instance->GetPlayers();
+                    Map::PlayerList const& players = instance->GetPlayers();
                     if (!players.isEmpty())
                         if (Player* player = players.begin()->GetSource())
                             TeamInInstance = player->GetTeam();
@@ -390,13 +394,13 @@ class instance_icecrown_citadel : public InstanceMapScript
                         break;
                     case NPC_ZAFOD_BOOMBOX:
                         if (GameObjectTemplate const* go = sObjectMgr->GetGameObjectTemplate(GO_THE_SKYBREAKER_A))
-                            if ((TeamInInstance == ALLIANCE && data->mapid == go->moTransport.mapID) ||
-                                (TeamInInstance == HORDE && data->mapid != go->moTransport.mapID))
+                            if ((TeamInInstance == ALLIANCE && data->spawnPoint.GetMapId() == go->moTransport.mapID) ||
+                                (TeamInInstance == HORDE && data->spawnPoint.GetMapId() != go->moTransport.mapID))
                                 return entry;
                         return 0;
                     case NPC_IGB_MURADIN_BRONZEBEARD:
-                        if ((TeamInInstance == ALLIANCE && data->posX > 10.0f) ||
-                            (TeamInInstance == HORDE && data->posX < 10.0f))
+                        if ((TeamInInstance == ALLIANCE && data->spawnPoint.GetPositionX() > 10.0f) ||
+                            (TeamInInstance == HORDE && data->spawnPoint.GetPositionX() < 10.0f))
                             return entry;
                         return 0;
                     default:
@@ -737,6 +741,10 @@ class instance_icecrown_citadel : public InstanceMapScript
                         return BloodQuickeningState;
                     case DATA_HEROIC_ATTEMPTS:
                         return HeroicAttempts;
+                    case DATA_BLOOD_PRINCE_COUNCIL_INTRO:
+                        return BloodPrinceIntro;
+                    case DATA_SINDRAGOSA_INTRO:
+                        return SindragosaIntro;
                     default:
                         break;
                 }
@@ -994,9 +1002,10 @@ class instance_icecrown_citadel : public InstanceMapScript
                         // set the platform as active object to dramatically increase visibility range
                         // note: "active" gameobjects do not block grid unloading
                         if (GameObject* precipice = instance->GetGameObject(ArthasPrecipiceGUID))
-                            precipice->setActive(state == IN_PROGRESS);
+                            precipice->SetFarVisible(state == IN_PROGRESS);
+
                         if (GameObject* platform = instance->GetGameObject(ArthasPlatformGUID))
-                            platform->setActive(state == IN_PROGRESS);
+                            platform->SetFarVisible(state == IN_PROGRESS);
 
                         if (instance->IsHeroic())
                         {
@@ -1113,6 +1122,12 @@ class instance_icecrown_citadel : public InstanceMapScript
                                 SetTeleporterState(go, true);
                             SaveToDB();
                         }
+                        break;
+                    case DATA_BLOOD_PRINCE_COUNCIL_INTRO:
+                        BloodPrinceIntro = data;
+                        break;
+                    case DATA_SINDRAGOSA_INTRO:
+                        SindragosaIntro = data;
                         break;
                     default:
                         break;
@@ -1301,12 +1316,12 @@ class instance_icecrown_citadel : public InstanceMapScript
                         teleporter->SetGoState(GO_STATE_ACTIVE);
 
                         std::list<Creature*> stalkers;
-                        GetCreatureListWithEntryInGrid(stalkers, teleporter, NPC_INVISIBLE_STALKER, 100.0f);
+                        teleporter->GetCreatureListWithEntryInGrid(stalkers, NPC_INVISIBLE_STALKER, 100.0f);
                         if (stalkers.empty())
                             return;
 
                         stalkers.sort(Trinity::ObjectDistanceOrderPred(teleporter));
-                        stalkers.front()->CastSpell((Unit*)NULL, SPELL_ARTHAS_TELEPORTER_CEREMONY, false);
+                        stalkers.front()->CastSpell(nullptr, SPELL_ARTHAS_TELEPORTER_CEREMONY, false);
                         stalkers.pop_front();
                         for (std::list<Creature*>::iterator itr = stalkers.begin(); itr != stalkers.end(); ++itr)
                             (*itr)->AI()->Reset();
@@ -1443,11 +1458,11 @@ class instance_icecrown_citadel : public InstanceMapScript
                         }
                         break;
                     case EVENT_TELEPORT_TO_FROSTMOURNE: // Harvest Soul (normal mode)
-                        if (Creature* terenas = instance->SummonCreature(NPC_TERENAS_MENETHIL_FROSTMOURNE, TerenasSpawn, NULL, 63000))
+                        if (Creature* terenas = instance->SummonCreature(NPC_TERENAS_MENETHIL_FROSTMOURNE, TerenasSpawn, nullptr, 63000))
                         {
                             terenas->AI()->DoAction(ACTION_FROSTMOURNE_INTRO);
                             std::list<Creature*> triggers;
-                            GetCreatureListWithEntryInGrid(triggers, terenas, NPC_WORLD_TRIGGER_INFINITE_AOI, 100.0f);
+                            terenas->GetCreatureListWithEntryInGrid(triggers, NPC_WORLD_TRIGGER_INFINITE_AOI, 100.0f);
                             if (!triggers.empty())
                             {
                                 triggers.sort(Trinity::ObjectDistanceOrderPred(terenas, false));
@@ -1455,10 +1470,10 @@ class instance_icecrown_citadel : public InstanceMapScript
                                 visual->CastSpell(visual, SPELL_FROSTMOURNE_TELEPORT_VISUAL, true);
                             }
 
-                            if (Creature* warden = instance->SummonCreature(NPC_SPIRIT_WARDEN, SpiritWardenSpawn, NULL, 63000))
+                            if (Creature* warden = instance->SummonCreature(NPC_SPIRIT_WARDEN, SpiritWardenSpawn, nullptr, 63000))
                             {
                                 terenas->AI()->AttackStart(warden);
-                                warden->AddThreat(terenas, 300000.0f);
+                                warden->GetThreatManager().AddThreat(terenas, 300000.0f, nullptr, true, true);
                             }
                         }
                         break;
@@ -1528,6 +1543,8 @@ class instance_icecrown_citadel : public InstanceMapScript
             uint32 BloodQuickeningState;
             uint32 HeroicAttempts;
             uint16 BloodQuickeningMinutes;
+            uint8 BloodPrinceIntro;
+            uint8 SindragosaIntro;
             bool IsBonedEligible;
             bool IsOozeDanceEligible;
             bool IsNauseaEligible;

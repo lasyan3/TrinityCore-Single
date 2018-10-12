@@ -1929,7 +1929,7 @@ void Creature::setDeathState(DeathState s)
     {
         m_corpseRemoveTime = GameTime::GetGameTime() + m_corpseDelay;
 
-        uint32 respawnDelay = m_respawnDelay;
+        uint32 respawnDelay = m_respawnDelay / sWorld->getFloatConfig(CONFIG_RESPAWNSPEED);
         if (uint32 scalingMode = sWorld->getIntConfig(CONFIG_RESPAWN_DYNAMICMODE))
             GetMap()->ApplyDynamicModeRespawnScaling(this, m_spawnId, respawnDelay, scalingMode);
         // @todo remove the boss respawn time hack in a dynspawn follow-up once we have creature groups in instances
@@ -1938,7 +1938,7 @@ void Creature::setDeathState(DeathState s)
             if (IsDungeonBoss() && !m_respawnDelay)
                 m_respawnTime = std::numeric_limits<time_t>::max(); // never respawn in this instance
             else
-                m_respawnTime = GameTime::GetGameTime() + (respawnDelay / sWorld->getFloatConfig(CONFIG_RESPAWNSPEED)) + m_corpseDelay;
+                m_respawnTime = GameTime::GetGameTime() + respawnDelay + m_corpseDelay;
         }
         else
         {

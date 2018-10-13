@@ -431,18 +431,6 @@ void Unit::Update(uint32 p_time)
     ASSERT(!m_procDeep);
 
     m_combatManager.Update(p_time);
-			if (m_CombatTimer <= p_time)
-			{
-				ClearInCombat();
-				if (Player *player = ToPlayer())
-				{
-					if (player->m_mountCanceled && player->m_mountSpell > 0)
-					{
-						player->CastSpell(player, player->m_mountSpell, true);
-						TC_LOG_DEBUG("lasyan3.automount", "AutoMount casted from Unit::Update");
-					}
-				}
-			}
 
     // not implemented before 3.0.2
     if (uint32 base_att = getAttackTimer(BASE_ATTACK))
@@ -6006,6 +5994,15 @@ void Unit::CombatStop(bool includingCast, bool mutualPvP)
     { // vanish and brethren are weird
         m_combatManager.EndAllPvECombat();
         m_combatManager.SuppressPvPCombat();
+    }
+    // LASYAN3 : Re-mount after combat
+    if (Player *player = ToPlayer())
+    {
+        if (player->m_mountCanceled && player->m_mountSpell > 0)
+        {
+            player->CastSpell(player, player->m_mountSpell, true);
+            TC_LOG_DEBUG("lasyan3.automount", "AutoMount casted from Unit::Update");
+        }
     }
 }
 

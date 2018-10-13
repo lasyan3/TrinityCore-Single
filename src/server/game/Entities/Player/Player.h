@@ -30,6 +30,7 @@
 #include "SpellHistory.h"
 #include "Unit.h"
 #include "TradeData.h"
+#include "CinematicMgr.h"
 #include "ObjectMgr.h"
 #include "CinematicMgr.h"
 

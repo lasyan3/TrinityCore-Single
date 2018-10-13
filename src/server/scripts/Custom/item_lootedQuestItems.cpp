@@ -98,7 +98,7 @@ public:
 					msg << "|cffFF0000\r\nNo information found for this quest!";
 				}
 			}
-			pPlayer->ADD_GOSSIP_ITEM(0, msg.str(), itr->first, GOSSIP_ACTION_INFO_DEF + 1);
+			AddGossipItemFor(pPlayer, 0, msg.str(), itr->first, GOSSIP_ACTION_INFO_DEF + 1);
 		}
 	}
 

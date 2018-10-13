@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2015 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2016 TrinityCore <http://www.trinitycore.org/>
  * Copyright (C) 2005-2009 MaNGOS <http://getmangos.com/>
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -509,7 +509,7 @@ struct AreaTableEntry
     uint32  ID;                                             // 0
     uint32  mapid;                                          // 1
     uint32  zone;                                           // 2 if 0 then it's zone, else it's zone id of this area
-    uint32  exploreFlag;                                    // 3, main index
+    uint32  exploreFlag;                                    // 3
     uint32  flags;                                          // 4, unknown value but 312 for all cities
                                                             // 5-9 unused
     int32   area_level;                                     // 10
@@ -809,7 +809,7 @@ struct CreatureModelDataEntry
 {
     uint32 Id;
     uint32 Flags;
-    //char* ModelPath[16]
+    char* ModelPath;
     //uint32 Unk1;
     float Scale;                                             // Used in calculation of unit collision data
     //int32 Unk2
@@ -924,6 +924,15 @@ struct EmotesTextEntry
 {
     uint32  Id;
     uint32  textid;
+};
+
+struct EmotesTextSoundEntry
+{
+    uint32 Id;                                              // 0
+    uint32 EmotesTextId;                                    // 1
+    uint32 RaceId;                                          // 2
+    uint32 SexId;                                           // 3, 0 male / 1 female
+    uint32 SoundId;                                         // 4
 };
 
 struct FactionEntry

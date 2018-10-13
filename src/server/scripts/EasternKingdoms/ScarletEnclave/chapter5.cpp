@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2015 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2016 TrinityCore <http://www.trinitycore.org/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -596,10 +596,10 @@ public:
             }
         }
 
-        void EnterEvadeMode() override
+        void EnterEvadeMode(EvadeReason why) override
         {
             if (!bIsBattle)//do not reset self if we are in battle
-                npc_escortAI::EnterEvadeMode();
+                npc_escortAI::EnterEvadeMode(why);
         }
 
         void UpdateAI(uint32 diff) override
@@ -1218,7 +1218,7 @@ public:
                             if (Creature* temp = ObjectAccessor::GetCreature(*me, uiLichKingGUID)) // Lich king disappears here
                             {
                                 temp->AI()->Talk(EMOTE_LIGHT_OF_DAWN17);
-                                temp->Kill(temp);
+                                temp->KillSelf();
                             }
                             JumpToNextStep(10000);
                             break;
@@ -1633,7 +1633,7 @@ public:
                 if (temp->IsAlive())
                 {
                     temp->SetVisible(false);
-                    temp->Kill(temp);
+                    temp->KillSelf();
                 }
         }
     };

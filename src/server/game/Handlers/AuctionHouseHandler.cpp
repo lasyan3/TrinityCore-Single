@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2015 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2016 TrinityCore <http://www.trinitycore.org/>
  * Copyright (C) 2005-2009 MaNGOS <http://getmangos.com/>
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -303,18 +303,21 @@ void WorldSession::HandleAuctionSellItem(WorldPacket& recvData)
         AH->buyout = buyout;
         AH->expire_time = time(NULL) + auctionTime;
         AH->deposit = deposit;
+        AH->etime = etime;
         AH->auctionHouseEntry = auctionHouseEntry;
 
         TC_LOG_INFO("network", "CMSG_AUCTION_SELL_ITEM: Player %s (guid %d) is selling item %s entry %u (guid %d) with count %u with initial bid %u with buyout %u and with time %u (in sec) in auctionhouse %u",
             _player->GetName().c_str(), _player->GetGUID().GetCounter(), item->GetTemplate()->Name1.c_str(), item->GetEntry(), item->GetGUID().GetCounter(), item->GetCount(), bid, buyout, auctionTime, AH->GetHouseId());
         sAuctionMgr->AddAItem(item);
         auctionHouse->AddAuction(AH);
+        sAuctionMgr->PendingAuctionAdd(_player, AH);
 
         _player->MoveItemFromInventory(item->GetBagSlot(), item->GetSlot(), true);
 
         SQLTransaction trans = CharacterDatabase.BeginTransaction();
         item->DeleteFromInventoryDB(trans);
         item->SaveToDB(trans);
+
         AH->SaveToDB(trans);
         _player->SaveInventoryAndGoldToDB(trans);
         CharacterDatabase.CommitTransaction(trans);
@@ -351,12 +354,14 @@ void WorldSession::HandleAuctionSellItem(WorldPacket& recvData)
         AH->buyout = buyout;
         AH->expire_time = time(NULL) + auctionTime;
         AH->deposit = deposit;
+        AH->etime = etime;
         AH->auctionHouseEntry = auctionHouseEntry;
 
         TC_LOG_INFO("network", "CMSG_AUCTION_SELL_ITEM: Player %s (guid %d) is selling item %s entry %u (guid %d) with count %u with initial bid %u with buyout %u and with time %u (in sec) in auctionhouse %u",
             _player->GetName().c_str(), _player->GetGUID().GetCounter(), newItem->GetTemplate()->Name1.c_str(), newItem->GetEntry(), newItem->GetGUID().GetCounter(), newItem->GetCount(), bid, buyout, auctionTime, AH->GetHouseId());
         sAuctionMgr->AddAItem(newItem);
         auctionHouse->AddAuction(AH);
+        sAuctionMgr->PendingAuctionAdd(_player, AH);
 
         for (uint32 j = 0; j < itemsCount; ++j)
         {
@@ -396,8 +401,6 @@ void WorldSession::HandleAuctionSellItem(WorldPacket& recvData)
 
         GetPlayer()->UpdateAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_CREATE_AUCTION, 1);
     }
-
-    _player->ModifyMoney(-int32(deposit));
 }
 
 //this function is called when client bids or buys out auction
@@ -703,7 +706,7 @@ void WorldSession::HandleAuctionListItems(WorldPacket& recvData)
     TC_LOG_DEBUG("network", "WORLD: Received CMSG_AUCTION_LIST_ITEMS");
 
     std::string searchedname;
-    uint8 levelmin, levelmax, usable;
+    uint8 levelmin, levelmax, usable, getAll;
     uint32 listfrom, auctionSlotID, auctionMainCategory, auctionSubCategory, quality;
     ObjectGuid guid;
 
@@ -715,7 +718,7 @@ void WorldSession::HandleAuctionListItems(WorldPacket& recvData)
     recvData >> auctionSlotID >> auctionMainCategory >> auctionSubCategory;
     recvData >> quality >> usable;
 
-    recvData.read_skip<uint8>();                           // unk
+    recvData >> getAll;
 
     // this block looks like it uses some lame byte packing or similar...
     uint8 unkCnt;
@@ -757,11 +760,11 @@ void WorldSession::HandleAuctionListItems(WorldPacket& recvData)
     auctionHouse->BuildListAuctionItems(data, _player,
         wsearchedname, listfrom, levelmin, levelmax, usable,
         auctionSlotID, auctionMainCategory, auctionSubCategory, quality,
-        count, totalcount);
+        count, totalcount, (getAll != 0 && sWorld->getIntConfig(CONFIG_AUCTION_GETALL_DELAY) != 0));
 
     data.put<uint32>(0, count);
     data << (uint32) totalcount;
-    data << (uint32) 300;                                   // unk 2.3.0 const?
+    data << (uint32) sWorld->getIntConfig(CONFIG_AUCTION_SEARCH_DELAY);
     SendPacket(&data);
 }
 

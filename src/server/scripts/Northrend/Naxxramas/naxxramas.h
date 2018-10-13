@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2015 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2016 TrinityCore <http://www.trinitycore.org/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -43,17 +43,13 @@ enum Encounter
 
 enum Data
 {
-    DATA_HEIGAN_ERUPT,
     DATA_GOTHIK_GATE,
-    DATA_SAPPHIRON_BIRTH,
     DATA_HAD_ANUBREKHAN_GREET,
-
     DATA_HAD_FAERLINA_GREET,
+    DATA_HAD_THADDIUS_GREET,
+    DATA_HAD_SAPPHIRON_BIRTH,
 
-    DATA_HORSEMEN0,
-    DATA_HORSEMEN1,
-    DATA_HORSEMEN2,
-    DATA_HORSEMEN3,
+    DATA_HORSEMEN_CHECK_ACHIEVEMENT_CREDIT,
     DATA_ABOMINATION_KILLED,
 
     DATA_NAXX_PORTAL_ARACHNID,
@@ -66,6 +62,8 @@ enum Data64
 {
     DATA_ANUBREKHAN,
     DATA_FAERLINA,
+    DATA_RAZUVIOUS,
+    DATA_GOTHIK,
     DATA_THANE,
     DATA_LADY,
     DATA_BARON,
@@ -74,6 +72,7 @@ enum Data64
     DATA_HEIGAN,
     DATA_FEUGEN,
     DATA_STALAGG,
+    DATA_SAPPHIRON,
     DATA_KELTHUZAD,
     DATA_KELTHUZAD_PORTAL01,
     DATA_KELTHUZAD_PORTAL02,
@@ -87,14 +86,17 @@ enum CreaturesIds
 {
     NPC_ANUBREKHAN              = 15956,
     NPC_FAERLINA                = 15953,
+    NPC_RAZUVIOUS               = 16061,
+    NPC_GOTHIK                  = 16060,
     NPC_THANE                   = 16064,
     NPC_LADY                    = 16065,
     NPC_BARON                   = 30549,
     NPC_SIR                     = 16063,
-    NPC_THADDIUS                = 15928,
     NPC_HEIGAN                  = 15936,
+    NPC_THADDIUS                = 15928,
     NPC_FEUGEN                  = 15930,
     NPC_STALAGG                 = 15929,
+    NPC_TESLA                   = 16218,
     NPC_SAPPHIRON               = 15989,
     NPC_KEL_THUZAD              = 15990,
     NPC_CRYPT_GUARD             = 16573,
@@ -154,12 +156,6 @@ enum GameObjectsIds
     GO_NAXX_PORTAL_CONSTRUCT    = 181576,
     GO_NAXX_PORTAL_PLAGUE       = 181577,
     GO_NAXX_PORTAL_MILITARY     = 181578
-};
-
-enum SpellIds
-{
-    SPELL_ERUPTION              = 29371,
-    SPELL_SLIME                 = 28801
 };
 
 enum InstanceEvents

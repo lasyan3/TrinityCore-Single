@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2015 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2016 TrinityCore <http://www.trinitycore.org/>
  * Copyright (C) 2005-2009 MaNGOS <http://getmangos.com/>
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -56,7 +56,8 @@ char const* const ConditionMgr::StaticSourceTypeData[CONDITION_SOURCE_TYPE_MAX] 
     "SmartScript",
     "Npc Vendor",
     "Spell Proc",
-    "Phase Def"
+    "Terrain Swap",
+    "Phase"
 };
 
 ConditionMgr::ConditionTypeInfo const ConditionMgr::StaticConditionTypeData[CONDITION_MAX] =
@@ -90,7 +91,7 @@ ConditionMgr::ConditionTypeInfo const ConditionMgr::StaticConditionTypeData[COND
     { "PhaseMask",            true, false, false },
     { "Level",                true, true,  false },
     { "Quest Completed",      true, false, false },
-    { "Near Creature",        true, true,  false },
+    { "Near Creature",        true, true,  true  },
     { "Near GameObject",      true, true,  false },
     { "Object Entry or Guid", true, true,  true  },
     { "Object TypeMask",      true, false, false },
@@ -101,7 +102,9 @@ ConditionMgr::ConditionTypeInfo const ConditionMgr::StaticConditionTypeData[COND
     { "Health Value",         true, true,  false },
     { "Health Pct",           true, true, false  },
     { "Realm Achievement",    true, false, false },
-    { "In Water",            false, false, false }
+    { "In Water",            false, false, false },
+    { "Terrain Swap",        false, false, false },
+    { "Sit/stand state",      true,  true, false }
 };
 
 // Checks if object meets the condition
@@ -282,7 +285,7 @@ bool Condition::Meets(ConditionSourceInfo& sourceInfo) const
         }
         case CONDITION_NEAR_CREATURE:
         {
-            condMeets = GetClosestCreatureWithEntry(object, ConditionValue1, (float)ConditionValue2) ? true : false;
+            condMeets = GetClosestCreatureWithEntry(object, ConditionValue1, (float)ConditionValue2, bool(!ConditionValue3)) ? true : false;
             break;
         }
         case CONDITION_NEAR_GAMEOBJECT:
@@ -326,7 +329,7 @@ bool Condition::Meets(ConditionSourceInfo& sourceInfo) const
                 Unit* unit = object->ToUnit();
                 if (toUnit && unit)
                 {
-                    switch (ConditionValue2)
+                    switch (static_cast<RelationType>(ConditionValue2))
                     {
                         case RELATION_SELF:
                             condMeets = unit == toUnit;
@@ -345,6 +348,8 @@ bool Condition::Meets(ConditionSourceInfo& sourceInfo) const
                             break;
                         case RELATION_CREATED_BY:
                             condMeets = unit->GetCreatorGUID() == toUnit->GetGUID();
+                            break;
+                        default:
                             break;
                     }
                 }
@@ -430,6 +435,19 @@ bool Condition::Meets(ConditionSourceInfo& sourceInfo) const
         {
             if (Unit* unit = object->ToUnit())
                 condMeets = unit->IsInWater();
+            break;
+        }
+        case CONDITION_STAND_STATE:
+        {
+            if (Unit* unit = object->ToUnit())
+            {
+                if (ConditionValue1 == 0)
+                    condMeets = (unit->GetStandState() == ConditionValue2);
+                else if (ConditionValue2 == 0)
+                    condMeets = unit->IsStandState();
+                else if (ConditionValue2 == 1)
+                    condMeets = unit->IsSitState();
+            }
             break;
         }
         default:
@@ -600,6 +618,9 @@ uint32 Condition::GetSearcherTypeMaskForCondition() const
             mask |= GRID_MAP_TYPE_MASK_ALL;
             break;
         case CONDITION_IN_WATER:
+            mask |= GRID_MAP_TYPE_MASK_CREATURE | GRID_MAP_TYPE_MASK_PLAYER;
+            break;
+        case CONDITION_STAND_STATE:
             mask |= GRID_MAP_TYPE_MASK_CREATURE | GRID_MAP_TYPE_MASK_PLAYER;
             break;
         default:
@@ -907,6 +928,12 @@ bool ConditionMgr::IsObjectMeetingVendorItemConditions(uint32 creatureId, uint32
         }
     }
     return true;
+}
+
+ConditionMgr* ConditionMgr::instance()
+{
+    static ConditionMgr instance;
+    return &instance;
 }
 
 void ConditionMgr::LoadConditions(bool isReload)
@@ -1217,7 +1244,7 @@ bool ConditionMgr::addToGossipMenuItems(Condition* cond) const
 bool ConditionMgr::addToSpellImplicitTargetConditions(Condition* cond) const
 {
     uint32 conditionEffMask = cond->SourceGroup;
-    SpellInfo* spellInfo = const_cast<SpellInfo*>(sSpellMgr->EnsureSpellInfo(cond->SourceEntry));
+    SpellInfo* spellInfo = const_cast<SpellInfo*>(sSpellMgr->AssertSpellInfo(cond->SourceEntry));
     std::list<uint32> sharedMasks;
     for (uint8 i = 0; i < MAX_SPELL_EFFECTS; ++i)
     {
@@ -1633,9 +1660,14 @@ bool ConditionMgr::isSourceTypeValid(Condition* cond) const
             }
             break;
         }
-        case CONDITION_SOURCE_TYPE_PHASE_DEFINITION:
+        case CONDITION_SOURCE_TYPE_TERRAIN_SWAP:
         {
-            TC_LOG_ERROR("sql.sql", "CONDITION_SOURCE_TYPE_PHASE_DEFINITION:: is only for 4.3.4 branch, skipped");
+            TC_LOG_ERROR("sql.sql", "CONDITION_SOURCE_TYPE_TERRAIN_SWAP: is only for 6.x branch, skipped");
+            return false;
+        }
+        case CONDITION_SOURCE_TYPE_PHASE:
+        {
+            TC_LOG_ERROR("sql.sql", "CONDITION_SOURCE_TYPE_PHASE: is only for 6.x branch, skipped");
             return false;
         }
         case CONDITION_SOURCE_TYPE_GOSSIP_MENU:
@@ -1653,7 +1685,7 @@ bool ConditionMgr::isConditionTypeValid(Condition* cond) const
 {
     if (cond->ConditionType == CONDITION_NONE || cond->ConditionType >= CONDITION_MAX)
     {
-        TC_LOG_ERROR("sql.sql", "%s Invalid ConditionType in `condition` table, ignoring.", cond->ToString().c_str());
+        TC_LOG_ERROR("sql.sql", "%s Invalid ConditionType in `condition` table, ignoring.", cond->ToString(true).c_str());
         return false;
     }
 
@@ -1708,7 +1740,7 @@ bool ConditionMgr::isConditionTypeValid(Condition* cond) const
         }
         case CONDITION_ZONEID:
         {
-            AreaTableEntry const* areaEntry = GetAreaEntryByAreaID(cond->ConditionValue1);
+            AreaTableEntry const* areaEntry = sAreaTableStore.LookupEntry(cond->ConditionValue1);
             if (!areaEntry)
             {
                 TC_LOG_ERROR("sql.sql", "%s Area (%u) does not exist, skipped.", cond->ToString(true).c_str(), cond->ConditionValue1);
@@ -2090,6 +2122,31 @@ bool ConditionMgr::isConditionTypeValid(Condition* cond) const
         }
         case CONDITION_IN_WATER:
             break;
+        case CONDITION_TERRAIN_SWAP:
+            TC_LOG_ERROR("sql.sql", "%s is not valid for this branch, skipped.", cond->ToString(true).c_str());
+            return false;
+        case CONDITION_STAND_STATE:
+        {
+            bool valid = false;
+            switch (cond->ConditionValue1)
+            {
+                case 0:
+                    valid = cond->ConditionValue2 <= UNIT_STAND_STATE_SUBMERGED;
+                    break;
+                case 1:
+                    valid = cond->ConditionValue2 <= 1;
+                    break;
+                default:
+                    valid = false;
+                    break;
+            }
+            if (!valid)
+            {
+                TC_LOG_ERROR("sql.sql", "%s has non-existing stand state (%u,%u), skipped.", cond->ToString(true).c_str(), cond->ConditionValue1, cond->ConditionValue2);
+                return false;
+            }
+            break;
+        }
         default:
             break;
     }

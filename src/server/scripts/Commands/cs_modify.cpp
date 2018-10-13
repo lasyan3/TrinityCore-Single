@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2015 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2016 TrinityCore <http://www.trinitycore.org/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -473,7 +473,7 @@ public:
             return false;
         }
 
-        handler->PSendSysMessage(LANG_YOU_CHANGE_ASPEED, ASpeed, targetNameLink.c_str());
+        handler->PSendSysMessage(LANG_YOU_CHANGE_ASPEED, targetNameLink.c_str(), ASpeed);
         if (handler->needReportToTarget(target))
             ChatHandler(target->GetSession()).PSendSysMessage(LANG_YOURS_ASPEED_CHANGED, handler->GetNameLink().c_str(), ASpeed);
 
@@ -521,7 +521,7 @@ public:
             return false;
         }
 
-        handler->PSendSysMessage(LANG_YOU_CHANGE_SPEED, Speed, targetNameLink.c_str());
+        handler->PSendSysMessage(LANG_YOU_CHANGE_SPEED, targetNameLink.c_str(), Speed);
         if (handler->needReportToTarget(target))
             ChatHandler(target->GetSession()).PSendSysMessage(LANG_YOURS_SPEED_CHANGED, handler->GetNameLink().c_str(), Speed);
 
@@ -566,7 +566,7 @@ public:
             return false;
         }
 
-        handler->PSendSysMessage(LANG_YOU_CHANGE_SWIM_SPEED, Swim, targetNameLink.c_str());
+        handler->PSendSysMessage(LANG_YOU_CHANGE_SWIM_SPEED, targetNameLink.c_str(), Swim);
         if (handler->needReportToTarget(target))
             ChatHandler(target->GetSession()).PSendSysMessage(LANG_YOURS_SWIM_SPEED_CHANGED, handler->GetNameLink().c_str(), Swim);
 
@@ -611,7 +611,7 @@ public:
             return false;
         }
 
-        handler->PSendSysMessage(LANG_YOU_CHANGE_BACK_SPEED, BSpeed, targetNameLink.c_str());
+        handler->PSendSysMessage(LANG_YOU_CHANGE_BACK_SPEED, targetNameLink.c_str(), BSpeed);
         if (handler->needReportToTarget(target))
             ChatHandler(target->GetSession()).PSendSysMessage(LANG_YOURS_BACK_SPEED_CHANGED, handler->GetNameLink().c_str(), BSpeed);
 
@@ -647,7 +647,7 @@ public:
         if (handler->HasLowerSecurity(target, ObjectGuid::Empty))
             return false;
 
-        handler->PSendSysMessage(LANG_YOU_CHANGE_FLY_SPEED, FSpeed, handler->GetNameLink(target).c_str());
+        handler->PSendSysMessage(LANG_YOU_CHANGE_FLY_SPEED, handler->GetNameLink(target).c_str(), FSpeed);
         if (handler->needReportToTarget(target))
             ChatHandler(target->GetSession()).PSendSysMessage(LANG_YOURS_FLY_SPEED_CHANGED, handler->GetNameLink().c_str(), FSpeed);
 
@@ -684,7 +684,7 @@ public:
             if (handler->HasLowerSecurity(player, ObjectGuid::Empty))
                 return false;
 
-            handler->PSendSysMessage(LANG_YOU_CHANGE_SIZE, Scale, handler->GetNameLink(player).c_str());
+            handler->PSendSysMessage(LANG_YOU_CHANGE_SIZE, handler->GetNameLink(player).c_str(), Scale);
             if (handler->needReportToTarget(player))
                 ChatHandler(player->GetSession()).PSendSysMessage(LANG_YOURS_SIZE_CHANGED, handler->GetNameLink().c_str(), Scale);
         }

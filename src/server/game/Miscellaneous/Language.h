@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2015 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2016 TrinityCore <http://www.trinitycore.org/>
  * Copyright (C) 2005-2009 MaNGOS <http://getmangos.com/>
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -208,7 +208,9 @@ enum TrinityStrings
     LANG_INVALID_GAMEOBJECT_TYPE        = 176,
     LANG_GAMEOBJECT_DAMAGED             = 177,
     LANG_GRID_POSITION                  = 178,
-    // Room for more level 1              179-199 not used
+    // 179-185 used in 6.x branch
+    LANG_TRANSPORT_POSITION             = 186,
+    // Room for more level 1              187-199 not used
 
     // level 2 chat
     LANG_NO_SELECTION                   = 200,
@@ -885,7 +887,9 @@ enum TrinityStrings
     LANG_CHARACTER_DELETED_LIST_LINE_CHAT = 1026,
     LANG_SQLDRIVER_QUERY_LOGGING_ENABLED  = 1027,
     LANG_SQLDRIVER_QUERY_LOGGING_DISABLED = 1028,
-    // Room for more level 4              1029-1099 not used
+    LANG_ACCOUNT_INVALID_BNET_NAME      = 1029, // 6.x ONLY
+    LANG_ACCOUNT_USE_BNET_COMMANDS      = 1030, // 6.x enum value name but different text in DB
+    // Room for more level 4              1031-1099 not used
 
     // Level 3 (continue)
     LANG_ACCOUNT_SETADDON               = 1100,
@@ -1202,7 +1206,12 @@ enum TrinityStrings
     LANG_BAN_ACCOUNT_YOUPERMBANNEDMESSAGE_WORLD   = 11007,
 
     LANG_NPCINFO_INHABIT_TYPE                     = 11008,
-    LANG_NPCINFO_FLAGS_EXTRA                      = 11009
+    LANG_NPCINFO_FLAGS_EXTRA                      = 11009,
+    LANG_INSTANCE_LOGIN_GAMEMASTER_EXCEPTION      = 11010,
 
+    LANG_CREATURE_NO_INTERIOR_POINT_FOUND         = 11011,
+    LANG_CREATURE_MOVEMENT_NOT_BOUNDED            = 11012,
+    LANG_CREATURE_MOVEMENT_MAYBE_UNBOUNDED        = 11013,
+    LANG_INSTANCE_BIND_MISMATCH                   = 11014
 };
 #endif

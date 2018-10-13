@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2015 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2016 TrinityCore <http://www.trinitycore.org/>
  * Copyright (C) 2006-2009 ScriptDev2 <https://scriptdev2.svn.sourceforge.net/>
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -133,8 +133,6 @@ static char const* Text[]=
     "You felt death once...",
     "Now, know demise!"
 };
-
-#define EMOTE_LAUGHS    "Headless Horseman laughs"  // needs assigned to db.
 
 class npc_wisp_invis : public CreatureScript
 {
@@ -347,7 +345,6 @@ public:
                     Creature* speaker = DoSpawnCreature(HELPER, 0, 0, 0, 0, TEMPSUMMON_TIMED_DESPAWN, 1000);
                     if (speaker)
                         speaker->CastSpell(speaker, SPELL_HEAD_SPEAKS, false);
-                    me->TextEmote(EMOTE_LAUGHS);
                 }
                 else laugh -= diff;
             }
@@ -359,8 +356,8 @@ public:
                     {
                         die = false;
                         if (Unit* body = ObjectAccessor::GetUnit(*me, bodyGUID))
-                            body->Kill(body);
-                        me->Kill(me);
+                            body->KillSelf();
+                        me->KillSelf();
                     }
                     else wait -= diff;
                 }
@@ -724,7 +721,6 @@ public:
                 if (laugh <= diff)
                 {
                     laugh = urand(11000, 22000);
-                    me->TextEmote(EMOTE_LAUGHS);
                     DoPlaySoundToSet(me, RandomLaugh[rand32() % 3]);
                 }
                 else laugh -= diff;

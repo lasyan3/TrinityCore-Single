@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2015 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2016 TrinityCore <http://www.trinitycore.org/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -574,7 +574,7 @@ public:
             me->setActive(true);
             if (!instance->CheckRequiredBosses(DATA_MALYGOS_EVENT))
             {
-                EnterEvadeMode();
+                EnterEvadeMode(EVADE_REASON_OTHER);
                 return;
             }
 
@@ -585,7 +585,7 @@ public:
             instance->DoStartTimedAchievement(ACHIEVEMENT_TIMED_TYPE_EVENT, ACHIEV_TIMED_START_EVENT);
         }
 
-        void EnterEvadeMode() override
+        void EnterEvadeMode(EvadeReason /*why*/) override
         {
             instance->SetBossState(DATA_MALYGOS_EVENT, FAIL);
 
@@ -1244,8 +1244,9 @@ public:
                 ++_wpCount;
             }
             else if (Vehicle* hoverDisk = me->GetVehicleKit())
-                if (Unit* lordPassenger = hoverDisk->GetPassenger(0))
-                    lordPassenger->ToCreature()->AI()->DoAction(ACTION_SET_DISK_VICTIM_CHASE);
+                if (Unit* passenger = hoverDisk->GetPassenger(0))
+                    if (Creature* lordPassenger = passenger->ToCreature())
+                        lordPassenger->AI()->DoAction(ACTION_SET_DISK_VICTIM_CHASE);
         }
 
     private:
@@ -1281,7 +1282,7 @@ public:
             VehicleAI::Reset();
         }
 
-        void EnterEvadeMode() override
+        void EnterEvadeMode(EvadeReason /*why*/) override
         {
         }
 
@@ -1340,7 +1341,7 @@ class npc_nexus_lord : public CreatureScript
                 _events.Reset();
             }
 
-            void EnterEvadeMode() override
+            void EnterEvadeMode(EvadeReason /*why*/) override
             {
             }
 
@@ -1429,7 +1430,7 @@ class npc_scion_of_eternity : public CreatureScript
             {
             }
 
-            void EnterEvadeMode() override
+            void EnterEvadeMode(EvadeReason /*why*/) override
             {
             }
 

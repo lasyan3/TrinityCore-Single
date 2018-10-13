@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2015 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2016 TrinityCore <http://www.trinitycore.org/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -36,6 +36,7 @@
 #include "MMapFactory.h"
 #include "DisableMgr.h"
 #include "SpellHistory.h"
+#include "Transport.h"
 
 class misc_commandscript : public CommandScript
 {
@@ -198,8 +199,8 @@ public:
         uint32 mapId = object->GetMapId();
 
         MapEntry const* mapEntry = sMapStore.LookupEntry(mapId);
-        AreaTableEntry const* zoneEntry = GetAreaEntryByAreaID(zoneId);
-        AreaTableEntry const* areaEntry = GetAreaEntryByAreaID(areaId);
+        AreaTableEntry const* zoneEntry = sAreaTableStore.LookupEntry(zoneId);
+        AreaTableEntry const* areaEntry = sAreaTableStore.LookupEntry(areaId);
 
         float zoneX = object->GetPositionX();
         float zoneY = object->GetPositionY();
@@ -237,6 +238,10 @@ public:
             areaId, (areaEntry ? areaEntry->area_name[handler->GetSessionDbcLocale()] : unknown),
             object->GetPhaseMask(),
             object->GetPositionX(), object->GetPositionY(), object->GetPositionZ(), object->GetOrientation());
+        if (Transport* transport = object->GetTransport())
+            handler->PSendSysMessage(LANG_TRANSPORT_POSITION,
+                transport->GetGOInfo()->moTransport.mapID, object->GetTransOffsetX(), object->GetTransOffsetY(), object->GetTransOffsetZ(), object->GetTransOffsetO(),
+                transport->GetEntry(), transport->GetName().c_str());
         handler->PSendSysMessage(LANG_GRID_POSITION,
             cell.GridX(), cell.GridY(), cell.CellX(), cell.CellY(), object->GetInstanceId(),
             zoneX, zoneY, groundZ, floorZ, haveMap, haveVMap, haveMMap);
@@ -961,7 +966,7 @@ public:
 
         uint32 zoneId = player->GetZoneId();
 
-        AreaTableEntry const* areaEntry = GetAreaEntryByAreaID(zoneId);
+        AreaTableEntry const* areaEntry = sAreaTableStore.LookupEntry(zoneId);
         if (!areaEntry || areaEntry->zone !=0)
         {
             handler->PSendSysMessage(LANG_COMMAND_GRAVEYARDWRONGZONE, graveyardId, zoneId);
@@ -1041,6 +1046,9 @@ public:
 
     static bool HandleShowAreaCommand(ChatHandler* handler, char const* args)
     {
+        if (!*args)
+            return false;
+
         Player* playerTarget = handler->getSelectedPlayer();
         if (!playerTarget)
         {
@@ -1049,56 +1057,35 @@ public:
             return false;
         }
 
-		if (*args)
-		{
-			int32 area = GetAreaFlagByAreaID(atoi((char*)args));
-			int32 offset = area / 32;
+        AreaTableEntry const* area = sAreaTableStore.LookupEntry(atoi(args));
+        if (!area)
+        {
+            handler->SendSysMessage(LANG_BAD_VALUE);
+            handler->SetSentErrorMessage(true);
+            return false;
+        }
 
-			if (area<0 || offset >= PLAYER_EXPLORED_ZONES_SIZE)
-			{
-				handler->SendSysMessage(LANG_BAD_VALUE);
-				handler->SetSentErrorMessage(true);
-				return false;
-			}
+        int32 offset = area->exploreFlag / 32;
+        if (offset >= PLAYER_EXPLORED_ZONES_SIZE)
+        {
+            handler->SendSysMessage(LANG_BAD_VALUE);
+            handler->SetSentErrorMessage(true);
+            return false;
+        }
 
-			uint32 val = uint32((1 << (area % 32)));
-			uint32 currFields = playerTarget->GetUInt32Value(PLAYER_EXPLORED_ZONES_1 + offset);
-			playerTarget->SetUInt32Value(PLAYER_EXPLORED_ZONES_1 + offset, uint32((currFields | val)));
+        uint32 val = uint32((1 << (area->exploreFlag % 32)));
+        uint32 currFields = playerTarget->GetUInt32Value(PLAYER_EXPLORED_ZONES_1 + offset);
+        playerTarget->SetUInt32Value(PLAYER_EXPLORED_ZONES_1 + offset, uint32((currFields | val)));
 
-			handler->SendSysMessage(LANG_EXPLORE_AREA);
-		}
-		else
-		{
-			uint32 zoneId = playerTarget->GetBaseMap()->GetZoneId(playerTarget->GetPositionX(), playerTarget->GetPositionY(), playerTarget->GetPositionZ());
-			for (uint32 areaflag = 0; areaflag < sAreaStore.GetNumRows(); ++areaflag)
-			{
-				AreaTableEntry const* areaEntry = sAreaStore.LookupEntry(areaflag);
-				if (areaEntry && areaEntry->zone == zoneId)
-				{
-					int32 area = GetAreaFlagByAreaID(areaEntry->ID);
-					int32 offset = area / 32;
-
-					if (area<0 || offset >= PLAYER_EXPLORED_ZONES_SIZE)
-					{
-						//handler->SendSysMessage(LANG_BAD_VALUE);
-						//handler->SetSentErrorMessage(true);
-						//return false;
-						continue;
-					}
-
-					uint32 val = uint32((1 << (area % 32)));
-					uint32 currFields = playerTarget->GetUInt32Value(PLAYER_EXPLORED_ZONES_1 + offset);
-					playerTarget->SetUInt32Value(PLAYER_EXPLORED_ZONES_1 + offset, uint32((currFields | val)));
-				}
-			}
-			playerTarget->UpdateAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_EXPLORE_AREA);
-		}
-
-		return true;
+        handler->SendSysMessage(LANG_EXPLORE_AREA);
+        return true;
     }
 
     static bool HandleHideAreaCommand(ChatHandler* handler, char const* args)
     {
+        if (!*args)
+            return false;
+
         Player* playerTarget = handler->getSelectedPlayer();
         if (!playerTarget)
         {
@@ -1107,50 +1094,27 @@ public:
             return false;
         }
 
-		if (*args)
-		{
-			int32 area = GetAreaFlagByAreaID(atoi((char*)args));
-			int32 offset = area / 32;
+        AreaTableEntry const* area = sAreaTableStore.LookupEntry(atoi(args));
+        if (!area)
+        {
+            handler->SendSysMessage(LANG_BAD_VALUE);
+            handler->SetSentErrorMessage(true);
+            return false;
+        }
 
-			if (area < 0 || offset >= PLAYER_EXPLORED_ZONES_SIZE)
-			{
-				handler->SendSysMessage(LANG_BAD_VALUE);
-				handler->SetSentErrorMessage(true);
-				return false;
-			}
+        int32 offset = area->exploreFlag / 32;
+        if (offset >= PLAYER_EXPLORED_ZONES_SIZE)
+        {
+            handler->SendSysMessage(LANG_BAD_VALUE);
+            handler->SetSentErrorMessage(true);
+            return false;
+        }
 
-			uint32 val = uint32((1 << (area % 32)));
-			uint32 currFields = playerTarget->GetUInt32Value(PLAYER_EXPLORED_ZONES_1 + offset);
-			playerTarget->SetUInt32Value(PLAYER_EXPLORED_ZONES_1 + offset, uint32((currFields ^ val)));
+        uint32 val = uint32((1 << (area->exploreFlag % 32)));
+        uint32 currFields = playerTarget->GetUInt32Value(PLAYER_EXPLORED_ZONES_1 + offset);
+        playerTarget->SetUInt32Value(PLAYER_EXPLORED_ZONES_1 + offset, uint32((currFields ^ val)));
 
-			handler->SendSysMessage(LANG_UNEXPLORE_AREA);
-		}
-		else
-		{
-			uint32 zoneId = playerTarget->GetBaseMap()->GetZoneId(playerTarget->GetPositionX(), playerTarget->GetPositionY(), playerTarget->GetPositionZ());
-			for (uint32 areaflag = 0; areaflag < sAreaStore.GetNumRows(); ++areaflag)
-			{
-				AreaTableEntry const* areaEntry = sAreaStore.LookupEntry(areaflag);
-				if (areaEntry && areaEntry->zone == zoneId)
-				{
-					int32 area = GetAreaFlagByAreaID(areaEntry->ID);
-					int32 offset = area / 32;
-
-					if (area<0 || offset >= PLAYER_EXPLORED_ZONES_SIZE)
-					{
-						//handler->SendSysMessage(LANG_BAD_VALUE);
-						//handler->SetSentErrorMessage(true);
-						//return false;
-						continue;
-					}
-
-					uint32 val = uint32((1 << (area % 32)));
-					uint32 currFields = playerTarget->GetUInt32Value(PLAYER_EXPLORED_ZONES_1 + offset);
-					playerTarget->SetUInt32Value(PLAYER_EXPLORED_ZONES_1 + offset, uint32((currFields ^ val)));
-				}
-			}
-			//playerTarget->UpdateAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_EXPLORE_AREA);
-		}
+        handler->SendSysMessage(LANG_UNEXPLORE_AREA);
         return true;
     }
 
@@ -1415,7 +1379,7 @@ public:
 
         int32 level = atol(levelStr);
 
-        Player* target = handler->getSelectedPlayer();
+        Player* target = handler->getSelectedPlayerOrSelf();
         if (!target)
         {
             handler->SendSysMessage(LANG_NO_CHAR_SELECTED);
@@ -1629,7 +1593,7 @@ public:
 
         // Query the prepared statement for login data
         stmt = LoginDatabase.GetPreparedStatement(LOGIN_SEL_PINFO);
-        stmt->setInt32(0, int32(realmID));
+        stmt->setInt32(0, int32(realm.Id.Realm));
         stmt->setUInt32(1, accId);
         PreparedQueryResult result = LoginDatabase.Query(stmt);
 
@@ -1790,12 +1754,12 @@ public:
 
         // Position data
         MapEntry const* map = sMapStore.LookupEntry(mapId);
-        AreaTableEntry const* area = GetAreaEntryByAreaID(areaId);
+        AreaTableEntry const* area = sAreaTableStore.LookupEntry(areaId);
         if (area)
         {
             areaName = area->area_name[locale];
 
-            AreaTableEntry const* zone = GetAreaEntryByAreaID(area->zone);
+            AreaTableEntry const* zone = sAreaTableStore.LookupEntry(area->zone);
             if (zone)
                 zoneName = zone->area_name[locale];
         }
@@ -2005,7 +1969,7 @@ public:
             return false;
 
         std::string accountName = nameStr;
-        if (!AccountMgr::normalizeString(accountName))
+        if (!Utf8ToUpperOnlyLatin(accountName))
         {
             handler->PSendSysMessage(LANG_ACCOUNT_NOT_EXIST, accountName.c_str());
             handler->SetSentErrorMessage(true);

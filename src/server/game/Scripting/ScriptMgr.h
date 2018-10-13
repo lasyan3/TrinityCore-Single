@@ -46,6 +46,7 @@ class InstanceMap;
 class InstanceScript;
 class Item;
 class Map;
+class ModuleReference;
 class OutdoorPvP;
 class Player;
 class Quest;
@@ -65,6 +66,8 @@ struct AchievementCriteriaData;
 struct AuctionEntry;
 struct ConditionSourceInfo;
 struct Condition;
+struct CreatureTemplate;
+struct CreatureData;
 struct ItemTemplate;
 struct OutdoorPvPData;
 
@@ -157,14 +160,8 @@ class TC_GAME_API ScriptObject
 
     protected:
 
-        ScriptObject(const char* name)
-            : _name(name)
-        {
-        }
-
-        virtual ~ScriptObject()
-        {
-        }
+        ScriptObject(const char* name);
+        virtual ~ScriptObject();
 
     private:
 
@@ -338,7 +335,8 @@ class TC_GAME_API WorldMapScript : public ScriptObject, public MapScript<Map>
         WorldMapScript(const char* name, uint32 mapId);
 };
 
-class TC_GAME_API InstanceMapScript : public ScriptObject, public MapScript<InstanceMap>
+class TC_GAME_API InstanceMapScript
+    : public ScriptObject, public MapScript<InstanceMap>
 {
     protected:
 
@@ -441,6 +439,9 @@ class TC_GAME_API CreatureScript : public UnitScript, public UpdatableScript<Cre
 
         // Called when the dialog status between a player and the creature is requested.
         virtual uint32 GetDialogStatus(Player* /*player*/, Creature* /*creature*/) { return DIALOG_STATUS_SCRIPTED_NO_STATUS; }
+
+        // Called when the creature tries to spawn. Return false to block spawn and re-evaluate on next tick.
+        virtual bool CanSpawn(ObjectGuid::LowType /*spawnId*/, uint32 /*entry*/, CreatureTemplate const* /*baseTemplate*/, CreatureTemplate const* /*actTemplate*/, CreatureData const* /*cData*/, Map const* /*map*/) const { return true; }
 
         // Called when a CreatureAI object is needed for the creature.
         virtual CreatureAI* GetAI(Creature* /*creature*/) const { return NULL; }
@@ -745,7 +746,7 @@ class TC_GAME_API PlayerScript : public UnitScript
         virtual void OnMapChanged(Player* /*player*/) { }
 
         // Called after a player's quest status has been changed
-        virtual void OnQuestStatusChange(Player* /*player*/, uint32 /*questId*/, QuestStatus /*status*/) { }
+        virtual void OnQuestStatusChange(Player* /*player*/, uint32 /*questId*/) { }
     
         // Called when a player selects an option in a player gossip window
         virtual void OnGossipSelect(Player* /*player*/, uint32 /*menu_id*/, uint32 /*sender*/, uint32 /*action*/) { }
@@ -846,15 +847,6 @@ class TC_GAME_API GroupScript : public ScriptObject
         virtual void OnDisband(Group* /*group*/) { }
 };
 
-// Placed here due to ScriptRegistry::AddScript dependency.
-#define sScriptMgr ScriptMgr::instance()
-
-// namespace
-// {
-    typedef std::list<std::string> UnusedScriptNamesContainer;
-    TC_GAME_API extern UnusedScriptNamesContainer UnusedScriptNames;
-// }
-
 // Manages registration, loading, and execution of scripts.
 class TC_GAME_API ScriptMgr
 {
@@ -864,16 +856,17 @@ class TC_GAME_API ScriptMgr
         ScriptMgr();
         virtual ~ScriptMgr();
 
+        void FillSpellSummary();
+        void LoadDatabase();
+
+        void IncreaseScriptCount() { ++_scriptCount; }
+        void DecreaseScriptCount() { --_scriptCount; }
+
     public: /* Initialization */
         static ScriptMgr* instance();
 
         void Initialize();
-        void LoadDatabase();
-        void FillSpellSummary();
 
-        const char* ScriptsVersion() const { return "Integrated Trinity Scripts"; }
-
-        void IncrementScriptCount() { ++_scriptCount; }
         uint32 GetScriptCount() const { return _scriptCount; }
 
         typedef void(*ScriptLoaderCallbackType)();
@@ -885,6 +878,30 @@ class TC_GAME_API ScriptMgr
             _script_loader_callback = script_loader_callback;
         }
 
+    public: /* Script contexts */
+        /// Set the current script context, which allows the ScriptMgr
+        /// to accept new scripts in this context.
+        /// Requires a SwapScriptContext() call afterwards to load the new scripts.
+        void SetScriptContext(std::string const& context);
+        /// Returns the current script context.
+        std::string const& GetCurrentScriptContext() const { return _currentContext; }
+        /// Releases all scripts associated with the given script context immediately.
+        /// Requires a SwapScriptContext() call afterwards to finish the unloading.
+        void ReleaseScriptContext(std::string const& context);
+        /// Executes all changed introduced by SetScriptContext and ReleaseScriptContext.
+        /// It is possible to combine multiple SetScriptContext and ReleaseScriptContext
+        /// calls for better performance (bulk changes).
+        void SwapScriptContext(bool initialize = false);
+
+        /// Returns the context name of the static context provided by the worldserver
+        static std::string const& GetNameOfStaticContext();
+
+        /// Acquires a strong module reference to the module containing the given script name,
+        /// which prevents the shared library which contains the script from unloading.
+        /// The shared library is lazy unloaded as soon as all references to it are released.
+        std::shared_ptr<ModuleReference> AcquireModuleReferenceOfScriptName(
+            std::string const& scriptname) const;
+
     public: /* Unloading */
 
         void Unload();
@@ -893,7 +910,7 @@ class TC_GAME_API ScriptMgr
 
         void CreateSpellScripts(uint32 spellId, std::list<SpellScript*>& scriptVector);
         void CreateAuraScripts(uint32 spellId, std::list<AuraScript*>& scriptVector);
-        void CreateSpellScriptLoaders(uint32 spellId, std::vector<std::pair<SpellScriptLoader*, std::multimap<uint32, uint32>::iterator> >& scriptVector);
+        SpellScriptLoader* GetSpellScriptLoader(uint32 scriptId);
 
     public: /* ServerScript */
 
@@ -959,6 +976,7 @@ class TC_GAME_API ScriptMgr
         bool OnQuestSelect(Player* player, Creature* creature, Quest const* quest);
         bool OnQuestReward(Player* player, Creature* creature, Quest const* quest, uint32 opt);
         uint32 GetDialogStatus(Player* player, Creature* creature);
+        bool CanSpawn(ObjectGuid::LowType spawnId, uint32 entry, CreatureTemplate const* actTemplate, CreatureData const* cData, Map const* map);
         CreatureAI* GetCreatureAI(Creature* creature);
         void OnCreatureUpdate(Creature* creature, uint32 diff);
 
@@ -1066,7 +1084,7 @@ class TC_GAME_API ScriptMgr
         void OnPlayerSave(Player* player);
         void OnPlayerBindToInstance(Player* player, Difficulty difficulty, uint32 mapid, bool permanent, uint8 extendState);
         void OnPlayerUpdateZone(Player* player, uint32 newZone, uint32 newArea);
-        void OnQuestStatusChange(Player* player, uint32 questId, QuestStatus status);
+        void OnQuestStatusChange(Player* player, uint32 questId);
         void OnGossipSelect(Player* player, uint32 menu_id, uint32 sender, uint32 action);
         void OnGossipSelectCode(Player* player, uint32 menu_id, uint32 sender, uint32 action, const char* code);
 
@@ -1110,21 +1128,14 @@ class TC_GAME_API ScriptMgr
         void ModifyMeleeDamage(Unit* target, Unit* attacker, uint32& damage);
         void ModifySpellDamageTaken(Unit* target, Unit* attacker, int32& damage);
 
-    public: /* Scheduled scripts */
-
-        uint32 IncreaseScheduledScriptsCount() { return ++_scheduledScripts; }
-        uint32 DecreaseScheduledScriptCount() { return --_scheduledScripts; }
-        uint32 DecreaseScheduledScriptCount(size_t count) { return _scheduledScripts -= count; }
-        bool IsScriptScheduled() const { return _scheduledScripts > 0; }
-
     private:
-
         uint32 _scriptCount;
 
-        //atomic op counter for active scripts amount
-        std::atomic<uint32> _scheduledScripts;
-
         ScriptLoaderCallbackType _script_loader_callback;
+
+        std::string _currentContext;
 };
+
+#define sScriptMgr ScriptMgr::instance()
 
 #endif

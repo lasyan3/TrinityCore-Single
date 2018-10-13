@@ -205,7 +205,7 @@ public:
                 PointData = GetMoveData();
                 MovePoint = PointData->LocIdEnd;
 
-                me->SetSpeed(MOVE_FLIGHT, 1.5f);
+                me->SetSpeedRate(MOVE_FLIGHT, 1.5f);
                 me->GetMotionMaster()->MovePoint(8, MiddleRoomLocation);
             }
         }
@@ -220,7 +220,7 @@ public:
                         PointData = GetMoveData();
                         if (PointData)
                         {
-                            me->SetSpeed(MOVE_FLIGHT, 1.0f);
+                            me->SetSpeedRate(MOVE_FLIGHT, 1.0f);
                             me->GetMotionMaster()->MovePoint(PointData->LocId, PointData->fX, PointData->fY, PointData->fZ);
                         }
                         break;
@@ -246,11 +246,11 @@ public:
                         me->SetCanFly(true);
                         me->SetDisableGravity(true);
                         me->SetByteFlag(UNIT_FIELD_BYTES_1, 3, UNIT_BYTE1_FLAG_ALWAYS_STAND | UNIT_BYTE1_FLAG_HOVER);
-                        me->SetFacingTo(me->GetOrientation() + float(M_PI));
+                        me->SetFacingTo(me->GetOrientation() + float(M_PI), true);
                         if (Creature * trigger = me->SummonCreature(NPC_TRIGGER, MiddleRoomLocation, TEMPSUMMON_CORPSE_DESPAWN))
                             triggerGUID = trigger->GetGUID();
                         me->GetMotionMaster()->MoveTakeoff(11, Phase2Floating);
-                        me->SetSpeed(MOVE_FLIGHT, 1.0f);
+                        me->SetSpeedRate(MOVE_FLIGHT, 1.0f);
                         Talk(SAY_PHASE_2_TRANS);
                         instance->SetData(DATA_ONYXIA_PHASE, Phase);
                         events.ScheduleEvent(EVENT_WHELP_SPAWN, 5000);
@@ -342,6 +342,9 @@ public:
 
                 events.Update(diff);
 
+                if (me->HasUnitState(UNIT_STATE_CASTING))
+                    return;
+
                 while (uint32 eventId = events.ExecuteEvent())
                 {
                     switch (eventId)
@@ -378,6 +381,9 @@ public:
                         default:
                             break;
                     }
+
+                    if (me->HasUnitState(UNIT_STATE_CASTING))
+                        return;
                 }
                 DoMeleeAttackIfReady();
             }
@@ -401,6 +407,9 @@ public:
                         me->SetFacingToObject(trigger);
 
                 events.Update(diff);
+
+                if (me->HasUnitState(UNIT_STATE_CASTING))
+                    return;
 
                 while (uint32 eventId = events.ExecuteEvent())
                 {
@@ -464,6 +473,9 @@ public:
                         default:
                             break;
                     }
+
+                    if (me->HasUnitState(UNIT_STATE_CASTING))
+                        return;
                 }
             }
         }

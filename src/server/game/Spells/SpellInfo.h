@@ -413,6 +413,7 @@ public:
     bool IsDeathPersistent() const;
     bool IsRequiringDeadTarget() const;
     bool IsAllowingDeadTarget() const;
+    bool IsGroupBuff() const;
     bool CanBeUsedInCombat() const;
     bool IsPositive() const;
     bool IsPositiveEffect(uint8 effIndex) const;
@@ -482,9 +483,15 @@ public:
     bool _IsPositiveEffect(uint8 effIndex, bool deep) const;
     bool _IsPositiveSpell() const;
     static bool _IsPositiveTarget(uint32 targetA, uint32 targetB);
+    void _LoadSpellSpecific();
+    void _LoadAuraState();
 
     // unloading helpers
     void _UnloadImplicitTargetConditionLists();
+
+private:
+    SpellSpecificType _spellSpecific;
+    AuraStateType _auraState;
 };
 
 #endif // _SPELLINFO_H

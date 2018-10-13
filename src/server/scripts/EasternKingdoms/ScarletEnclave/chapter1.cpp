@@ -396,7 +396,7 @@ class npc_eye_of_acherus : public CreatureScript
                             if (Player* owner = me->GetCharmerOrOwner()->ToPlayer())
                             {
                                 for (uint8 i = 0; i < MAX_MOVE_TYPE; ++i)
-                                    me->SetSpeed(UnitMoveType(i), owner->GetSpeedRate(UnitMoveType(i)), true);
+                                    me->SetSpeedRate(UnitMoveType(i), owner->GetSpeedRate(UnitMoveType(i)));
                                 Talk(TALK_MOVE_START, owner);
                             }
                             me->GetMotionMaster()->MovePath(me->GetEntry() * 100, false);
@@ -419,7 +419,7 @@ class npc_eye_of_acherus : public CreatureScript
                     {
                         owner->RemoveAura(SPELL_EYE_FLIGHT_BOOST);
                         for (uint8 i = 0; i < MAX_MOVE_TYPE; ++i)
-                            me->SetSpeed(UnitMoveType(i), owner->GetSpeedRate(UnitMoveType(i)), true);
+                            me->SetSpeedRate(UnitMoveType(i), owner->GetSpeedRate(UnitMoveType(i)));
 
                         Talk(TALK_CONTROL, owner);
                     }
@@ -476,10 +476,10 @@ public:
 
     bool OnGossipSelect(Player* player, Creature* creature, uint32 /*sender*/, uint32 action) override
     {
-        player->PlayerTalkClass->ClearMenus();
+        ClearGossipMenuFor(player);
         if (action == GOSSIP_ACTION_INFO_DEF)
         {
-            player->CLOSE_GOSSIP_MENU();
+            CloseGossipMenuFor(player);
 
             if (player->IsInCombat() || creature->IsInCombat())
                 return true;
@@ -509,8 +509,8 @@ public:
             if (player->IsInCombat() || creature->IsInCombat())
                 return true;
 
-            player->ADD_GOSSIP_ITEM_DB(Player::GetDefaultGossipMenuForSource(creature), 0, GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF);
-            player->SEND_GOSSIP_MENU(player->GetGossipTextId(creature), creature->GetGUID());
+            AddGossipItemFor(player, Player::GetDefaultGossipMenuForSource(creature), 0, GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF);
+            SendGossipMenuFor(player, player->GetGossipTextId(creature), creature->GetGUID());
         }
         return true;
     }
@@ -703,7 +703,7 @@ class npc_dark_rider_of_acherus : public CreatureScript
 
                 TargetGUID = who->GetGUID();
                 me->SetWalk(true);
-                me->SetSpeed(MOVE_RUN, 0.4f);
+                me->SetSpeedRate(MOVE_RUN, 0.4f);
                 me->GetMotionMaster()->MoveChase(who);
                 me->SetTarget(TargetGUID);
                 Intro = true;
@@ -1023,7 +1023,6 @@ class npc_scarlet_miner_cart : public CreatureScript
         {
             npc_scarlet_miner_cartAI(Creature* creature) : PassiveAI(creature)
             {
-                me->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_PC);
                 me->SetDisplayId(me->GetCreatureTemplate()->Modelid1); // Modelid2 is a horse.
             }
 
@@ -1050,7 +1049,7 @@ class npc_scarlet_miner_cart : public CreatureScript
 
                     // Not 100% correct, but movement is smooth. Sometimes miner walks faster
                     // than normal, this speed is fast enough to keep up at those times.
-                    me->SetSpeed(MOVE_RUN, 1.25f);
+                    me->SetSpeedRate(MOVE_RUN, 1.25f);
 
                     me->GetMotionMaster()->MoveFollow(miner, 1.0f, 0);
                 }

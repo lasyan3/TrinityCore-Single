@@ -18,7 +18,8 @@
 #ifndef TRINITY_SPELLAURADEFINES_H
 #define TRINITY_SPELLAURADEFINES_H
 
-#define MAX_AURAS 64                                        // client support up to 255, but it will cause problems with group auras updating
+#define MAX_AURAS 255                         // Client-side limit
+#define MAX_AURAS_GROUP_UPDATE 64             // Limit of SMSG_PARY_MEMBER_STATS_FULL and SMSG_PARTY_MEMBER_STATS
 
 enum AURA_FLAGS
 {
@@ -348,7 +349,7 @@ enum AuraType
     SPELL_AURA_ABILITY_PERIODIC_CRIT                        = 286,
     SPELL_AURA_DEFLECT_SPELLS                               = 287,
     SPELL_AURA_IGNORE_HIT_DIRECTION                         = 288,
-    SPELL_AURA_289                                          = 289,
+    SPELL_AURA_PREVENT_DURABILITY_LOSS                      = 289,
     SPELL_AURA_MOD_CRIT_PCT                                 = 290,
     SPELL_AURA_MOD_XP_QUEST_PCT                             = 291,
     SPELL_AURA_OPEN_STABLE                                  = 292,
@@ -367,7 +368,7 @@ enum AuraType
     SPELL_AURA_MOD_MINIMUM_SPEED                            = 305,
     SPELL_AURA_306                                          = 306,
     SPELL_AURA_HEAL_ABSORB_TEST                             = 307,
-    SPELL_AURA_MOD_CRIT_CHANCE_FOR_CASTER                   = 308,  // NYI
+    SPELL_AURA_MOD_CRIT_CHANCE_FOR_CASTER                   = 308,
     SPELL_AURA_309                                          = 309,
     SPELL_AURA_MOD_CREATURE_AOE_DAMAGE_AVOIDANCE            = 310,
     SPELL_AURA_311                                          = 311,

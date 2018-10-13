@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2015 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2017 TrinityCore <http://www.trinitycore.org/>
  * Copyright (C) 2006-2009 ScriptDev2 <https://scriptdev2.svn.sourceforge.net/>
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -206,9 +206,10 @@ public:
             Talk(SAY_GAMESBEGIN_2);
 
             me->setFaction(103);
-            me->SetUInt32Value(UNIT_NPC_FLAGS, 0);
+            me->SetUInt32Value(UNIT_NPC_FLAGS, UNIT_NPC_FLAG_NONE);
             DoCast(me, SPELL_NEFARIANS_BARRIER);
             me->SetStandState(UNIT_STAND_STATE_STAND);
+            me->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_PC);
             AttackStart(target);
             events.ScheduleEvent(EVENT_SHADOW_BOLT, urand(3000, 10000));
             events.ScheduleEvent(EVENT_FEAR, urand(10000, 20000));
@@ -363,6 +364,9 @@ public:
                             events.ScheduleEvent(EVENT_SPAWN_ADD, 4000);
                             break;
                     }
+
+                    if (me->HasUnitState(UNIT_STATE_CASTING))
+                        return;
                 }
             }
         }
@@ -371,7 +375,7 @@ public:
         {
             if (menuId == GOSSIP_ID && gossipListId == GOSSIP_OPTION_ID)
             {
-                player->CLOSE_GOSSIP_MENU();
+                CloseGossipMenuFor(player);
                 Talk(SAY_GAMESBEGIN_1);
                 BeginEvent(player);
             }
@@ -553,6 +557,9 @@ public:
                         events.ScheduleEvent(EVENT_CLASSCALL, urand(30000, 35000));
                         break;
                 }
+
+                if (me->HasUnitState(UNIT_STATE_CASTING))
+                    return;
             }
 
             // Phase3 begins when health below 20 pct

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2015 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2017 TrinityCore <http://www.trinitycore.org/>
  * Copyright (C) 2005-2009 MaNGOS <http://getmangos.com/>
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -51,7 +51,7 @@
 BattlegroundMgr::BattlegroundMgr() :
     m_NextRatedArenaUpdate(sWorld->getIntConfig(CONFIG_ARENA_RATED_UPDATE_TIMER)),
     m_NextAutoDistributionTime(0),
-    m_AutoDistributionTimeChecker(0), m_ArenaTesting(false), m_Testing(false)
+    m_AutoDistributionTimeChecker(0), m_UpdateTimer(0), m_ArenaTesting(false), m_Testing(false)
 { }
 
 BattlegroundMgr::~BattlegroundMgr()
@@ -76,31 +76,43 @@ void BattlegroundMgr::DeleteAllBattlegrounds()
     bgDataStore.clear();
 }
 
+BattlegroundMgr* BattlegroundMgr::instance()
+{
+    static BattlegroundMgr instance;
+    return &instance;
+}
+
 // used to update running battlegrounds, and delete finished ones
 void BattlegroundMgr::Update(uint32 diff)
 {
-    for (BattlegroundDataContainer::iterator itr1 = bgDataStore.begin(); itr1 != bgDataStore.end(); ++itr1)
+    m_UpdateTimer += diff;
+    if (m_UpdateTimer > BATTLEGROUND_OBJECTIVE_UPDATE_INTERVAL)
     {
-        BattlegroundContainer& bgs = itr1->second.m_Battlegrounds;
-        BattlegroundContainer::iterator itrDelete = bgs.begin();
-        // first one is template and should not be deleted
-        for (BattlegroundContainer::iterator itr = ++itrDelete; itr != bgs.end();)
+        for (BattlegroundDataContainer::iterator itr1 = bgDataStore.begin(); itr1 != bgDataStore.end(); ++itr1)
         {
-            itrDelete = itr++;
-            Battleground* bg = itrDelete->second;
-
-            bg->Update(diff);
-            if (bg->ToBeDeleted())
+            BattlegroundContainer& bgs = itr1->second.m_Battlegrounds;
+            BattlegroundContainer::iterator itrDelete = bgs.begin();
+            // first one is template and should not be deleted
+            for (BattlegroundContainer::iterator itr = ++itrDelete; itr != bgs.end();)
             {
-                itrDelete->second = NULL;
-                bgs.erase(itrDelete);
-                BattlegroundClientIdsContainer& clients = itr1->second.m_ClientBattlegroundIds[bg->GetBracketId()];
-                if (!clients.empty())
-                     clients.erase(bg->GetClientInstanceID());
+                itrDelete = itr++;
+                Battleground* bg = itrDelete->second;
 
-                delete bg;
+                bg->Update(m_UpdateTimer);
+                if (bg->ToBeDeleted())
+                {
+                    itrDelete->second = nullptr;
+                    bgs.erase(itrDelete);
+                    BattlegroundClientIdsContainer& clients = itr1->second.m_ClientBattlegroundIds[bg->GetBracketId()];
+                    if (!clients.empty())
+                        clients.erase(bg->GetClientInstanceID());
+
+                    delete bg;
+                }
             }
         }
+
+        m_UpdateTimer = 0;
     }
 
     // update events timer
@@ -536,7 +548,7 @@ void BattlegroundMgr::LoadBattlegroundTemplates()
         BattlemasterListEntry const* bl = sBattlemasterListStore.LookupEntry(bgTypeId);
         if (!bl)
         {
-            TC_LOG_ERROR("bg.battleground", "Battleground ID %u not found in BattlemasterList.dbc. Battleground not created.", bgTypeId);
+            TC_LOG_ERROR("bg.battleground", "Battleground ID %u could not be found in BattlemasterList.dbc. The battleground was not created.", bgTypeId);
             continue;
         }
 
@@ -554,14 +566,14 @@ void BattlegroundMgr::LoadBattlegroundTemplates()
 
         if (bgTemplate.MaxPlayersPerTeam == 0 || bgTemplate.MinPlayersPerTeam > bgTemplate.MaxPlayersPerTeam)
         {
-            TC_LOG_ERROR("sql.sql", "Table `battleground_template` for id %u has bad values for MinPlayersPerTeam (%u) and MaxPlayersPerTeam(%u)",
+            TC_LOG_ERROR("sql.sql", "Table `battleground_template` for id %u contains bad values for MinPlayersPerTeam (%u) and MaxPlayersPerTeam(%u).",
                 bgTemplate.Id, bgTemplate.MinPlayersPerTeam, bgTemplate.MaxPlayersPerTeam);
             continue;
         }
 
         if (bgTemplate.MinLevel == 0 || bgTemplate.MaxLevel == 0 || bgTemplate.MinLevel > bgTemplate.MaxLevel)
         {
-            TC_LOG_ERROR("sql.sql", "Table `battleground_template` for id %u has bad values for MinLevel (%u) and MaxLevel (%u)",
+            TC_LOG_ERROR("sql.sql", "Table `battleground_template` for id %u contains bad values for MinLevel (%u) and MaxLevel (%u).",
                 bgTemplate.Id, bgTemplate.MinLevel, bgTemplate.MaxLevel);
             continue;
         }
@@ -575,7 +587,7 @@ void BattlegroundMgr::LoadBattlegroundTemplates()
             }
             else
             {
-                TC_LOG_ERROR("sql.sql", "Table `battleground_template` for id %u has non-existed WorldSafeLocs.dbc id %u in field `AllianceStartLoc`. BG not created.", bgTemplate.Id, startId);
+                TC_LOG_ERROR("sql.sql", "Table `battleground_template` for id %u contains a non-existing WorldSafeLocs.dbc id %u in field `AllianceStartLoc`. BG not created.", bgTemplate.Id, startId);
                 continue;
             }
 
@@ -586,7 +598,7 @@ void BattlegroundMgr::LoadBattlegroundTemplates()
             }
             else
             {
-                TC_LOG_ERROR("sql.sql", "Table `battleground_template` for id %u has non-existed WorldSafeLocs.dbc id %u in field `HordeStartLoc`. BG not created.", bgTemplate.Id, startId);
+                TC_LOG_ERROR("sql.sql", "Table `battleground_template` for id %u contains a non-existing WorldSafeLocs.dbc id %u in field `HordeStartLoc`. BG not created.", bgTemplate.Id, startId);
                 continue;
             }
         }
@@ -788,7 +800,7 @@ BattlegroundTypeId BattlegroundMgr::BGTemplateId(BattlegroundQueueTypeId bgQueue
         case BATTLEGROUND_QUEUE_5v5:
             return BATTLEGROUND_AA;
         default:
-            return BattlegroundTypeId(0);                   // used for unknown template (it existed and do nothing)
+            return BattlegroundTypeId(0);                   // used for unknown template (it exists and does nothing)
     }
 }
 
@@ -831,7 +843,7 @@ void BattlegroundMgr::ScheduleQueueUpdate(uint32 arenaMatchmakerRating, uint8 ar
 {
     //This method must be atomic, @todo add mutex
     //we will use only 1 number created of bgTypeId and bracket_id
-    uint64 const scheduleId = ((uint64)arenaMatchmakerRating << 32) | (uint32(arenaType) << 24) | (bgQueueTypeId << 16) | (bgTypeId << 8) | bracket_id;
+    uint64 const scheduleId = ((uint64)arenaMatchmakerRating << 32) | ((uint64)arenaType << 24) | ((uint64)bgQueueTypeId << 16) | ((uint64)bgTypeId << 8) | (uint64)bracket_id;
     if (std::find(m_QueueUpdateScheduler.begin(), m_QueueUpdateScheduler.end(), scheduleId) == m_QueueUpdateScheduler.end())
         m_QueueUpdateScheduler.push_back(scheduleId);
 }
@@ -892,7 +904,7 @@ void BattlegroundMgr::LoadBattleMastersEntry()
         uint32 bgTypeId  = fields[1].GetUInt32();
         if (!sBattlemasterListStore.LookupEntry(bgTypeId))
         {
-            TC_LOG_ERROR("sql.sql", "Table `battlemaster_entry` contain entry %u for not existed battleground type %u, ignored.", entry, bgTypeId);
+            TC_LOG_ERROR("sql.sql", "Table `battlemaster_entry` contains entry %u for a non-existing battleground type %u, ignored.", entry, bgTypeId);
             continue;
         }
 
@@ -912,7 +924,7 @@ void BattlegroundMgr::CheckBattleMasters()
     {
         if ((itr->second.npcflag & UNIT_NPC_FLAG_BATTLEMASTER) && mBattleMastersMap.find(itr->second.Entry) == mBattleMastersMap.end())
         {
-            TC_LOG_ERROR("sql.sql", "CreatureTemplate (Entry: %u) has UNIT_NPC_FLAG_BATTLEMASTER but no data in `battlemaster_entry` table. Removing flag!", itr->second.Entry);
+            TC_LOG_ERROR("sql.sql", "Creature_Template Entry: %u has UNIT_NPC_FLAG_BATTLEMASTER, but no data in the `battlemaster_entry` table. Removing flag.", itr->second.Entry);
             const_cast<CreatureTemplate*>(&itr->second)->npcflag &= ~UNIT_NPC_FLAG_BATTLEMASTER;
         }
     }

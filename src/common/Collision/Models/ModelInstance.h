@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2015 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2017 TrinityCore <http://www.trinitycore.org/>
  * Copyright (C) 2005-2010 MaNGOS <http://getmangos.com/>
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -31,6 +31,7 @@ namespace VMAP
     class WorldModel;
     struct AreaInfo;
     struct LocationInfo;
+    enum class ModelIgnoreFlags : uint32;
 
     enum ModelFlags
     {
@@ -39,7 +40,7 @@ namespace VMAP
         MOD_HAS_BOUND = 1<<2
     };
 
-    class ModelSpawn
+    class TC_COMMON_API ModelSpawn
     {
         public:
             //mapID, tileX, tileY, Flags, ID, Pos, Rot, Scale, Bound_lo, Bound_hi, name
@@ -60,13 +61,13 @@ namespace VMAP
             static bool writeToFile(FILE* rw, const ModelSpawn &spawn);
     };
 
-    class ModelInstance: public ModelSpawn
+    class TC_COMMON_API ModelInstance: public ModelSpawn
     {
         public:
             ModelInstance(): iInvScale(0.0f), iModel(nullptr) { }
             ModelInstance(const ModelSpawn &spawn, WorldModel* model);
             void setUnloaded() { iModel = nullptr; }
-            bool intersectRay(const G3D::Ray& pRay, float& pMaxDist, bool pStopAtFirstHit) const;
+            bool intersectRay(const G3D::Ray& pRay, float& pMaxDist, bool pStopAtFirstHit, ModelIgnoreFlags ignoreFlags) const;
             void intersectPoint(const G3D::Vector3& p, AreaInfo &info) const;
             bool GetLocationInfo(const G3D::Vector3& p, LocationInfo &info) const;
             bool GetLiquidLevel(const G3D::Vector3& p, LocationInfo &info, float &liqHeight) const;

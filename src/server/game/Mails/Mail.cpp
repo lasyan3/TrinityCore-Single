@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2015 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2017 TrinityCore <http://www.trinitycore.org/>
  * Copyright (C) 2005-2009 MaNGOS <http://getmangos.com/>
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -26,6 +26,7 @@
 #include "Item.h"
 #include "AuctionHouseMgr.h"
 #include "CalendarMgr.h"
+#include "CharacterCache.h"
 
 MailSender::MailSender(Object* sender, MailStationery stationery) : m_stationery(stationery)
 {
@@ -49,8 +50,8 @@ MailSender::MailSender(Object* sender, MailStationery stationery) : m_stationery
             break;
         default:
             m_messageType = MAIL_NORMAL;
-            m_senderId = 0;                                 // will show mail from not existed player
-            TC_LOG_ERROR("misc", "MailSender::MailSender - Mail have unexpected sender typeid (%u)", sender->GetTypeId());
+            m_senderId = 0;                                 // will show mail from non-existing player
+            TC_LOG_ERROR("misc", "MailSender::MailSender - Mail message contains unexpected sender typeid (%u).", sender->GetTypeId());
             break;
     }
 }
@@ -68,6 +69,13 @@ MailSender::MailSender(Player* sender)
     m_messageType = MAIL_NORMAL;
     m_stationery = sender->IsGameMaster() ? MAIL_STATIONERY_GM : MAIL_STATIONERY_DEFAULT;
     m_senderId = sender->GetGUID().GetCounter();
+}
+
+MailSender::MailSender(uint32 senderEntry)
+{
+    m_messageType = MAIL_CREATURE;
+    m_senderId = senderEntry;
+    m_stationery = MAIL_STATIONERY_DEFAULT;
 }
 
 MailReceiver::MailReceiver(Player* receiver) : m_receiver(receiver), m_receiver_lowguid(receiver->GetGUID().GetCounter()) { }
@@ -134,7 +142,7 @@ void MailDraft::SendReturnToSender(uint32 sender_acc, ObjectGuid::LowType sender
 
     uint32 rc_account = 0;
     if (!receiver)
-        rc_account = sObjectMgr->GetPlayerAccountIdByGUID(receiverGuid);
+        rc_account = sCharacterCache->GetCharacterAccountIdByGuid(receiverGuid);
 
     if (!receiver && !rc_account)                            // sender not exist
     {
@@ -173,7 +181,7 @@ void MailDraft::SendReturnToSender(uint32 sender_acc, ObjectGuid::LowType sender
 void MailDraft::SendMailTo(SQLTransaction& trans, MailReceiver const& receiver, MailSender const& sender, MailCheckMask checked, uint32 deliver_delay)
 {
     Player* pReceiver = receiver.GetPlayer();               // can be NULL
-    Player* pSender = sObjectMgr->GetPlayerByLowGUID(sender.GetSenderId());
+    Player* pSender = ObjectAccessor::FindPlayerByLowGUID(sender.GetSenderId());
 
     if (pReceiver)
         prepareItems(pReceiver, trans);                            // generate mail template items

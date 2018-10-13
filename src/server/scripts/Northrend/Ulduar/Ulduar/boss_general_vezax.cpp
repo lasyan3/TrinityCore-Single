@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2015 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2017 TrinityCore <http://www.trinitycore.org/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -208,6 +208,9 @@ class boss_general_vezax : public CreatureScript
                             DoCast(me, SPELL_BERSERK);
                             break;
                     }
+
+                    if (me->HasUnitState(UNIT_STATE_CASTING))
+                        return;
                 }
 
                 DoMeleeAttackIfReady();
@@ -328,8 +331,8 @@ class boss_saronite_animus : public CreatureScript
 
             void JustDied(Unit* /*killer*/) override
             {
-                if (Creature* Vezax = ObjectAccessor::GetCreature(*me, instance->GetGuidData(BOSS_VEZAX)))
-                    Vezax->AI()->DoAction(ACTION_ANIMUS_DIE);
+                if (Creature* vezax = instance->GetCreature(BOSS_VEZAX))
+                    vezax->AI()->DoAction(ACTION_ANIMUS_DIE);
             }
 
             void UpdateAI(uint32 diff) override
@@ -353,6 +356,9 @@ class boss_saronite_animus : public CreatureScript
                         default:
                             break;
                     }
+
+                    if (me->HasUnitState(UNIT_STATE_CASTING))
+                        return;
                 }
 
                 DoMeleeAttackIfReady();
@@ -380,7 +386,6 @@ class npc_saronite_vapors : public CreatureScript
             {
                 Talk(EMOTE_VAPORS);
                 instance = me->GetInstanceScript();
-                me->ApplySpellImmune(0, IMMUNITY_EFFECT, SPELL_EFFECT_KNOCK_BACK, true);
                 me->ApplySpellImmune(0, IMMUNITY_ID, 49560, true); // Death Grip jump effect
                 me->SetReactState(REACT_PASSIVE);
             }
@@ -416,15 +421,16 @@ class npc_saronite_vapors : public CreatureScript
                 if (damage >= me->GetHealth())
                 {
                     damage = 0;
-                    me->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NON_ATTACKABLE | UNIT_FLAG_NOT_SELECTABLE | UNIT_FLAG_DISABLE_MOVE);
+                    me->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NON_ATTACKABLE | UNIT_FLAG_NOT_SELECTABLE);
+                    me->SetControlled(true, UNIT_STATE_ROOT);
                     me->SetStandState(UNIT_STAND_STATE_DEAD);
                     me->SetHealth(me->GetMaxHealth());
                     me->RemoveAllAuras();
                     DoCast(me, SPELL_SARONITE_VAPORS);
                     me->DespawnOrUnsummon(30000);
 
-                    if (Creature* Vezax = ObjectAccessor::GetCreature(*me, instance->GetGuidData(BOSS_VEZAX)))
-                        Vezax->AI()->DoAction(ACTION_VAPORS_DIE);
+                    if (Creature* vezax = instance->GetCreature(BOSS_VEZAX))
+                        vezax->AI()->DoAction(ACTION_VAPORS_DIE);
                 }
             }
 

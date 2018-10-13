@@ -20,7 +20,7 @@ class NodeCreatorFunc = NodeCreator<Node>,
     /*class BoundsFunc = BoundsTrait<T>,*/
 class PositionFunc = PositionTrait<T>
 >
-class RegularGrid2D
+class TC_COMMON_API RegularGrid2D
 {
 public:
 
@@ -71,7 +71,7 @@ public:
     }
 
     bool contains(const T& value) const { return memberTable.containsKey(&value); }
-    int size() const { return memberTable.size(); }
+    int size() const { return uint32(memberTable.size()); }
 
     struct Cell
     {

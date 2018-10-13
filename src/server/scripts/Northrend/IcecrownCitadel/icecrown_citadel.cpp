@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2015 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2017 TrinityCore <http://www.trinitycore.org/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -35,7 +35,7 @@
 // * Blood Quickening             (DONE)
 // * Respite for a Tormented Soul
 
-enum Texts
+enum ICCTexts
 {
     // Highlord Tirion Fordring (at Light's Hammer)
     SAY_TIRION_INTRO_1              = 0,
@@ -100,7 +100,7 @@ enum Texts
     SAY_CROK_DEATH                  = 8,
 };
 
-enum Spells
+enum ICCSpells
 {
     // Rotting Frost Giant
     SPELL_DEATH_PLAGUE              = 72879,
@@ -130,6 +130,7 @@ enum Spells
     SPELL_IMPALING_SPEAR            = 71443,
     SPELL_AETHER_SHIELD             = 71463,
     SPELL_HURL_SPEAR                = 71466,
+    SPELL_DIVINE_SURGE              = 71465,
 
     // Captain Arnath
     SPELL_DOMINATE_MIND             = 14515,
@@ -175,7 +176,7 @@ enum Spells
 #define SPELL_MACHINE_GUN       (IsUndead ? SPELL_MACHINE_GUN_UNDEAD : SPELL_MACHINE_GUN_NORMAL)
 #define SPELL_ROCKET_LAUNCH     (IsUndead ? SPELL_ROCKET_LAUNCH_UNDEAD : SPELL_ROCKET_LAUNCH_NORMAL)
 
-enum EventTypes
+enum ICCEventTypes
 {
     // Highlord Tirion Fordring (at Light's Hammer)
     // The Lich King (at Light's Hammer)
@@ -257,12 +258,12 @@ enum EventTypes
     EVENT_SOUL_MISSILE                  = 55,
 };
 
-enum DataTypesICC
+enum ICCDataTypes
 {
     DATA_DAMNED_KILLS       = 1,
 };
 
-enum Actions
+enum ICCActions
 {
     // Sister Svalna
     ACTION_KILL_CAPTAIN         = 1,
@@ -272,7 +273,7 @@ enum Actions
     ACTION_RESET_EVENT          = 5,
 };
 
-enum EventIds
+enum ICCEventIds
 {
     EVENT_AWAKEN_WARD_1 = 22900,
     EVENT_AWAKEN_WARD_2 = 22907,
@@ -280,7 +281,7 @@ enum EventIds
     EVENT_AWAKEN_WARD_4 = 22909,
 };
 
-enum MovementPoints
+enum ICCMovementPoints
 {
     POINT_LAND  = 1,
 };
@@ -365,7 +366,7 @@ class CaptainSurviveTalk : public BasicEvent
     public:
         explicit CaptainSurviveTalk(Creature const& owner) : _owner(owner) { }
 
-        bool Execute(uint64 /*currTime*/, uint32 /*diff*/)
+        bool Execute(uint64 /*currTime*/, uint32 /*diff*/) override
         {
             _owner.AI()->Talk(SAY_CAPTAIN_SURVIVE_TALK);
             return true;
@@ -776,6 +777,7 @@ class boss_sister_svalna : public CreatureScript
                 _EnterCombat();
                 if (Creature* crok = ObjectAccessor::GetCreature(*me, instance->GetGuidData(DATA_CROK_SCOURGEBANE)))
                     crok->AI()->Talk(SAY_CROK_COMBAT_SVALNA);
+                DoCastSelf(SPELL_DIVINE_SURGE, true);
                 events.ScheduleEvent(EVENT_SVALNA_COMBAT, 9000);
                 events.ScheduleEvent(EVENT_IMPALING_SPEAR, urand(40000, 50000));
                 events.ScheduleEvent(EVENT_AETHER_SHIELD, urand(100000, 110000));
@@ -919,6 +921,9 @@ class boss_sister_svalna : public CreatureScript
                         default:
                             break;
                     }
+
+                    if (me->HasUnitState(UNIT_STATE_CASTING))
+                        return;
                 }
 
                 DoMeleeAttackIfReady();
@@ -1026,6 +1031,7 @@ class npc_crok_scourgebane : public CreatureScript
                 {
                     // pause pathing until trash pack is cleared
                     case 0:
+                        me->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_NPC);
                         Talk(SAY_CROK_COMBAT_WP_0);
                         if (!_aliveTrash.empty())
                             SetEscortPaused(true);
@@ -1186,7 +1192,8 @@ class npc_crok_scourgebane : public CreatureScript
                             }
                             else
                             {
-                                me->DealHeal(me, me->CountPctFromMaxHealth(5));
+                                // looks totally hacky to me
+                                me->ModifyHealth(me->CountPctFromMaxHealth(5));
                                 _events.ScheduleEvent(EVENT_HEALTH_CHECK, 1000);
                             }
                             break;
@@ -1283,16 +1290,16 @@ struct npc_argent_captainAI : public ScriptedAI
             return (me->GetPositionY() > 2660.0f) == (target->GetPositionY() > 2660.0f);
         }
 
-        void EnterEvadeMode() override
+        void EnterEvadeMode(EvadeReason why) override
         {
             // not yet following
             if (me->GetMotionMaster()->GetMotionSlotType(MOTION_SLOT_IDLE) != CHASE_MOTION_TYPE || IsUndead)
             {
-                ScriptedAI::EnterEvadeMode();
+                ScriptedAI::EnterEvadeMode(why);
                 return;
             }
 
-            if (!_EnterEvadeMode())
+            if (!_EnterEvadeMode(why))
                 return;
 
             if (!me->GetVehicle())
@@ -1406,6 +1413,9 @@ class npc_captain_arnath : public CreatureScript
                         default:
                             break;
                     }
+
+                    if (me->HasUnitState(UNIT_STATE_CASTING))
+                        return;
                 }
 
                 DoMeleeAttackIfReady();
@@ -1484,6 +1494,9 @@ class npc_captain_brandon : public CreatureScript
                         default:
                             break;
                     }
+
+                    if (me->HasUnitState(UNIT_STATE_CASTING))
+                        return;
                 }
 
                 DoMeleeAttackIfReady();
@@ -1551,6 +1564,9 @@ class npc_captain_grondel : public CreatureScript
                         default:
                             break;
                     }
+
+                    if (me->HasUnitState(UNIT_STATE_CASTING))
+                        return;
                 }
 
                 DoMeleeAttackIfReady();
@@ -1614,6 +1630,9 @@ class npc_captain_rupert : public CreatureScript
                         default:
                             break;
                     }
+
+                    if (me->HasUnitState(UNIT_STATE_CASTING))
+                        return;
                 }
 
                 DoMeleeAttackIfReady();
@@ -1818,7 +1837,7 @@ class spell_icc_sprit_alarm : public SpellScriptLoader
                 }
 
                 if (GameObject* trap = GetCaster()->FindNearestGameObject(trapId, 5.0f))
-                    trap->SetRespawnTime(trap->GetGOInfo()->GetAutoCloseTime());
+                    trap->SetRespawnTime(trap->GetGOInfo()->GetAutoCloseTime() / IN_MILLISECONDS);
 
                 std::list<Creature*> wards;
                 GetCaster()->GetCreatureListWithEntryInGrid(wards, NPC_DEATHBOUND_WARD, 150.0f);

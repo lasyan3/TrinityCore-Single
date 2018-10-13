@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2015 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2017 TrinityCore <http://www.trinitycore.org/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -79,6 +79,9 @@ enum UlduarNPCs
     NPC_VEZAX                               = 33271,
     NPC_YOGG_SARON                          = 33288,
     NPC_ALGALON                             = 32871,
+
+    //XT002
+    NPC_XS013_SCRAPBOT                      = 33343,
 
     // Flame Leviathan
     NPC_ULDUAR_COLOSSUS                     = 33237,
@@ -272,7 +275,7 @@ enum UlduarGameObjects
     GO_GIFT_OF_THE_OBSERVER_25              = 194822,
 };
 
-enum EventIds
+enum UUEventIds
 {
     EVENT_TOWER_OF_STORM_DESTROYED      = 21031,
     EVENT_TOWER_OF_FROST_DESTROYED      = 21032,
@@ -427,7 +430,8 @@ enum UlduarEvents
     EVENT_DESPAWN_ALGALON       = 1,
     EVENT_UPDATE_ALGALON_TIMER  = 2,
     ACTION_INIT_ALGALON         = 6,
-    EVENT_DESPAWN_LEVIATHAN_VEHICLES = 7
+    EVENT_DESPAWN_LEVIATHAN_VEHICLES = 7,
+    EVENT_LEVIATHAN_BREAK_DOOR   = 8
 };
 
 enum YoggSaronIllusions

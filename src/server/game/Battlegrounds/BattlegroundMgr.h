@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2015 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2017 TrinityCore <http://www.trinitycore.org/>
  * Copyright (C) 2005-2009 MaNGOS <http://getmangos.com/>
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -29,8 +29,12 @@ typedef std::set<uint32> BattlegroundClientIdsContainer;
 
 typedef std::unordered_map<uint32, BattlegroundTypeId> BattleMastersMap;
 
-#define BATTLEGROUND_ARENA_POINT_DISTRIBUTION_DAY 86400     // seconds in a day
-#define WS_ARENA_DISTRIBUTION_TIME 20001                    // Custom worldstate
+enum BattlegroundMisc
+{
+    BATTLEGROUND_ARENA_POINT_DISTRIBUTION_DAY   = 86400,    // seconds in a day
+
+    BATTLEGROUND_OBJECTIVE_UPDATE_INTERVAL      = 1000
+};
 
 struct BattlegroundData
 {
@@ -55,18 +59,14 @@ struct BattlegroundTemplate
     bool IsArena() const { return BattlemasterEntry->type == MAP_ARENA; }
 };
 
-class BattlegroundMgr
+class TC_GAME_API BattlegroundMgr
 {
     private:
         BattlegroundMgr();
         ~BattlegroundMgr();
 
     public:
-        static BattlegroundMgr* instance()
-        {
-            static BattlegroundMgr instance;
-            return &instance;
-        }
+        static BattlegroundMgr* instance();
 
         void Update(uint32 diff);
 
@@ -146,6 +146,7 @@ class BattlegroundMgr
         uint32 m_NextRatedArenaUpdate;
         time_t m_NextAutoDistributionTime;
         uint32 m_AutoDistributionTimeChecker;
+        uint32 m_UpdateTimer;
         bool   m_ArenaTesting;
         bool   m_Testing;
         BattleMastersMap mBattleMastersMap;

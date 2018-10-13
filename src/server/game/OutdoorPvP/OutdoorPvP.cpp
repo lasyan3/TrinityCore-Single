@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2015 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2017 TrinityCore <http://www.trinitycore.org/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -95,7 +95,7 @@ void OPvPCapturePoint::AddGO(uint32 type, ObjectGuid::LowType guid, uint32 entry
         entry = data->id;
     }
 
-    m_Objects[type] = ObjectGuid(HighGuid::GameObject, entry, guid);
+    m_Objects[type] = guid;
     m_ObjectTypes[m_Objects[type]] = type;
 }
 
@@ -109,7 +109,7 @@ void OPvPCapturePoint::AddCre(uint32 type, ObjectGuid::LowType guid, uint32 entr
         entry = data->id;
     }
 
-    m_Creatures[type] = ObjectGuid(HighGuid::Unit, entry, guid);
+    m_Creatures[type] = guid;
     m_CreatureTypes[m_Creatures[type]] = type;
 }
 
@@ -177,7 +177,7 @@ bool OPvPCapturePoint::DelCreature(uint32 type)
         ++itr;
         // Don't save respawn time
         c->SetRespawnTime(0);
-        c->RemoveCorpse();
+        c->DespawnOrUnsummon();
         c->AddObjectToRemoveList();
     }
 
@@ -190,7 +190,8 @@ bool OPvPCapturePoint::DelCreature(uint32 type)
     // delete respawn time for this creature
     PreparedStatement* stmt = CharacterDatabase.GetPreparedStatement(CHAR_DEL_CREATURE_RESPAWN);
     stmt->setUInt32(0, spawnId);
-    stmt->setUInt16(1, m_PvP->GetMap()->GetId());    stmt->setUInt32(2, 0);  // instance id, always 0 for world maps
+    stmt->setUInt16(1, m_PvP->GetMap()->GetId());
+    stmt->setUInt32(2, 0);  // instance id, always 0 for world maps
     CharacterDatabase.Execute(stmt);
 
     sObjectMgr->DeleteCreatureData(spawnId);
@@ -236,9 +237,9 @@ bool OPvPCapturePoint::DelCapturePoint()
 
 void OPvPCapturePoint::DeleteSpawns()
 {
-    for (std::map<uint32, uint32>::iterator i = m_Objects.begin(); i != m_Objects.end(); ++i)
+    for (std::map<uint32, ObjectGuid::LowType>::iterator i = m_Objects.begin(); i != m_Objects.end(); ++i)
         DelObject(i->first);
-    for (std::map<uint32, uint32>::iterator i = m_Creatures.begin(); i != m_Creatures.end(); ++i)
+    for (std::map<uint32, ObjectGuid::LowType>::iterator i = m_Creatures.begin(); i != m_Creatures.end(); ++i)
         DelCreature(i->first);
     DelCapturePoint();
 }
@@ -581,7 +582,7 @@ bool OPvPCapturePoint::HandleDropFlag(Player* /*player*/, uint32 /*id*/)
 
 int32 OPvPCapturePoint::HandleOpenGo(Player* /*player*/, GameObject* go)
 {
-    std::map<uint32, uint32>::iterator itr = m_ObjectTypes.find(go->GetSpawnId());
+    std::map<ObjectGuid::LowType, uint32>::iterator itr = m_ObjectTypes.find(go->GetSpawnId());
     if (itr != m_ObjectTypes.end())
         return itr->second;
 
@@ -596,7 +597,7 @@ bool OutdoorPvP::HandleAreaTrigger(Player* /*player*/, uint32 /*trigger*/)
 void OutdoorPvP::BroadcastPacket(WorldPacket &data) const
 {
     // This is faster than sWorld->SendZoneMessage
-    for (uint32 team = 0; team < 2; ++team)
+    for (uint32 team = 0; team < BG_TEAMS_COUNT; ++team)
         for (GuidSet::const_iterator itr = m_players[team].begin(); itr != m_players[team].end(); ++itr)
             if (Player* const player = ObjectAccessor::FindPlayer(*itr))
                 player->GetSession()->SendPacket(&data);
@@ -687,7 +688,7 @@ void OutdoorPvP::BroadcastWorker(Worker& _worker, uint32 zoneId)
 
 void OutdoorPvP::SetMapFromZone(uint32 zone)
 {
-    AreaTableEntry const* areaTable = GetAreaEntryByAreaID(zone);
+    AreaTableEntry const* areaTable = sAreaTableStore.LookupEntry(zone);
     ASSERT(areaTable);
     Map* map = sMapMgr->CreateBaseMap(areaTable->mapid);
     ASSERT(!map->Instanceable());

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2015 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2017 TrinityCore <http://www.trinitycore.org/>
  * Copyright (C) 2005-2009 MaNGOS <http://getmangos.com/>
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -51,6 +51,7 @@ enum Gossip_Option
     GOSSIP_OPTION_UNLEARNPETTALENTS = 17,                   //UNIT_NPC_FLAG_TRAINER             (16) (bonus option for GOSSIP_OPTION_TRAINER)
     GOSSIP_OPTION_LEARNDUALSPEC     = 18,                   //UNIT_NPC_FLAG_TRAINER             (16) (bonus option for GOSSIP_OPTION_TRAINER)
     GOSSIP_OPTION_OUTDOORPVP        = 19,                   //added by code (option for outdoor pvp creatures)
+    GOSSIP_OPTION_DUALSPEC_INFO     = 20,                   //UNIT_NPC_FLAG_TRAINER             (16) (bonus option for GOSSIP_OPTION_TRAINER)
     GOSSIP_OPTION_MAX
 };
 
@@ -157,7 +158,7 @@ struct QuestMenuItem
 
 typedef std::vector<QuestMenuItem> QuestMenuItemList;
 
-class GossipMenu
+class TC_GAME_API GossipMenu
 {
     public:
         GossipMenu();
@@ -222,7 +223,7 @@ class GossipMenu
         LocaleConstant _locale;
 };
 
-class QuestMenu
+class TC_GAME_API QuestMenu
 {
     public:
         QuestMenu();
@@ -252,7 +253,7 @@ class QuestMenu
         QuestMenuItemList _questMenuItems;
 };
 
-class PlayerMenu
+class TC_GAME_API PlayerMenu
 {
     public:
         explicit PlayerMenu(WorldSession* session);
@@ -284,8 +285,6 @@ class PlayerMenu
 
         void SendQuestGiverOfferReward(Quest const* quest, ObjectGuid npcGUID, bool enableNext) const;
         void SendQuestGiverRequestItems(Quest const* quest, ObjectGuid npcGUID, bool canComplete, bool closeOnCancel) const;
-
-        static void AddQuestLevelToTitle(std::string &title, int32 level);
 
     private:
         GossipMenu _gossipMenu;

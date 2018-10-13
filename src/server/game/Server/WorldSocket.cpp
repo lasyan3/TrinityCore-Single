@@ -1,29 +1,41 @@
 /*
-* Copyright (C) 2008-2015 TrinityCore <http://www.trinitycore.org/>
-* Copyright (C) 2005-2009 MaNGOS <http://getmangos.com/>
-*
-* This program is free software; you can redistribute it and/or modify it
-* under the terms of the GNU General Public License as published by the
-* Free Software Foundation; either version 2 of the License, or (at your
-* option) any later version.
-*
-* This program is distributed in the hope that it will be useful, but WITHOUT
-* ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-* FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
-* more details.
-*
-* You should have received a copy of the GNU General Public License along
-* with this program. If not, see <http://www.gnu.org/licenses/>.
-*/
+ * Copyright (C) 2008-2017 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2005-2009 MaNGOS <http://getmangos.com/>
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License as published by the
+ * Free Software Foundation; either version 2 of the License, or (at your
+ * option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
+ * more details.
+ *
+ * You should have received a copy of the GNU General Public License along
+ * with this program. If not, see <http://www.gnu.org/licenses/>.
+ */
 
 #include "WorldSocket.h"
 #include "BigNumber.h"
 #include "Opcodes.h"
+#include "QueryCallback.h"
 #include "ScriptMgr.h"
 #include "SHA1.h"
 #include "PacketLog.h"
 
 #include <memory>
+
+class EncryptablePacket : public WorldPacket
+{
+public:
+    EncryptablePacket(WorldPacket const& packet, bool encrypt) : WorldPacket(packet), _encrypt(encrypt) { }
+
+    bool NeedsEncryption() const { return _encrypt; }
+
+private:
+    bool _encrypt;
+};
 
 using boost::asio::ip::tcp;
 
@@ -40,11 +52,7 @@ void WorldSocket::Start()
     stmt->setString(0, ip_address);
     stmt->setUInt32(1, inet_addr(ip_address.c_str()));
 
-    {
-        std::lock_guard<std::mutex> guard(_queryLock);
-        _queryCallback = io_service().wrap(std::bind(&WorldSocket::CheckIpCallback, this, std::placeholders::_1));
-        _queryFuture = LoginDatabase.AsyncQuery(stmt);
-    }
+    _queryProcessor.AddQuery(LoginDatabase.AsyncQuery(stmt).WithPreparedCallback(std::bind(&WorldSocket::CheckIpCallback, this, std::placeholders::_1)));
 }
 
 void WorldSocket::CheckIpCallback(PreparedQueryResult result)
@@ -78,18 +86,46 @@ void WorldSocket::CheckIpCallback(PreparedQueryResult result)
 
 bool WorldSocket::Update()
 {
+    EncryptablePacket* queued;
+    MessageBuffer buffer;
+    while (_bufferQueue.Dequeue(queued))
+    {
+        ServerPktHeader header(queued->size() + 2, queued->GetOpcode());
+        if (queued->NeedsEncryption())
+            _authCrypt.EncryptSend(header.header, header.getHeaderLength());
+
+        if (buffer.GetRemainingSpace() < queued->size() + header.getHeaderLength())
+        {
+            QueuePacket(std::move(buffer));
+            buffer.Resize(4096);
+        }
+
+        if (buffer.GetRemainingSpace() >= queued->size() + header.getHeaderLength())
+        {
+            buffer.Write(header.header, header.getHeaderLength());
+            if (!queued->empty())
+                buffer.Write(queued->contents(), queued->size());
+        }
+        else    // single packet larger than 4096 bytes
+        {
+            MessageBuffer packetBuffer(queued->size() + header.getHeaderLength());
+            packetBuffer.Write(header.header, header.getHeaderLength());
+            if (!queued->empty())
+                packetBuffer.Write(queued->contents(), queued->size());
+
+            QueuePacket(std::move(packetBuffer));
+        }
+
+        delete queued;
+    }
+
+    if (buffer.GetActiveSize() > 0)
+        QueuePacket(std::move(buffer));
+
     if (!BaseSocket::Update())
         return false;
 
-    {
-        std::lock_guard<std::mutex> guard(_queryLock);
-        if (_queryFuture.valid() && _queryFuture.wait_for(std::chrono::seconds(0)) == std::future_status::ready)
-        {
-            auto callback = std::move(_queryCallback);
-            _queryCallback = nullptr;
-            callback(_queryFuture.get());
-        }
-    }
+    _queryProcessor.ProcessReadyQueries();
 
     return true;
 }
@@ -270,8 +306,7 @@ struct AccountInfo
 WorldSocket::ReadDataHandlerResult WorldSocket::ReadDataHandler()
 {
     ClientPktHeader* header = reinterpret_cast<ClientPktHeader*>(_headerBuffer.GetReadPointer());
-
-    uint16 opcode = uint16(header->cmd);
+    OpcodeClient opcode = static_cast<OpcodeClient>(header->cmd);
 
     WorldPacket packet(opcode, std::move(_packetBuffer));
 
@@ -283,9 +318,20 @@ WorldSocket::ReadDataHandlerResult WorldSocket::ReadDataHandler()
     switch (opcode)
     {
         case CMSG_PING:
+        {
             LogOpcodeText(opcode, sessionGuard);
-            return HandlePing(packet) ? ReadDataHandlerResult::Ok : ReadDataHandlerResult::Error;
+            try
+            {
+                return HandlePing(packet) ? ReadDataHandlerResult::Ok : ReadDataHandlerResult::Error;
+            }
+            catch (ByteBufferException const&)
+            {
+            }
+            TC_LOG_ERROR("network", "WorldSocket::ReadDataHandler(): client %s sent malformed CMSG_PING", GetRemoteIpAddress().to_string().c_str());
+            return ReadDataHandlerResult::Error;
+        }
         case CMSG_AUTH_SESSION:
+        {
             LogOpcodeText(opcode, sessionGuard);
             if (_authed)
             {
@@ -295,20 +341,37 @@ WorldSocket::ReadDataHandlerResult WorldSocket::ReadDataHandler()
                 return ReadDataHandlerResult::Error;
             }
 
-            HandleAuthSession(packet);
-            return ReadDataHandlerResult::WaitingForQuery;
+            try
+            {
+                HandleAuthSession(packet);
+                return ReadDataHandlerResult::WaitingForQuery;
+            }
+            catch (ByteBufferException const&)
+            {
+            }
+            TC_LOG_ERROR("network", "WorldSocket::ReadDataHandler(): client %s sent malformed CMSG_AUTH_SESSION", GetRemoteIpAddress().to_string().c_str());
+            return ReadDataHandlerResult::Error;
+        }
         case CMSG_KEEP_ALIVE:
             LogOpcodeText(opcode, sessionGuard);
             break;
         default:
         {
             sessionGuard.lock();
+
             LogOpcodeText(opcode, sessionGuard);
+
             if (!_worldSession)
             {
                 TC_LOG_ERROR("network.opcode", "ProcessIncoming: Client not authed opcode = %u", uint32(opcode));
-                CloseSocket();
                 return ReadDataHandlerResult::Error;
+            }
+
+            OpcodeHandler const* handler = opcodeTable[opcode];
+            if (!handler)
+            {
+                TC_LOG_ERROR("network.opcode", "No defined handler for opcode %s sent by %s", GetOpcodeNameForLogging(static_cast<OpcodeClient>(packet.GetOpcode())).c_str(), _worldSession->GetPlayerInfo().c_str());
+                break;
             }
 
             // Our Idle timer will reset on any non PING opcodes.
@@ -324,7 +387,7 @@ WorldSocket::ReadDataHandlerResult WorldSocket::ReadDataHandler()
     return ReadDataHandlerResult::Ok;
 }
 
-void WorldSocket::LogOpcodeText(uint16 opcode, std::unique_lock<std::mutex> const& guard) const
+void WorldSocket::LogOpcodeText(OpcodeClient opcode, std::unique_lock<std::mutex> const& guard) const
 {
     if (!guard)
     {
@@ -339,7 +402,7 @@ void WorldSocket::LogOpcodeText(uint16 opcode, std::unique_lock<std::mutex> cons
 
 void WorldSocket::SendPacketAndLogOpcode(WorldPacket const& packet)
 {
-    TC_LOG_TRACE("network.opcode", "S->C: %s %s", GetRemoteIpAddress().to_string().c_str(), GetOpcodeNameForLogging(packet.GetOpcode()).c_str());
+    TC_LOG_TRACE("network.opcode", "S->C: %s %s", GetRemoteIpAddress().to_string().c_str(), GetOpcodeNameForLogging(static_cast<OpcodeServer>(packet.GetOpcode())).c_str());
     SendPacket(packet);
 }
 
@@ -351,29 +414,7 @@ void WorldSocket::SendPacket(WorldPacket const& packet)
     if (sPacketLog->CanLogPacket())
         sPacketLog->LogPacket(packet, SERVER_TO_CLIENT, GetRemoteIpAddress(), GetRemotePort());
 
-    ServerPktHeader header(packet.size() + 2, packet.GetOpcode());
-
-    std::unique_lock<std::mutex> guard(_writeLock);
-
-    _authCrypt.EncryptSend(header.header, header.getHeaderLength());
-
-#ifndef TC_SOCKET_USE_IOCP
-    if (_writeQueue.empty() && _writeBuffer.GetRemainingSpace() >= header.getHeaderLength() + packet.size())
-    {
-        _writeBuffer.Write(header.header, header.getHeaderLength());
-        if (!packet.empty())
-            _writeBuffer.Write(packet.contents(), packet.size());
-    }
-    else
-#endif
-    {
-        MessageBuffer buffer(header.getHeaderLength() + packet.size());
-        buffer.Write(header.header, header.getHeaderLength());
-        if (!packet.empty())
-            buffer.Write(packet.contents(), packet.size());
-
-        QueuePacket(std::move(buffer), guard);
-    }
+    _bufferQueue.Enqueue(new EncryptablePacket(packet, _authCrypt.IsInitialized()));
 }
 
 void WorldSocket::HandleAuthSession(WorldPacket& recvPacket)
@@ -395,14 +436,10 @@ void WorldSocket::HandleAuthSession(WorldPacket& recvPacket)
 
     // Get the account information from the auth database
     PreparedStatement* stmt = LoginDatabase.GetPreparedStatement(LOGIN_SEL_ACCOUNT_INFO_BY_NAME);
-    stmt->setInt32(0, int32(realmID));
+    stmt->setInt32(0, int32(realm.Id.Realm));
     stmt->setString(1, authSession->Account);
 
-    {
-        std::lock_guard<std::mutex> guard(_queryLock);
-        _queryCallback = io_service().wrap(std::bind(&WorldSocket::HandleAuthSessionCallback, this, authSession, std::placeholders::_1));
-        _queryFuture = LoginDatabase.AsyncQuery(stmt);
-    }
+    _queryProcessor.AddQuery(LoginDatabase.AsyncQuery(stmt).WithPreparedCallback(std::bind(&WorldSocket::HandleAuthSessionCallback, this, authSession, std::placeholders::_1)));
 }
 
 void WorldSocket::HandleAuthSessionCallback(std::shared_ptr<AuthSession> authSession, PreparedQueryResult result)
@@ -441,10 +478,11 @@ void WorldSocket::HandleAuthSessionCallback(std::shared_ptr<AuthSession> authSes
         return;
     }
 
-    if (authSession->RealmID != realmID)
+    if (authSession->RealmID != realm.Id.Realm)
     {
         SendAuthResponseError(REALM_LIST_REALM_NOT_FOUND);
-        TC_LOG_ERROR("network", "WorldSocket::HandleAuthSession: Sent Auth Response (bad realm).");
+        TC_LOG_ERROR("network", "WorldSocket::HandleAuthSession: Client %s requested connecting with realm id %u but this realm has id %u set in config.",
+            GetRemoteIpAddress().to_string().c_str(), authSession->RealmID, realm.Id.Realm);
         DelayedCloseSocket();
         return;
     }
@@ -559,8 +597,7 @@ void WorldSocket::HandleAuthSessionCallback(std::shared_ptr<AuthSession> authSes
     if (wardenActive)
         _worldSession->InitWarden(&account.SessionKey, account.OS);
 
-    _queryCallback = io_service().wrap(std::bind(&WorldSocket::LoadSessionPermissionsCallback, this, std::placeholders::_1));
-    _queryFuture = _worldSession->LoadPermissionsAsync();
+    _queryProcessor.AddQuery(_worldSession->LoadPermissionsAsync().WithPreparedCallback(std::bind(&WorldSocket::LoadSessionPermissionsCallback, this, std::placeholders::_1)));
     AsyncRead();
 }
 

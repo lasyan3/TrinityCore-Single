@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2015 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2017 TrinityCore <http://www.trinitycore.org/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -205,7 +205,7 @@ public:
                 PointData = GetMoveData();
                 MovePoint = PointData->LocIdEnd;
 
-                me->SetSpeed(MOVE_FLIGHT, 1.5f);
+                me->SetSpeedRate(MOVE_FLIGHT, 1.5f);
                 me->GetMotionMaster()->MovePoint(8, MiddleRoomLocation);
             }
         }
@@ -220,14 +220,14 @@ public:
                         PointData = GetMoveData();
                         if (PointData)
                         {
-                            me->SetSpeed(MOVE_FLIGHT, 1.0f);
+                            me->SetSpeedRate(MOVE_FLIGHT, 1.0f);
                             me->GetMotionMaster()->MovePoint(PointData->LocId, PointData->fX, PointData->fY, PointData->fZ);
                         }
                         break;
                     case 9:
                         me->SetCanFly(false);
                         me->SetDisableGravity(false);
-                        me->RemoveByteFlag(UNIT_FIELD_BYTES_1, 3, UNIT_BYTE1_FLAG_ALWAYS_STAND | UNIT_BYTE1_FLAG_HOVER);
+                        me->RemoveByteFlag(UNIT_FIELD_BYTES_1, UNIT_BYTES_1_OFFSET_ANIM_TIER, UNIT_BYTE1_FLAG_ALWAYS_STAND | UNIT_BYTE1_FLAG_HOVER);
                         if (Creature* trigger = ObjectAccessor::GetCreature(*me, triggerGUID))
                             me->Kill(trigger);
                         me->SetReactState(REACT_AGGRESSIVE);
@@ -245,12 +245,12 @@ public:
                     case 10:
                         me->SetCanFly(true);
                         me->SetDisableGravity(true);
-                        me->SetByteFlag(UNIT_FIELD_BYTES_1, 3, UNIT_BYTE1_FLAG_ALWAYS_STAND | UNIT_BYTE1_FLAG_HOVER);
-                        me->SetFacingTo(me->GetOrientation() + float(M_PI));
+                        me->SetByteFlag(UNIT_FIELD_BYTES_1, UNIT_BYTES_1_OFFSET_ANIM_TIER, UNIT_BYTE1_FLAG_ALWAYS_STAND | UNIT_BYTE1_FLAG_HOVER);
+                        me->SetFacingTo(me->GetOrientation() + float(M_PI), true);
                         if (Creature * trigger = me->SummonCreature(NPC_TRIGGER, MiddleRoomLocation, TEMPSUMMON_CORPSE_DESPAWN))
                             triggerGUID = trigger->GetGUID();
                         me->GetMotionMaster()->MoveTakeoff(11, Phase2Floating);
-                        me->SetSpeed(MOVE_FLIGHT, 1.0f);
+                        me->SetSpeedRate(MOVE_FLIGHT, 1.0f);
                         Talk(SAY_PHASE_2_TRANS);
                         instance->SetData(DATA_ONYXIA_PHASE, Phase);
                         events.ScheduleEvent(EVENT_WHELP_SPAWN, 5000);
@@ -316,20 +316,9 @@ public:
             MovePoint = iTemp;
         }
 
-        bool CheckInRoom() override
-        {
-            if (me->GetDistance2d(me->GetHomePosition().GetPositionX(), me->GetHomePosition().GetPositionY()) > 95.0f)
-            {
-                EnterEvadeMode();
-                return false;
-            }
-
-            return true;
-        }
-
         void UpdateAI(uint32 diff) override
         {
-            if (!UpdateVictim() || !CheckInRoom())
+            if (!UpdateVictim())
                 return;
 
             //Common to PHASE_START && PHASE_END
@@ -352,6 +341,9 @@ public:
                 }
 
                 events.Update(diff);
+
+                if (me->HasUnitState(UNIT_STATE_CASTING))
+                    return;
 
                 while (uint32 eventId = events.ExecuteEvent())
                 {
@@ -389,6 +381,9 @@ public:
                         default:
                             break;
                     }
+
+                    if (me->HasUnitState(UNIT_STATE_CASTING))
+                        return;
                 }
                 DoMeleeAttackIfReady();
             }
@@ -412,6 +407,9 @@ public:
                         me->SetFacingToObject(trigger);
 
                 events.Update(diff);
+
+                if (me->HasUnitState(UNIT_STATE_CASTING))
+                    return;
 
                 while (uint32 eventId = events.ExecuteEvent())
                 {
@@ -475,6 +473,9 @@ public:
                         default:
                             break;
                     }
+
+                    if (me->HasUnitState(UNIT_STATE_CASTING))
+                        return;
                 }
             }
         }

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2015 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2017 TrinityCore <http://www.trinitycore.org/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -143,11 +143,7 @@ enum Spells
     SPELL_RING_OF_BLUE_FLAMES                   = 45825  //Cast this spell when the go is activated
 };
 
-/*** Error messages ***/
-#define ERROR_KJ_NOT_SUMMONED "TSCR ERROR: Unable to summon Kil'Jaeden for some reason"
-
 /*** Others ***/
-#define FLOOR_Z         28.050388f
 #define SHIELD_ORB_Z    45.000f
 
 enum Phase
@@ -624,9 +620,9 @@ public:
             Talk(SAY_KJ_SLAY);
         }
 
-        void EnterEvadeMode() override
+        void EnterEvadeMode(EvadeReason why) override
         {
-            ScriptedAI::EnterEvadeMode();
+            ScriptedAI::EnterEvadeMode(why);
 
             summons.DespawnAll();
 
@@ -1112,7 +1108,7 @@ public:
             else if (me->IsWithinDistInMap(me->GetVictim(), 3)) // Explode if it's close enough to it's target
             {
                 DoCastVictim(SPELL_FELFIRE_FISSION);
-                me->Kill(me);
+                me->KillSelf();
             }
         }
     };
@@ -1172,8 +1168,7 @@ public:
                         uiTimer = 5000;
                         break;
                     case 3:
-                        me->Kill(me);
-                        me->RemoveCorpse();
+                        me->DespawnOrUnsummon();
                         break;
                 }
             } else uiTimer -=diff;
@@ -1365,7 +1360,7 @@ public:
                         DoCastVictim(SPELL_SR_SHOOT, false);
                         uiTimer[2] = urand(4000, 6000);
                     }
-                    if (me->IsWithinMeleeRange(me->GetVictim(), 6))
+                    if (me->IsWithinMeleeRange(me->GetVictim()))
                     {
                         if (uiTimer[0] <= diff)
                         {

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2015 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2017 TrinityCore <http://www.trinitycore.org/>
  * Copyright (C) 2006-2009 ScriptDev2 <https://scriptdev2.svn.sourceforge.net/>
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -66,13 +66,13 @@ void npc_escortAI::AttackStart(Unit* who)
 }
 
 //see followerAI
-bool npc_escortAI::AssistPlayerInCombat(Unit* who)
+bool npc_escortAI::AssistPlayerInCombatAgainst(Unit* who)
 {
     if (!who || !who->GetVictim())
         return false;
 
     //experimental (unknown) flag not present
-    if (!(me->GetCreatureTemplate()->type_flags & CREATURE_TYPEFLAGS_AID_PLAYERS))
+    if (!(me->GetCreatureTemplate()->type_flags & CREATURE_TYPE_FLAG_CAN_ASSIST))
         return false;
 
     //not a player
@@ -105,9 +105,9 @@ bool npc_escortAI::AssistPlayerInCombat(Unit* who)
 
 void npc_escortAI::MoveInLineOfSight(Unit* who)
 {
-    if (!me->HasUnitState(UNIT_STATE_STUNNED) && who->isTargetableForAttack() && who->isInAccessiblePlaceFor(me))
+    if (me->HasReactState(REACT_AGGRESSIVE) && !me->HasUnitState(UNIT_STATE_STUNNED) && who->isTargetableForAttack() && who->isInAccessiblePlaceFor(me))
     {
-        if (HasEscortState(STATE_ESCORT_ESCORTING) && AssistPlayerInCombat(who))
+        if (HasEscortState(STATE_ESCORT_ESCORTING) && AssistPlayerInCombatAgainst(who))
             return;
 
         if (!me->CanFly() && me->GetDistanceZ(who) > CREATURE_Z_ATTACK_RANGE)
@@ -150,14 +150,11 @@ void npc_escortAI::JustDied(Unit* /*killer*/)
         {
             for (GroupReference* groupRef = group->GetFirstMember(); groupRef != NULL; groupRef = groupRef->next())
                 if (Player* member = groupRef->GetSource())
-                    if (member->GetQuestStatus(m_pQuestForEscort->GetQuestId()) == QUEST_STATUS_INCOMPLETE)
+                    if (member->IsInMap(player))
                         member->FailQuest(m_pQuestForEscort->GetQuestId());
         }
         else
-        {
-            if (player->GetQuestStatus(m_pQuestForEscort->GetQuestId()) == QUEST_STATUS_INCOMPLETE)
-                player->FailQuest(m_pQuestForEscort->GetQuestId());
-        }
+            player->FailQuest(m_pQuestForEscort->GetQuestId());
     }
 }
 
@@ -184,7 +181,7 @@ void npc_escortAI::ReturnToLastPoint()
     me->GetMotionMaster()->MovePoint(POINT_LAST_POINT, x, y, z);
 }
 
-void npc_escortAI::EnterEvadeMode()
+void npc_escortAI::EnterEvadeMode(EvadeReason /*why*/)
 {
     me->RemoveAllAuras();
     me->DeleteThreatList();
@@ -343,7 +340,7 @@ void npc_escortAI::MovementInform(uint32 moveType, uint32 pointId)
         CurrentWP = WaypointList.begin();
         m_uiWPWaitTimer = 1;
     }
-    else
+    else if (CurrentWP != WaypointList.end())
     {
         //Make sure that we are still on the right waypoint
         if (CurrentWP->id != pointId)
@@ -402,12 +399,11 @@ void npc_escortAI::AddWaypoint(uint32 id, float x, float y, float z, uint32 wait
 
 void npc_escortAI::FillPointMovementListForCreature()
 {
-    ScriptPointVector const& movePoints = sScriptSystemMgr->GetPointMoveList(me->GetEntry());
-    if (movePoints.empty())
+    ScriptPointVector const* movePoints = sScriptSystemMgr->GetPointMoveList(me->GetEntry());
+    if (!movePoints)
         return;
 
-    ScriptPointVector::const_iterator itrEnd = movePoints.end();
-    for (ScriptPointVector::const_iterator itr = movePoints.begin(); itr != itrEnd; ++itr)
+    for (ScriptPointVector::const_iterator itr = movePoints->begin(); itr != movePoints->end(); ++itr)
     {
         Escort_Waypoint point(itr->uiPointId, itr->fX, itr->fY, itr->fZ, itr->uiWaitTime);
         WaypointList.push_back(point);
@@ -439,13 +435,13 @@ void npc_escortAI::Start(bool isActiveAttacker /* = true*/, bool run /* = false 
 {
     if (me->GetVictim())
     {
-        TC_LOG_ERROR("misc", "TSCR ERROR: EscortAI (script: %s, creature entry: %u) attempts to Start while in combat", me->GetScriptName().c_str(), me->GetEntry());
+        TC_LOG_ERROR("scripts.escortai", "TSCR ERROR: EscortAI (script: %s, creature entry: %u) attempts to Start while in combat", me->GetScriptName().c_str(), me->GetEntry());
         return;
     }
 
     if (HasEscortState(STATE_ESCORT_ESCORTING))
     {
-        TC_LOG_ERROR("scripts", "EscortAI (script: %s, creature entry: %u) attempts to Start while already escorting", me->GetScriptName().c_str(), me->GetEntry());
+        TC_LOG_ERROR("scripts.escortai", "EscortAI (script: %s, creature entry: %u) attempts to Start while already escorting", me->GetScriptName().c_str(), me->GetEntry());
         return;
     }
 
@@ -563,11 +559,11 @@ bool npc_escortAI::SetNextWaypoint(uint32 pointId, bool setPosition, bool resetW
 
 bool npc_escortAI::GetWaypointPosition(uint32 pointId, float& x, float& y, float& z)
 {
-    ScriptPointVector const& waypoints = sScriptSystemMgr->GetPointMoveList(me->GetEntry());
-    if (waypoints.empty())
+    ScriptPointVector const* waypoints = sScriptSystemMgr->GetPointMoveList(me->GetEntry());
+    if (!waypoints)
         return false;
 
-    for (ScriptPointVector::const_iterator itr = waypoints.begin(); itr != waypoints.end(); ++itr)
+    for (ScriptPointVector::const_iterator itr = waypoints->begin(); itr != waypoints->end(); ++itr)
     {
         if (itr->uiPointId == pointId)
         {

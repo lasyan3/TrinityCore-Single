@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2015 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2017 TrinityCore <http://www.trinitycore.org/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -20,14 +20,23 @@
 
 #include "Common.h"
 
+namespace G3D
+{
+    class Vector3;
+}
+
 class ByteBuffer;
 
-struct Position
+struct TC_GAME_API Position
 {
     Position(float x = 0, float y = 0, float z = 0, float o = 0)
         : m_positionX(x), m_positionY(y), m_positionZ(z), m_orientation(NormalizeOrientation(o)) { }
 
     Position(Position const& loc) { Relocate(loc); }
+
+    Position(G3D::Vector3 const& vect);
+
+    operator G3D::Vector3() const;
 
     struct PositionXYStreamer
     {
@@ -122,7 +131,7 @@ public:
 
     bool IsPositionValid() const;
 
-    float GetExactDist2dSq(float x, float y) const
+    float GetExactDist2dSq(const float x, const float y) const
     {
         float dx = m_positionX - x; float dy = m_positionY - y; return dx*dx + dy*dy;
     }
@@ -130,6 +139,16 @@ public:
     float GetExactDist2d(const float x, const float y) const
     {
         return std::sqrt(GetExactDist2dSq(x, y));
+    }
+
+    float GetExactDist2dSq(Position const& pos) const
+    {
+        float dx = m_positionX - pos.m_positionX; float dy = m_positionY - pos.m_positionY; return dx*dx + dy*dy;
+    }
+
+    float GetExactDist2d(Position const& pos) const
+    {
+        return std::sqrt(GetExactDist2dSq(pos));
     }
 
     float GetExactDist2dSq(Position const* pos) const
@@ -152,6 +171,16 @@ public:
         return std::sqrt(GetExactDistSq(x, y, z));
     }
 
+    float GetExactDistSq(Position const& pos) const
+    {
+        float dx = m_positionX - pos.m_positionX; float dy = m_positionY - pos.m_positionY; float dz = m_positionZ - pos.m_positionZ; return dx*dx + dy*dy + dz*dz;
+    }
+
+    float GetExactDist(Position const& pos) const
+    {
+        return std::sqrt(GetExactDistSq(pos));
+    }
+
     float GetExactDistSq(Position const* pos) const
     {
         float dx = m_positionX - pos->m_positionX; float dy = m_positionY - pos->m_positionY; float dz = m_positionZ - pos->m_positionZ; return dx*dx + dy*dy + dz*dz;
@@ -166,6 +195,10 @@ public:
     Position GetPositionWithOffset(Position const& offset) const;
 
     float GetAngle(Position const* pos) const;
+    float GetAngle(Position const& pos) const
+    {
+        return GetAngle(pos.m_positionX, pos.m_positionY);
+    }
     float GetAngle(float x, float y) const;
     float GetRelativeAngle(Position const* pos) const
     {
@@ -196,8 +229,13 @@ public:
     }
 
     bool IsWithinBox(const Position& center, float xradius, float yradius, float zradius) const;
+
+    /*
+    search using this relation: dist2d < radius && abs(dz) < height
+    */
+    bool IsWithinDoubleVerticalCylinder(Position const* center, float radius, float height) const;
     bool HasInArc(float arcangle, Position const* pos, float border = 2.0f) const;
-    bool HasInLine(Position const* pos, float width) const;
+    bool HasInLine(Position const* pos, float objSize, float width) const;
     std::string ToString() const;
 
     // modulos a radian orientation to the range of 0..2PI
@@ -216,11 +254,11 @@ public:
     }
 };
 
-ByteBuffer& operator<<(ByteBuffer& buf, Position::PositionXYStreamer const& streamer);
-ByteBuffer& operator>>(ByteBuffer& buf, Position::PositionXYStreamer const& streamer);
-ByteBuffer& operator<<(ByteBuffer& buf, Position::PositionXYZStreamer const& streamer);
-ByteBuffer& operator>>(ByteBuffer& buf, Position::PositionXYZStreamer const& streamer);
-ByteBuffer& operator<<(ByteBuffer& buf, Position::PositionXYZOStreamer const& streamer);
-ByteBuffer& operator>>(ByteBuffer& buf, Position::PositionXYZOStreamer const& streamer);
+TC_GAME_API ByteBuffer& operator<<(ByteBuffer& buf, Position::PositionXYStreamer const& streamer);
+TC_GAME_API ByteBuffer& operator>>(ByteBuffer& buf, Position::PositionXYStreamer const& streamer);
+TC_GAME_API ByteBuffer& operator<<(ByteBuffer& buf, Position::PositionXYZStreamer const& streamer);
+TC_GAME_API ByteBuffer& operator>>(ByteBuffer& buf, Position::PositionXYZStreamer const& streamer);
+TC_GAME_API ByteBuffer& operator<<(ByteBuffer& buf, Position::PositionXYZOStreamer const& streamer);
+TC_GAME_API ByteBuffer& operator>>(ByteBuffer& buf, Position::PositionXYZOStreamer const& streamer);
 
 #endif // Trinity_game_Position_h__

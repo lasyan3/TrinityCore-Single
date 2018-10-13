@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2015 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2017 TrinityCore <http://www.trinitycore.org/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -35,7 +35,7 @@ enum ConnectionFlags
     CONNECTION_BOTH = CONNECTION_ASYNC | CONNECTION_SYNCH
 };
 
-struct MySQLConnectionInfo
+struct TC_DATABASE_API MySQLConnectionInfo
 {
     explicit MySQLConnectionInfo(std::string const& infoString)
     {
@@ -60,9 +60,7 @@ struct MySQLConnectionInfo
     std::string port_or_socket;
 };
 
-typedef std::map<uint32 /*index*/, std::pair<std::string /*query*/, ConnectionFlags /*sync/async*/> > PreparedStatementMap;
-
-class MySQLConnection
+class TC_DATABASE_API MySQLConnection
 {
     template <class T> friend class DatabaseWorkerPool;
     friend class PingOperation;
@@ -111,23 +109,24 @@ class MySQLConnection
 
         MYSQL* GetHandle()  { return m_Mysql; }
         MySQLPreparedStatement* GetPreparedStatement(uint32 index);
-        void PrepareStatement(uint32 index, const char* sql, ConnectionFlags flags);
+        void PrepareStatement(uint32 index, std::string const& sql, ConnectionFlags flags);
 
         virtual void DoPrepareStatements() = 0;
 
     protected:
-        std::vector<MySQLPreparedStatement*> m_stmts;         //! PreparedStatements storage
-        PreparedStatementMap                 m_queries;       //! Query storage
+        typedef std::vector<std::unique_ptr<MySQLPreparedStatement>> PreparedStatementContainer;
+
+        PreparedStatementContainer           m_stmts;         //! PreparedStatements storage
         bool                                 m_reconnecting;  //! Are we reconnecting?
         bool                                 m_prepareError;  //! Was there any error while preparing statements?
 
     private:
-        bool _HandleMySQLErrno(uint32 errNo);
+        bool _HandleMySQLErrno(uint32 errNo, uint8 attempts = 5);
 
     private:
         ProducerConsumerQueue<SQLOperation*>* m_queue;      //! Queue shared with other asynchronous connections.
-        DatabaseWorker*       m_worker;                     //! Core worker task.
-        MYSQL *               m_Mysql;                      //! MySQL Handle.
+        std::unique_ptr<DatabaseWorker> m_worker;           //! Core worker task.
+        MYSQL*                m_Mysql;                      //! MySQL Handle.
         MySQLConnectionInfo&  m_connectionInfo;             //! Connection info (used for logging)
         ConnectionFlags       m_connectionFlags;            //! Connection flags (for preparing relevant statements)
         std::mutex            m_Mutex;

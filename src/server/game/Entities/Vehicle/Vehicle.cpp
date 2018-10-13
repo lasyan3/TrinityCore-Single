@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2015 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2017 TrinityCore <http://www.trinitycore.org/>
  * Copyright (C) 2005-2009 MaNGOS <http://getmangos.com/>
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -181,6 +181,7 @@ void Vehicle::ApplyAllImmunities()
         _me->ApplySpellImmune(0, IMMUNITY_STATE, SPELL_AURA_SCHOOL_IMMUNITY, true);
         _me->ApplySpellImmune(0, IMMUNITY_STATE, SPELL_AURA_MOD_UNATTACKABLE, true);
         _me->ApplySpellImmune(0, IMMUNITY_STATE, SPELL_AURA_SCHOOL_ABSORB, true);
+        _me->ApplySpellImmune(0, IMMUNITY_MECHANIC, MECHANIC_BANISH, true);
         _me->ApplySpellImmune(0, IMMUNITY_MECHANIC, MECHANIC_SHIELD, true);
         _me->ApplySpellImmune(0, IMMUNITY_MECHANIC, MECHANIC_IMMUNE_SHIELD, true);
 
@@ -211,6 +212,11 @@ void Vehicle::ApplyAllImmunities()
             // why we need to apply this? we can simple add immunities to slow mechanic in DB
             _me->ApplySpellImmune(0, IMMUNITY_STATE, SPELL_AURA_MOD_DECREASE_SPEED, true);
             break;
+        case 335: // Salvaged Chopper
+        case 336: // Salvaged Siege Engine
+        case 338: // Salvaged Demolisher
+            _me->ApplySpellImmune(0, IMMUNITY_STATE, SPELL_AURA_MOD_DAMAGE_PERCENT_TAKEN, false); // Battering Ram
+            break;
         default:
             break;
     }
@@ -238,7 +244,7 @@ void Vehicle::RemoveAllPassengers()
         while (!_pendingJoinEvents.empty())
         {
             VehicleJoinEvent* e = _pendingJoinEvents.front();
-            e->to_Abort = true;
+            e->ScheduleAbort();
             e->Target = eventVehicle;
             _pendingJoinEvents.pop_front();
         }
@@ -429,7 +435,7 @@ bool Vehicle::AddPassenger(Unit* unit, int8 seatId)
 
         if (seat == Seats.end()) // no available seat
         {
-            e->to_Abort = true;
+            e->ScheduleAbort();
             return false;
         }
 
@@ -441,7 +447,7 @@ bool Vehicle::AddPassenger(Unit* unit, int8 seatId)
         seat = Seats.find(seatId);
         if (seat == Seats.end())
         {
-            e->to_Abort = true;
+            e->ScheduleAbort();
             return false;
         }
 
@@ -532,6 +538,9 @@ void Vehicle::RelocatePassengers()
 {
     ASSERT(_me->GetMap());
 
+    std::vector<std::pair<Unit*, Position>> seatRelocation;
+    seatRelocation.reserve(Seats.size());
+
     // not sure that absolute position calculation is correct, it must depend on vehicle pitch angle
     for (SeatMap::const_iterator itr = Seats.begin(); itr != Seats.end(); ++itr)
     {
@@ -542,9 +551,12 @@ void Vehicle::RelocatePassengers()
             float px, py, pz, po;
             passenger->m_movementInfo.transport.pos.GetPosition(px, py, pz, po);
             CalculatePassengerPosition(px, py, pz, &po);
-            passenger->UpdatePosition(px, py, pz, po);
+            seatRelocation.emplace_back(passenger, Position(px, py, pz, po));
         }
     }
+
+    for (auto const& pair : seatRelocation)
+        pair.first->UpdatePosition(pair.second);
 }
 
 /**
@@ -701,7 +713,7 @@ void Vehicle::RemovePendingEventsForSeat(int8 seatId)
     {
         if ((*itr)->Seat->first == seatId)
         {
-            (*itr)->to_Abort = true;
+            (*itr)->ScheduleAbort();
             _pendingJoinEvents.erase(itr++);
         }
         else
@@ -726,18 +738,12 @@ void Vehicle::RemovePendingEventsForPassenger(Unit* passenger)
     {
         if ((*itr)->Passenger == passenger)
         {
-            (*itr)->to_Abort = true;
+            (*itr)->ScheduleAbort();
             _pendingJoinEvents.erase(itr++);
         }
         else
             ++itr;
     }
-}
-
-VehicleJoinEvent::~VehicleJoinEvent()
-{
-    if (Target)
-        Target->RemovePendingEvent(this);
 }
 
 /**
@@ -856,6 +862,9 @@ void VehicleJoinEvent::Abort(uint64)
     {
         TC_LOG_DEBUG("entities.vehicle", "Passenger GuidLow: %u, Entry: %u, board on vehicle GuidLow: %u, Entry: %u SeatId: %d cancelled",
             Passenger->GetGUID().GetCounter(), Passenger->GetEntry(), Target->GetBase()->GetGUID().GetCounter(), Target->GetBase()->GetEntry(), (int32)Seat->first);
+
+        /// Remove the pending event when Abort was called on the event directly
+        Target->RemovePendingEvent(this);
 
         /// @SPELL_AURA_CONTROL_VEHICLE auras can be applied even when the passenger is not (yet) on the vehicle.
         /// When this code is triggered it means that something went wrong in @Vehicle::AddPassenger, and we should remove

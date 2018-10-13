@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2015 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2017 TrinityCore <http://www.trinitycore.org/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -39,7 +39,7 @@ enum BWLEncounter
     DATA_LORD_VICTOR_NEFARIUS   = 8
 };
 
-enum CreatureIds
+enum BWLCreatureIds
 {
     NPC_RAZORGORE               = 12435,
     NPC_BLACKWING_DRAGON        = 12422,
@@ -56,10 +56,10 @@ enum CreatureIds
     NPC_NEFARIAN                = 11583
 };
 
-enum GameObjectIds
+enum BWLGameObjectIds
 {
     GO_BLACK_DRAGON_EGG         = 177807,
-    GO_BOSSGATE01               = 175946,
+    GO_PORTCULLIS               = 176965,
     GO_DRAKE_RIDER_PORTCULLIS   = 175185,
     GO_ALTERAC_VALLEY_GATE      = 180424,
     GO_GATE                     = 185483,

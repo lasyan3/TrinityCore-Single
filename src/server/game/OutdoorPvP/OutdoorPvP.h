@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2015 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2017 TrinityCore <http://www.trinitycore.org/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -84,7 +84,7 @@ class Unit;
 struct GossipMenuItems;
 class OutdoorPvP;
 
-class OPvPCapturePoint
+class TC_GAME_API OPvPCapturePoint
 {
     public:
 
@@ -185,7 +185,7 @@ class OPvPCapturePoint
 };
 
 // base class for specific outdoor pvp handlers
-class OutdoorPvP : public ZoneScript
+class TC_GAME_API OutdoorPvP : public ZoneScript
 {
     friend class OutdoorPvPMgr;
 
@@ -308,12 +308,12 @@ class OutdoorPvP : public ZoneScript
 
         template<class Worker>
         void BroadcastWorker(Worker& _worker, uint32 zoneId);
-        
+
         // Hack to store map because this code is just shit
         void SetMapFromZone(uint32 zone);
         std::map<ObjectGuid::LowType, GameObject*> m_GoScriptStore;
         std::map<ObjectGuid::LowType, Creature*> m_CreatureScriptStore;
-        
+
         Map* m_map;
 };
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2015 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2017 TrinityCore <http://www.trinitycore.org/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -20,27 +20,28 @@
 
 #define DataHeader "DM"
 
-enum CannonState
+enum DMCannonState
 {
     CANNON_NOT_USED,
     CANNON_GUNPOWDER_USED,
     CANNON_BLAST_INITIATED,
     PIRATES_ATTACK,
+    SMITE_ALARMED,
     EVENT_DONE
 };
 
-enum Data
+enum DMData
 {
     EVENT_STATE,
     EVENT_RHAHKZOR
 };
 
-enum Data64
+enum DMData64
 {
     DATA_SMITE_CHEST
 };
 
-enum GameObjects
+enum DMGameObjects
 {
     GO_FACTORY_DOOR                                        = 13965,
     GO_IRONCLAD_DOOR                                       = 16397,
@@ -48,4 +49,16 @@ enum GameObjects
     GO_DOOR_LEVER                                          = 101833,
     GO_MR_SMITE_CHEST                                      = 144111
 };
+
+enum DMCreaturesIds
+{
+    NPC_MR_SMITE   = 646
+};
+
+enum DMInstanceTexts
+{
+    SAY_ALARM1 = 0,
+    SAY_ALARM2 = 1
+};
+
 #endif

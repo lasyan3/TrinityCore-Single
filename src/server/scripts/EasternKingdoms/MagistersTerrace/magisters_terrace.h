@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2015 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2017 TrinityCore <http://www.trinitycore.org/>
  * Copyright (C) 2006-2009 ScriptDev2 <https://scriptdev2.svn.sourceforge.net/>
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -23,7 +23,7 @@
 
 uint32 const EncounterCount = 4;
 
-enum DataTypes
+enum MTDataTypes
 {
     DATA_SELIN,
     DATA_VEXALLUS,
@@ -38,14 +38,16 @@ enum DataTypes
     DATA_ESCAPE_ORB
 };
 
-enum CreatureIds
+enum MTCreatureIds
 {
     NPC_SELIN               = 24723,
     NPC_DELRISSA            = 24560,
-    NPC_FEL_CRYSTAL         = 24722
+    NPC_FEL_CRYSTAL         = 24722,
+    NPC_KALECGOS            = 24844,
+    NPC_HUMAN_KALECGOS      = 24848
 };
 
-enum GameObjectIds
+enum MTGameObjectIds
 {
     GO_VEXALLUS_DOOR        = 187896,
     GO_SELIN_DOOR           = 187979,
@@ -55,6 +57,21 @@ enum GameObjectIds
     GO_KAEL_STATUE_1        = 188165,
     GO_KAEL_STATUE_2        = 188166,
     GO_ESCAPE_ORB           = 188173
+};
+
+enum MTInstanceEventIds
+{
+    EVENT_SPAWN_KALECGOS    = 16547
+};
+
+enum MTInstanceText
+{
+    SAY_KALECGOS_SPAWN      = 0
+};
+
+enum MTMovementData
+{
+    PATH_KALECGOS_FLIGHT    = 248440
 };
 
 #endif

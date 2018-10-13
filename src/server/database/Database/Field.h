@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2015 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2017 TrinityCore <http://www.trinitycore.org/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -53,7 +53,7 @@
     | SUM, AVG | DECIMAL           |
     | COUNT    | BIGINT            |
 */
-class Field
+class TC_DATABASE_API Field
 {
     friend class ResultSet;
     friend class PreparedResultSet;
@@ -271,7 +271,6 @@ class Field
             }
             #endif
             return static_cast<char const*>(data.value);
-
         }
 
         std::string GetString() const
@@ -284,6 +283,17 @@ class Field
                 return "";
 
             return std::string(string, data.length);
+        }
+
+        std::vector<uint8> GetBinary() const
+        {
+            std::vector<uint8> result;
+            if (!data.value || !data.length)
+                return result;
+
+            result.resize(data.length);
+            memcpy(result.data(), data.value, data.length);
+            return result;
         }
 
         bool IsNull() const
@@ -313,7 +323,7 @@ class Field
         #pragma pack(pop)
 
         void SetByteValue(void* newValue, enum_field_types newType, uint32 length);
-        void SetStructuredValue(char* newValue, enum_field_types newType);
+        void SetStructuredValue(char* newValue, enum_field_types newType, uint32 length);
 
         void CleanUp()
         {
@@ -323,7 +333,7 @@ class Field
             data.value = NULL;
         }
 
-        static size_t SizeForType(MYSQL_FIELD* field)
+        static uint32 SizeForType(MYSQL_FIELD* field)
         {
             switch (field->type)
             {

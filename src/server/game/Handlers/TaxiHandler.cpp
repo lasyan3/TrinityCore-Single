@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2015 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2017 TrinityCore <http://www.trinitycore.org/>
  * Copyright (C) 2005-2009 MaNGOS <http://getmangos.com/>
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -58,7 +58,6 @@ void WorldSession::SendTaxiStatus(ObjectGuid guid)
     data << guid;
     data << uint8(GetPlayer()->m_taxi.IsTaximaskNodeKnown(curloc) ? 1 : 0);
     SendPacket(&data);
-    TC_LOG_DEBUG("network", "WORLD: Sent SMSG_TAXINODE_STATUS");
 }
 
 void WorldSession::HandleTaxiQueryAvailableNodes(WorldPacket& recvData)
@@ -174,6 +173,7 @@ void WorldSession::HandleActivateTaxiExpressOpcode (WorldPacket& recvData)
     if (!npc)
     {
         TC_LOG_DEBUG("network", "WORLD: HandleActivateTaxiExpressOpcode - %s not found or you can't interact with it.", guid.ToString().c_str());
+        SendActivateTaxiReply(ERR_TAXITOOFARAWAY);
         return;
     }
     std::vector<uint32> nodes;
@@ -266,6 +266,7 @@ void WorldSession::HandleActivateTaxiOpcode(WorldPacket& recvData)
     if (!npc)
     {
         TC_LOG_DEBUG("network", "WORLD: HandleActivateTaxiOpcode - %s not found or you can't interact with it.", guid.ToString().c_str());
+        SendActivateTaxiReply(ERR_TAXITOOFARAWAY);
         return;
     }
 
@@ -286,6 +287,4 @@ void WorldSession::SendActivateTaxiReply(ActivateTaxiReply reply)
     WorldPacket data(SMSG_ACTIVATETAXIREPLY, 4);
     data << uint32(reply);
     SendPacket(&data);
-
-    TC_LOG_DEBUG("network", "WORLD: Sent SMSG_ACTIVATETAXIREPLY");
 }

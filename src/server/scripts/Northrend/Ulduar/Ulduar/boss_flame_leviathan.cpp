@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2015 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2017 TrinityCore <http://www.trinitycore.org/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -334,7 +334,8 @@ class boss_flame_leviathan : public CreatureScript
             void SpellHit(Unit* /*caster*/, SpellInfo const* spell) override
             {
                 if (spell->Id == SPELL_START_THE_ENGINE)
-                    ASSERT_NOTNULL(me->GetVehicleKit())->InstallAllAccessories(false);
+                    if (Vehicle* vehicleKit = me->GetVehicleKit())
+                        vehicleKit->InstallAllAccessories(false);
 
                 if (spell->Id == SPELL_ELECTROSHOCK)
                     me->InterruptSpell(CURRENT_CHANNELED_SPELL);
@@ -369,7 +370,7 @@ class boss_flame_leviathan : public CreatureScript
 
             void UpdateAI(uint32 diff) override
             {
-                if (!UpdateVictim() || !CheckInRoom())
+                if (!UpdateVictim())
                     return;
 
                 events.Update(diff);
@@ -461,6 +462,9 @@ class boss_flame_leviathan : public CreatureScript
                             events.CancelEvent(EVENT_FREYA_S_WARD);
                             break;
                     }
+
+                    if (me->HasUnitState(UNIT_STATE_CASTING))
+                        return;
                 }
 
                 DoBatteringRamIfReady();
@@ -632,7 +636,7 @@ class boss_flame_leviathan_seat : public CreatureScript
 
         CreatureAI* GetAI(Creature* creature) const override
         {
-            return GetInstanceAI<boss_flame_leviathan_seatAI>(creature);
+            return GetUlduarAI<boss_flame_leviathan_seatAI>(creature);
         }
 };
 
@@ -688,7 +692,7 @@ class boss_flame_leviathan_defense_cannon : public CreatureScript
 
         CreatureAI* GetAI(Creature* creature) const override
         {
-            return new boss_flame_leviathan_defense_cannonAI(creature);
+            return GetUlduarAI<boss_flame_leviathan_defense_cannonAI>(creature);
         }
 };
 
@@ -717,7 +721,7 @@ class boss_flame_leviathan_defense_turret : public CreatureScript
 
         CreatureAI* GetAI(Creature* creature) const override
         {
-            return new boss_flame_leviathan_defense_turretAI(creature);
+            return GetUlduarAI<boss_flame_leviathan_defense_turretAI>(creature);
         }
 };
 
@@ -754,7 +758,7 @@ class boss_flame_leviathan_overload_device : public CreatureScript
 
         CreatureAI* GetAI(Creature* creature) const override
         {
-            return new boss_flame_leviathan_overload_deviceAI(creature);
+            return GetUlduarAI<boss_flame_leviathan_overload_deviceAI>(creature);
         }
 };
 
@@ -785,7 +789,7 @@ class boss_flame_leviathan_safety_container : public CreatureScript
 
         CreatureAI* GetAI(Creature* creature) const override
         {
-            return new boss_flame_leviathan_safety_containerAI(creature);
+            return GetUlduarAI<boss_flame_leviathan_safety_containerAI>(creature);
         }
 };
 
@@ -854,7 +858,7 @@ class npc_mechanolift : public CreatureScript
 
         CreatureAI* GetAI(Creature* creature) const override
         {
-            return new npc_mechanoliftAI(creature);
+            return GetUlduarAI<npc_mechanoliftAI>(creature);
         }
 };
 
@@ -888,7 +892,7 @@ class npc_pool_of_tar : public CreatureScript
 
         CreatureAI* GetAI(Creature* creature) const override
         {
-            return new npc_pool_of_tarAI(creature);
+            return GetUlduarAI<npc_pool_of_tarAI>(creature);
         }
 };
 
@@ -923,7 +927,7 @@ class npc_colossus : public CreatureScript
 
         CreatureAI* GetAI(Creature* creature) const override
         {
-            return GetInstanceAI<npc_colossusAI>(creature);
+            return GetUlduarAI<npc_colossusAI>(creature);
         }
 };
 
@@ -961,7 +965,7 @@ class npc_thorims_hammer : public CreatureScript
 
         CreatureAI* GetAI(Creature* creature) const override
         {
-            return new npc_thorims_hammerAI(creature);
+            return GetUlduarAI<npc_thorims_hammerAI>(creature);
         }
 };
 
@@ -969,11 +973,6 @@ class npc_mimirons_inferno : public CreatureScript
 {
 public:
     npc_mimirons_inferno() : CreatureScript("npc_mimirons_inferno") { }
-
-    CreatureAI* GetAI(Creature* creature) const override
-    {
-        return new npc_mimirons_infernoAI(creature);
-    }
 
     struct npc_mimirons_infernoAI : public npc_escortAI
     {
@@ -1027,6 +1026,10 @@ public:
         }
     };
 
+    CreatureAI* GetAI(Creature* creature) const override
+    {
+        return GetUlduarAI<npc_mimirons_infernoAI>(creature);
+    }
 };
 
 class npc_hodirs_fury : public CreatureScript
@@ -1063,7 +1066,7 @@ class npc_hodirs_fury : public CreatureScript
 
         CreatureAI* GetAI(Creature* creature) const override
         {
-            return new npc_hodirs_furyAI(creature);
+            return GetUlduarAI<npc_hodirs_furyAI>(creature);
         }
 };
 
@@ -1112,7 +1115,7 @@ class npc_freyas_ward : public CreatureScript
 
         CreatureAI* GetAI(Creature* creature) const override
         {
-            return new npc_freyas_wardAI(creature);
+            return GetUlduarAI<npc_freyas_wardAI>(creature);
         }
 };
 
@@ -1160,7 +1163,7 @@ class npc_freya_ward_summon : public CreatureScript
 
         CreatureAI* GetAI(Creature* creature) const override
         {
-            return new npc_freya_ward_summonAI(creature);
+            return GetUlduarAI<npc_freya_ward_summonAI>(creature);
         }
 };
 
@@ -1186,6 +1189,7 @@ class npc_brann_bronzebeard_ulduar_intro : public CreatureScript
             {
                 if (menuId == GOSSIP_MENU_BRANN_BRONZEBEARD && gossipListId == GOSSIP_OPTION_BRANN_BRONZEBEARD)
                 {
+                    me->RemoveFlag(UNIT_NPC_FLAGS, UNIT_NPC_FLAG_GOSSIP);
                     player->PlayerTalkClass->SendCloseGossip();
                     if (Creature* loreKeeper = _instance->GetCreature(DATA_LORE_KEEPER_OF_NORGANNON))
                         loreKeeper->RemoveFlag(UNIT_NPC_FLAGS, UNIT_NPC_FLAG_GOSSIP);
@@ -1238,10 +1242,11 @@ class npc_lorekeeper : public CreatureScript
             {
                 if (menuId == GOSSIP_MENU_LORE_KEEPER && gossipListId == GOSSIP_OPTION_LORE_KEEPER)
                 {
+                    me->RemoveFlag(UNIT_NPC_FLAGS, UNIT_NPC_FLAG_GOSSIP);
                     player->PlayerTalkClass->SendCloseGossip();
                     _instance->instance->LoadGrid(364, -16); // make sure leviathan is loaded
 
-                    if (Creature* leviathan = _instance->instance->GetCreature(_instance->GetGuidData(BOSS_LEVIATHAN)))
+                    if (Creature* leviathan = _instance->GetCreature(BOSS_LEVIATHAN))
                     {
                         leviathan->AI()->DoAction(ACTION_START_HARD_MODE);
                         me->SetVisible(false);
@@ -1250,6 +1255,7 @@ class npc_lorekeeper : public CreatureScript
                         {
                             if (Creature* brann = _instance->GetCreature(DATA_BRANN_BRONZEBEARD_INTRO))
                             {
+                                brann->RemoveFlag(UNIT_NPC_FLAGS, UNIT_NPC_FLAG_GOSSIP);
                                 delorah->GetMotionMaster()->MovePoint(0, brann->GetPositionX() - 4, brann->GetPositionY(), brann->GetPositionZ());
                                 /// @todo delorah->AI()->Talk(xxxx, brann->GetGUID()); when reached at branz
                             }
@@ -1264,7 +1270,7 @@ class npc_lorekeeper : public CreatureScript
 
         CreatureAI* GetAI(Creature* creature) const override
         {
-            return new npc_lorekeeperAI(creature);
+            return GetUlduarAI<npc_lorekeeperAI>(creature);
         }
 };
 
@@ -1765,9 +1771,7 @@ class spell_vehicle_throw_passenger : public SpellScriptLoader
                             else
                             {
                                 passenger->ExitVehicle();
-                                float x, y, z;
-                                targets.GetDstPos()->GetPosition(x, y, z);
-                                passenger->GetMotionMaster()->MoveJump(x, y, z, targets.GetSpeedXY(), targets.GetSpeedZ());
+                                passenger->GetMotionMaster()->MoveJump(*targets.GetDstPos(), targets.GetSpeedXY(), targets.GetSpeedZ());
                             }
                         }
             }

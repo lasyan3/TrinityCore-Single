@@ -906,6 +906,7 @@ class TC_GAME_API ObjectMgr
         static ObjectMgr* instance();
 
         typedef std::unordered_map<uint32, Quest> QuestContainer;
+        typedef std::unordered_map<uint32, Quest*> QuestMap;
 
         typedef std::unordered_map<uint32, AreaTrigger> AreaTriggerContainer;
 

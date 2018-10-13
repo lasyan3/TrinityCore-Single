@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2015 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2017 TrinityCore <http://www.trinitycore.org/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -28,6 +28,7 @@
 #include "DBCStores.h"
 #include "Item.h"
 #include "AccountMgr.h"
+#include "CharacterCache.h"
 
 bool WorldSession::CanOpenMailBox(ObjectGuid guid)
 {
@@ -35,7 +36,7 @@ bool WorldSession::CanOpenMailBox(ObjectGuid guid)
     {
         if (!HasPermission(rbac::RBAC_PERM_COMMAND_MAILBOX))
         {
-            TC_LOG_WARN("cheat", "%s attempt open mailbox in cheating way.", _player->GetName().c_str());
+            TC_LOG_WARN("cheat", "%s attempted to open mailbox by using a cheat.", _player->GetName().c_str());
             return false;
         }
     }
@@ -104,11 +105,11 @@ void WorldSession::HandleSendMail(WorldPacket& recvData)
 
     ObjectGuid receiverGuid;
     if (normalizePlayerName(receiverName))
-        receiverGuid = sObjectMgr->GetPlayerGUIDByName(receiverName);
+        receiverGuid = sCharacterCache->GetCharacterGuidByName(receiverName);
 
     if (!receiverGuid)
     {
-        TC_LOG_INFO("network", "Player %u is sending mail to %s (GUID: not existed!) with subject %s "
+        TC_LOG_INFO("network", "Player %u is sending mail to %s (GUID: non-existing!) with subject %s "
             "and body %s includes %u items, %u copper and %u COD copper with unk1 = %u, unk2 = %u",
             player->GetGUID().GetCounter(), receiverName.c_str(), subject.c_str(), body.c_str(),
             items_count, money, COD, stationery, package);
@@ -117,7 +118,7 @@ void WorldSession::HandleSendMail(WorldPacket& recvData)
     }
 
     TC_LOG_INFO("network", "Player %u is sending mail to %s (%s) with subject %s and body %s "
-        "includes %u items, %u copper and %u COD copper with unk1 = %u, unk2 = %u",
+        "including %u items, %u copper and %u COD copper with unk1 = %u, unk2 = %u",
         player->GetGUID().GetCounter(), receiverName.c_str(), receiverGuid.ToString().c_str(), subject.c_str(),
         body.c_str(), items_count, money, COD, stationery, package);
 
@@ -160,7 +161,12 @@ void WorldSession::HandleSendMail(WorldPacket& recvData)
     }
     else
     {
-        receiverTeam = sObjectMgr->GetPlayerTeamByGUID(receiverGuid);
+        if (CharacterCacheEntry const* characterInfo = sCharacterCache->GetCharacterCacheByGuid(receiverGuid))
+        {
+            receiverTeam = Player::TeamForRace(characterInfo->Race);
+            receiverLevel = characterInfo->Level;
+            receiverAccountId = characterInfo->AccountId;
+        }
 
         PreparedStatement* stmt = CharacterDatabase.GetPreparedStatement(CHAR_SEL_MAIL_COUNT);
         stmt->setUInt32(0, receiverGuid.GetCounter());
@@ -171,18 +177,6 @@ void WorldSession::HandleSendMail(WorldPacket& recvData)
             Field* fields = result->Fetch();
             mailsCount = fields[0].GetUInt64();
         }
-
-        stmt = CharacterDatabase.GetPreparedStatement(CHAR_SEL_CHAR_LEVEL);
-        stmt->setUInt32(0, receiverGuid.GetCounter());
-
-        result = CharacterDatabase.Query(stmt);
-        if (result)
-        {
-            Field* fields = result->Fetch();
-            receiverLevel = fields[0].GetUInt8();
-        }
-
-        receiverAccountId = sObjectMgr->GetPlayerAccountIdByGUID(receiverGuid);
     }
 
     // do not allow to have more than 100 mails in mailbox.. mails count is in opcode uint8!!! - so max can be 255..
@@ -199,7 +193,7 @@ void WorldSession::HandleSendMail(WorldPacket& recvData)
         if (Item* item = player->GetItemByGuid(itemGUIDs[i]))
         {
             ItemTemplate const* itemProto = item->GetTemplate();
-            if (!itemProto || !(itemProto->Flags & ITEM_PROTO_FLAG_BIND_TO_ACCOUNT))
+            if (!itemProto || !(itemProto->Flags & ITEM_FLAG_IS_BOUND_TO_ACCOUNT))
             {
                 accountBound = false;
                 break;
@@ -250,13 +244,13 @@ void WorldSession::HandleSendMail(WorldPacket& recvData)
             return;
         }
 
-        if (item->GetTemplate()->Flags & ITEM_PROTO_FLAG_CONJURED || item->GetUInt32Value(ITEM_FIELD_DURATION))
+        if ((item->GetTemplate()->Flags & ITEM_FLAG_CONJURED) || item->GetUInt32Value(ITEM_FIELD_DURATION))
         {
             player->SendMailResult(0, MAIL_SEND, MAIL_ERR_EQUIP_ERROR, EQUIP_ERR_MAIL_BOUND_ITEM);
             return;
         }
 
-        if (COD && item->HasFlag(ITEM_FIELD_FLAGS, ITEM_FLAG_WRAPPED))
+        if (COD && item->HasFlag(ITEM_FIELD_FLAGS, ITEM_FIELD_FLAG_WRAPPED))
         {
             player->SendMailResult(0, MAIL_SEND, MAIL_ERR_CANT_SEND_WRAPPED_COD);
             return;
@@ -515,16 +509,16 @@ void WorldSession::HandleMailTakeItem(WorldPacket& recvData)
                 else
                 {
                     // can be calculated early
-                    sender_accId = sObjectMgr->GetPlayerAccountIdByGUID(sender_guid);
+                    sender_accId = sCharacterCache->GetCharacterAccountIdByGuid(sender_guid);
 
-                    if (!sObjectMgr->GetPlayerNameByGUID(sender_guid, sender_name))
+                    if (!sCharacterCache->GetCharacterNameByGuid(sender_guid, sender_name))
                         sender_name = sObjectMgr->GetTrinityStringForDBCLocale(LANG_UNKNOWN);
                 }
                 sLog->outCommand(GetAccountId(), "GM %s (Account: %u) receiver mail item: %s (Entry: %u Count: %u) and send COD money: %u to player: %s (Account: %u)",
                     GetPlayerName().c_str(), GetAccountId(), it->GetTemplate()->Name1.c_str(), it->GetEntry(), it->GetCount(), m->COD, sender_name.c_str(), sender_accId);
             }
             else if (!receiver)
-                sender_accId = sObjectMgr->GetPlayerAccountIdByGUID(sender_guid);
+                sender_accId = sCharacterCache->GetCharacterAccountIdByGuid(sender_guid);
 
             // check player existence
             if (receiver || sender_accId)
@@ -745,12 +739,7 @@ void WorldSession::HandleMailCreateTextItem(WorldPacket& recvData)
     if (m->mailTemplateId)
     {
         MailTemplateEntry const* mailTemplateEntry = sMailTemplateStore.LookupEntry(m->mailTemplateId);
-        if (!mailTemplateEntry)
-        {
-            player->SendMailResult(mailId, MAIL_MADE_PERMANENT, MAIL_ERR_INTERNAL_ERROR);
-            return;
-        }
-
+        ASSERT(mailTemplateEntry);
         bodyItem->SetText(mailTemplateEntry->content[GetSessionDbcLocale()]);
     }
     else

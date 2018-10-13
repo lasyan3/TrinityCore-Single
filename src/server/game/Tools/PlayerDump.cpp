@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2015 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2017 TrinityCore <http://www.trinitycore.org/>
  * Copyright (C) 2005-2009 MaNGOS <http://getmangos.com/>
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -23,16 +23,17 @@
 #include "ObjectMgr.h"
 #include "Player.h"
 #include "AccountMgr.h"
+#include "CharacterCache.h"
 #include "World.h"
 
-#define DUMP_TABLE_COUNT 27
+#define DUMP_TABLE_COUNT 32
 struct DumpTable
 {
     char const* name;
     DumpTableType type;
 };
 
-static DumpTable dumpTables[DUMP_TABLE_COUNT] =
+DumpTable const dumpTables[DUMP_TABLE_COUNT] =
 {
     { "characters",                       DTT_CHARACTER  },
     { "character_account_data",           DTT_CHAR_TABLE },
@@ -42,12 +43,17 @@ static DumpTable dumpTables[DUMP_TABLE_COUNT] =
     { "character_aura",                   DTT_CHAR_TABLE },
     { "character_declinedname",           DTT_CHAR_TABLE },
     { "character_equipmentsets",          DTT_EQSET_TABLE},
+    { "character_fishingsteps",           DTT_CHAR_TABLE },
     { "character_glyphs",                 DTT_CHAR_TABLE },
     { "character_homebind",               DTT_CHAR_TABLE },
     { "character_inventory",              DTT_INVENTORY  },
     { "character_pet",                    DTT_PET        },
     { "character_pet_declinedname",       DTT_PET        },
     { "character_queststatus",            DTT_CHAR_TABLE },
+    { "character_queststatus_daily",      DTT_CHAR_TABLE },
+    { "character_queststatus_weekly",     DTT_CHAR_TABLE },
+    { "character_queststatus_monthly",    DTT_CHAR_TABLE },
+    { "character_queststatus_seasonal",   DTT_CHAR_TABLE },
     { "character_queststatus_rewarded",   DTT_CHAR_TABLE },
     { "character_reputation",             DTT_CHAR_TABLE },
     { "character_skills",                 DTT_CHAR_TABLE },
@@ -315,10 +321,10 @@ bool PlayerDumpWriter::DumpTable(std::string& dump, ObjectGuid::LowType guid, ch
                     break;
                 case DTT_CHARACTER:
                 {
-                    if (result->GetFieldCount() <= 68)          // avoid crashes on next check
+                    if (result->GetFieldCount() <= 73)          // avoid crashes on next check
                         TC_LOG_FATAL("misc", "PlayerDumpWriter::DumpTable - Trying to access non-existing or wrong positioned field (`deleteInfos_Account`) in `characters` table.");
 
-                    if (result->Fetch()[68].GetUInt32())        // characters.deleteInfos_Account - if filled error
+                    if (result->Fetch()[73].GetUInt32())        // characters.deleteInfos_Account - if filled error
                         return false;
                     break;
                 }
@@ -353,7 +359,7 @@ bool PlayerDumpWriter::GetDump(ObjectGuid::LowType guid, std::string &dump)
 DumpReturn PlayerDumpWriter::WriteDump(const std::string& file, ObjectGuid::LowType guid)
 {
     if (sWorld->getBoolConfig(CONFIG_PDUMP_NO_PATHS))
-        if (strstr(file.c_str(), "\\") || strstr(file.c_str(), "/"))
+        if (strchr(file.c_str(), '\\') || strchr(file.c_str(), '/'))
             return DUMP_FILE_OPEN_ERROR;
 
     if (sWorld->getBoolConfig(CONFIG_PDUMP_NO_OVERWRITE))
@@ -549,11 +555,11 @@ DumpReturn PlayerDumpReader::LoadDump(std::string const& file, uint32 account, s
                     ROLLBACK(DUMP_FILE_BROKEN);
 
                 const char null[5] = "NULL";
-                if (!ChangeNth(line, 69, null))             // characters.deleteInfos_Account
+                if (!ChangeNth(line, 74, null))             // characters.deleteInfos_Account
                     ROLLBACK(DUMP_FILE_BROKEN);
-                if (!ChangeNth(line, 70, null))             // characters.deleteInfos_Name
+                if (!ChangeNth(line, 75, null))             // characters.deleteInfos_Name
                     ROLLBACK(DUMP_FILE_BROKEN);
-                if (!ChangeNth(line, 71, null))             // characters.deleteDate
+                if (!ChangeNth(line, 76, null))             // characters.deleteDate
                     ROLLBACK(DUMP_FILE_BROKEN);
                 break;
             }
@@ -672,7 +678,7 @@ DumpReturn PlayerDumpReader::LoadDump(std::string const& file, uint32 account, s
     CharacterDatabase.CommitTransaction(trans);
 
     // in case of name conflict player has to rename at login anyway
-    sWorld->AddCharacterInfo(ObjectGuid(HighGuid::Player, guid), account, name, gender, race, playerClass, level);
+    sCharacterCache->AddCharacterCacheEntry(ObjectGuid(HighGuid::Player, guid), account, name, gender, race, playerClass, level);
 
     sObjectMgr->GetGenerator<HighGuid::Item>().Set(sObjectMgr->GetGenerator<HighGuid::Item>().GetNextAfterMaxUsed() + items.size());
 

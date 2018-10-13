@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2015 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2017 TrinityCore <http://www.trinitycore.org/>
  * Copyright (C) 2006-2009 ScriptDev2 <https://scriptdev2.svn.sourceforge.net/>
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -31,7 +31,6 @@ npc_khunok_the_behemoth
 npc_nerubar_victim
 npc_nesingwary_trapper
 npc_lurgglbr
-npc_nexus_drake_hatchling
 EndContentData */
 
 #include "ScriptMgr.h"
@@ -43,6 +42,7 @@ EndContentData */
 #include "SpellInfo.h"
 #include "WorldSession.h"
 #include "SpellScript.h"
+#include "SpellAuraEffects.h"
 
 /*######
 ## npc_sinkhole_kill_credit
@@ -247,18 +247,18 @@ public:
             player->PrepareQuestMenu(creature->GetGUID());
 
         if (player->GetQuestStatus(QUEST_ACES_HIGH) == QUEST_STATUS_INCOMPLETE || player->GetQuestStatus(QUEST_ACES_HIGH_DAILY) == QUEST_STATUS_INCOMPLETE) //It's the same dragon for both quests.
-            player->ADD_GOSSIP_ITEM(GOSSIP_ICON_CHAT, GOSSIP_ITEM_C_1, GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF+1);
+            AddGossipItemFor(player, GOSSIP_ICON_CHAT, GOSSIP_ITEM_C_1, GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF+1);
 
-        player->SEND_GOSSIP_MENU(player->GetGossipTextId(creature), creature->GetGUID());
+        SendGossipMenuFor(player, player->GetGossipTextId(creature), creature->GetGUID());
         return true;
     }
 
     bool OnGossipSelect(Player* player, Creature* /*creature*/, uint32 /*sender*/, uint32 action) override
     {
-        player->PlayerTalkClass->ClearMenus();
+        ClearGossipMenuFor(player);
         if (action == GOSSIP_ACTION_INFO_DEF+1)
         {
-            player->CLOSE_GOSSIP_MENU();
+            CloseGossipMenuFor(player);
 
             player->CastSpell(player, SPELL_SUMMON_WYRMREST_SKYTALON, true);
             player->CastSpell(player, SPELL_WYRMREST_SKYTALON_RIDE_PERIODIC, true);
@@ -290,7 +290,7 @@ public:
     bool OnGossipHello(Player* player, Creature* creature) override
     {
         if (player->GetQuestStatus(QUEST_SPIRITS_WATCH_OVER_US) == QUEST_STATUS_INCOMPLETE)
-            player->ADD_GOSSIP_ITEM(GOSSIP_ICON_CHAT, GOSSIP_ITEM_I, GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF+1);
+            AddGossipItemFor(player, GOSSIP_ICON_CHAT, GOSSIP_ITEM_I, GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF+1);
 
         player->PlayerTalkClass->SendGossipMenu(GOSSIP_TEXT_I, creature->GetGUID());
         return true;
@@ -298,12 +298,12 @@ public:
 
     bool OnGossipSelect(Player* player, Creature* /*creature*/, uint32 /*sender*/, uint32 action) override
     {
-        player->PlayerTalkClass->ClearMenus();
+        ClearGossipMenuFor(player);
         switch (action)
         {
             case GOSSIP_ACTION_INFO_DEF+1:
                 player->CastSpell(player, SPELL_CREATURE_TOTEM_OF_ISSLIRUK, true);
-                player->CLOSE_GOSSIP_MENU();
+                CloseGossipMenuFor(player);
                 break;
 
         }
@@ -681,121 +681,48 @@ public:
     }
 };
 
-/*######
-## npc_nexus_drake_hatchling
-######*/
-
-enum NexusDrakeHatchling
+enum red_dragonblood
 {
-    SPELL_DRAKE_HARPOON             = 46607,
-    SPELL_RED_DRAGONBLOOD           = 46620,
-    SPELL_DRAKE_HATCHLING_SUBDUED   = 46691,
-    SPELL_SUBDUED                   = 46675,
-
-    NPC_RAELORASZ                   = 26117,
-
-    QUEST_DRAKE_HUNT                = 11919,
-    QUEST_DRAKE_HUNT_D              = 11940
+    SPELL_DRAKE_HATCHLING_SUBDUED = 46691,
+    SPELL_SUBDUED = 46675
 };
 
-class npc_nexus_drake_hatchling : public CreatureScript
+class spell_red_dragonblood : public SpellScriptLoader
 {
 public:
-    npc_nexus_drake_hatchling() : CreatureScript("npc_nexus_drake_hatchling") { }
+    spell_red_dragonblood() : SpellScriptLoader("spell_red_dragonblood") { }
 
-    struct npc_nexus_drake_hatchlingAI : public FollowerAI //The spell who makes the npc follow the player is missing, also we can use FollowerAI!
+    class spell_red_dragonblood_AuraScript : public AuraScript
     {
-        npc_nexus_drake_hatchlingAI(Creature* creature) : FollowerAI(creature)
+        PrepareAuraScript(spell_red_dragonblood_AuraScript);
+
+        void HandleEffectRemove(AuraEffect const* /*aurEff*/, AuraEffectHandleModes /*mode*/)
         {
-            Initialize();
-        }
-
-        void Initialize()
-        {
-            WithRedDragonBlood = false;
-        }
-
-        ObjectGuid HarpoonerGUID;
-        bool WithRedDragonBlood;
-
-        void Reset() override
-        {
-            Initialize();
-        }
-
-        void EnterCombat(Unit* who) override
-        {
-            if (me->IsValidAttackTarget(who))
-                AttackStart(who);
-        }
-
-        void SpellHit(Unit* caster, const SpellInfo* spell) override
-        {
-            if (spell->Id == SPELL_DRAKE_HARPOON && caster->GetTypeId() == TYPEID_PLAYER)
-            {
-                HarpoonerGUID = caster->GetGUID();
-                DoCast(me, SPELL_RED_DRAGONBLOOD, true);
-            }
-            WithRedDragonBlood = true;
-        }
-
-        void MoveInLineOfSight(Unit* who) override
-
-        {
-            FollowerAI::MoveInLineOfSight(who);
-
-            if (!HarpoonerGUID)
+            if (GetTargetApplication()->GetRemoveMode() != AURA_REMOVE_BY_EXPIRE || !GetCaster())
                 return;
 
-            if (me->HasAura(SPELL_SUBDUED) && who->GetEntry() == NPC_RAELORASZ)
-            {
-                if (me->IsWithinDistInMap(who, INTERACTION_DISTANCE))
-                {
-                    if (Player* pHarpooner = ObjectAccessor::GetPlayer(*me, HarpoonerGUID))
-                    {
-                        pHarpooner->KilledMonsterCredit(26175);
-                        pHarpooner->RemoveAura(SPELL_DRAKE_HATCHLING_SUBDUED);
-                        SetFollowComplete();
-                        HarpoonerGUID.Clear();
-                        me->DisappearAndDie();
-                    }
-                }
-            }
+            Creature* owner = GetOwner()->ToCreature();
+            owner->RemoveAllAurasExceptType(SPELL_AURA_DUMMY);
+            owner->CombatStop(true);
+            owner->DeleteThreatList();
+            owner->GetMotionMaster()->Clear(false);
+            owner->GetMotionMaster()->MoveFollow(GetCaster(), 4.0f, 0.0f);
+            owner->CastSpell(owner, SPELL_SUBDUED, true);
+            GetCaster()->CastSpell(GetCaster(), SPELL_DRAKE_HATCHLING_SUBDUED, true);
+            owner->setFaction(35);
+            owner->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_PC | UNIT_FLAG_IMMUNE_TO_NPC);
+            owner->DespawnOrUnsummon(3 * MINUTE*IN_MILLISECONDS);
         }
 
-        void UpdateAI(uint32 /*diff*/) override
+        void Register()
         {
-            if (WithRedDragonBlood && HarpoonerGUID && !me->HasAura(SPELL_RED_DRAGONBLOOD))
-            {
-                if (Player* pHarpooner = ObjectAccessor::GetPlayer(*me, HarpoonerGUID))
-                {
-                    EnterEvadeMode();
-                    StartFollow(pHarpooner, 35, NULL);
-
-                    DoCast(me, SPELL_SUBDUED, true);
-                    pHarpooner->CastSpell(pHarpooner, SPELL_DRAKE_HATCHLING_SUBDUED, true);
-
-                    me->AttackStop();
-                    WithRedDragonBlood = false;
-                }
-            }
-
-            if ((me->getFaction() == 35) && (!me->HasAura(SPELL_SUBDUED)))
-            {
-                HarpoonerGUID.Clear();
-                me->DisappearAndDie();
-            }
-
-            if (!UpdateVictim())
-                return;
-
-            DoMeleeAttackIfReady();
+            AfterEffectRemove += AuraEffectRemoveFn(spell_red_dragonblood_AuraScript::HandleEffectRemove, EFFECT_0, SPELL_AURA_DUMMY, AURA_EFFECT_HANDLE_REAL);
         }
     };
 
-    CreatureAI* GetAI(Creature* creature) const override
+    AuraScript* GetAuraScript() const
     {
-        return new npc_nexus_drake_hatchlingAI(creature);
+        return new spell_red_dragonblood_AuraScript();
     }
 };
 
@@ -1127,16 +1054,16 @@ public:
             player->PrepareQuestMenu(creature->GetGUID());
 
         if (player->GetQuestStatus(QUEST_LAST_RITES) == QUEST_STATUS_INCOMPLETE && creature->GetAreaId() == 4128)
-            player->ADD_GOSSIP_ITEM(GOSSIP_ICON_CHAT, GOSSIP_ITEM_T, GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF+1);
+            AddGossipItemFor(player, GOSSIP_ICON_CHAT, GOSSIP_ITEM_T, GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF+1);
 
-        player->SEND_GOSSIP_MENU(player->GetGossipTextId(creature), creature->GetGUID());
+        SendGossipMenuFor(player, player->GetGossipTextId(creature), creature->GetGUID());
 
         return true;
     }
 
     bool OnGossipSelect(Player* player, Creature* creature, uint32 /*sender*/, uint32 action) override
     {
-        player->PlayerTalkClass->ClearMenus();
+        ClearGossipMenuFor(player);
         switch (action)
         {
             case GOSSIP_ACTION_INFO_DEF+1:
@@ -1326,7 +1253,7 @@ public:
             arlos->AI()->Talk(SAY_ARLOS_1);
             arlos->AI()->Talk(SAY_ARLOS_2);
             leryssa->AI()->Talk(SAY_LERYSSA_1);
-            arlos->Kill(arlos, false);
+            arlos->KillSelf(false);
             leryssa->RemoveAura(SPELL_STUN);
             leryssa->ClearUnitState(UNIT_STATE_STUNNED);
             leryssa->SetWalk(false);
@@ -1655,13 +1582,13 @@ public:
                         break;
                     case 5:
                         Talk(SAY_IMPRISIONED_BERYL_5);
+                        caster->KilledMonsterCredit(NPC_IMPRISONED_BERYL_SORCERER);
                         break;
                     case 6:
                         Talk(SAY_IMPRISIONED_BERYL_6, caster);
                         break;
                     case 7:
                         Talk(SAY_IMPRISIONED_BERYL_7);
-                        caster->KilledMonsterCredit(NPC_IMPRISONED_BERYL_SORCERER);
                         break;
                 }
             }
@@ -2274,7 +2201,8 @@ public:
         void DoAction(int32 /*iParam*/) override
         {
             me->StopMoving();
-            me->SetUInt32Value(UNIT_NPC_FLAGS, 0);
+            me->SetUInt32Value(UNIT_NPC_FLAGS, UNIT_NPC_FLAG_NONE);
+            me->SetUInt32Value(UNIT_NPC_EMOTESTATE, EMOTE_ONESHOT_NONE);
             if (Player* player = ObjectAccessor::GetPlayer(*me, uiPlayerGUID))
                 me->SetFacingToObject(player);
             uiEventTimer = 3000;
@@ -2303,7 +2231,6 @@ public:
                         switch (me->GetEntry())
                         {
                             case NPC_SALTY_JOHN_THORPE:
-                                me->SetUInt32Value(UNIT_NPC_EMOTESTATE, 0);
                                 Talk(SAY_HIDDEN_CULTIST_1);
                                 uiEventTimer = 5000;
                                 uiEventPhase = 2;
@@ -2314,7 +2241,8 @@ public:
                                 uiEventPhase = 2;
                                 break;
                             case NPC_TOM_HEGGER:
-                                Talk(SAY_HIDDEN_CULTIST_3);
+                                if (Player* player = ObjectAccessor::GetPlayer(*me, uiPlayerGUID))
+                                    Talk(SAY_HIDDEN_CULTIST_3, player);
                                 uiEventTimer = 5000;
                                 uiEventPhase = 2;
                                 break;
@@ -2384,23 +2312,23 @@ public:
         }
 
         if (player->HasAura(SPELL_RIGHTEOUS_VISION) && player->GetQuestStatus(QUEST_THE_HUNT_IS_ON) == QUEST_STATUS_INCOMPLETE)
-            player->ADD_GOSSIP_ITEM(GOSSIP_ICON_CHAT, charGossipItem, GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF+1);
+            AddGossipItemFor(player, GOSSIP_ICON_CHAT, charGossipItem, GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF+1);
 
         if (creature->IsVendor())
-            player->ADD_GOSSIP_ITEM(GOSSIP_ICON_VENDOR, GOSSIP_TEXT_BROWSE_GOODS, GOSSIP_SENDER_MAIN, GOSSIP_ACTION_TRADE);
+            AddGossipItemFor(player, GOSSIP_ICON_VENDOR, GOSSIP_TEXT_BROWSE_GOODS, GOSSIP_SENDER_MAIN, GOSSIP_ACTION_TRADE);
 
-        player->SEND_GOSSIP_MENU(uiGossipText, creature->GetGUID());
+        SendGossipMenuFor(player, uiGossipText, creature->GetGUID());
 
         return true;
     }
 
     bool OnGossipSelect(Player* player, Creature* creature, uint32 /*sender*/, uint32 action) override
     {
-        player->PlayerTalkClass->ClearMenus();
+        ClearGossipMenuFor(player);
 
         if (action == GOSSIP_ACTION_INFO_DEF+1)
         {
-            player->CLOSE_GOSSIP_MENU();
+            CloseGossipMenuFor(player);
             creature->AI()->SetGUID(player->GetGUID());
             creature->AI()->DoAction(1);
         }
@@ -2455,7 +2383,7 @@ void AddSC_borean_tundra()
     new npc_nerubar_victim();
     new npc_nesingwary_trapper();
     new npc_lurgglbr();
-    new npc_nexus_drake_hatchling();
+    new spell_red_dragonblood();
     new npc_thassarian();
     new npc_image_lich_king();
     new npc_counselor_talbot();

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2015 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2017 TrinityCore <http://www.trinitycore.org/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -28,25 +28,25 @@
 #include "SmartScriptMgr.h"
 //#include "SmartAI.h"
 
-class SmartScript
+class TC_GAME_API SmartScript
 {
     public:
         SmartScript();
         ~SmartScript();
 
-        void OnInitialize(WorldObject* obj, AreaTriggerEntry const* at = NULL);
+        void OnInitialize(WorldObject* obj, AreaTriggerEntry const* at = nullptr);
         void GetScript();
         void FillScript(SmartAIEventList e, WorldObject* obj, AreaTriggerEntry const* at);
 
-        void ProcessEventsFor(SMART_EVENT e, Unit* unit = NULL, uint32 var0 = 0, uint32 var1 = 0, bool bvar = false, const SpellInfo* spell = NULL, GameObject* gob = NULL);
-        void ProcessEvent(SmartScriptHolder& e, Unit* unit = NULL, uint32 var0 = 0, uint32 var1 = 0, bool bvar = false, const SpellInfo* spell = NULL, GameObject* gob = NULL);
+        void ProcessEventsFor(SMART_EVENT e, Unit* unit = nullptr, uint32 var0 = 0, uint32 var1 = 0, bool bvar = false, const SpellInfo* spell = nullptr, GameObject* gob = nullptr);
+        void ProcessEvent(SmartScriptHolder& e, Unit* unit = nullptr, uint32 var0 = 0, uint32 var1 = 0, bool bvar = false, const SpellInfo* spell = nullptr, GameObject* gob = nullptr);
         bool CheckTimer(SmartScriptHolder const& e) const;
         void RecalcTimer(SmartScriptHolder& e, uint32 min, uint32 max);
         void UpdateTimer(SmartScriptHolder& e, uint32 const diff);
         void InitTimer(SmartScriptHolder& e);
-        void ProcessAction(SmartScriptHolder& e, Unit* unit = NULL, uint32 var0 = 0, uint32 var1 = 0, bool bvar = false, const SpellInfo* spell = NULL, GameObject* gob = NULL);
-        void ProcessTimedAction(SmartScriptHolder& e, uint32 const& min, uint32 const& max, Unit* unit = NULL, uint32 var0 = 0, uint32 var1 = 0, bool bvar = false, const SpellInfo* spell = NULL, GameObject* gob = NULL);
-        ObjectList* GetTargets(SmartScriptHolder const& e, Unit* invoker = NULL);
+        void ProcessAction(SmartScriptHolder& e, Unit* unit = nullptr, uint32 var0 = 0, uint32 var1 = 0, bool bvar = false, const SpellInfo* spell = nullptr, GameObject* gob = nullptr);
+        void ProcessTimedAction(SmartScriptHolder& e, uint32 const& min, uint32 const& max, Unit* unit = nullptr, uint32 var0 = 0, uint32 var1 = 0, bool bvar = false, const SpellInfo* spell = nullptr, GameObject* gob = nullptr);
+        ObjectList* GetTargets(SmartScriptHolder const& e, Unit* invoker = nullptr);
         ObjectList* GetWorldObjectsInDist(float dist);
         void InstallTemplate(SmartScriptHolder const& e);
         SmartScriptHolder CreateEvent(SMART_EVENT e, uint32 event_flags, uint32 event_param1, uint32 event_param2, uint32 event_param3, uint32 event_param4, SMART_ACTION action, uint32 action_param1, uint32 action_param2, uint32 action_param3, uint32 action_param4, uint32 action_param5, uint32 action_param6, SMARTAI_TARGETS t, uint32 target_param1, uint32 target_param2, uint32 target_param3, uint32 phaseMask = 0);
@@ -55,7 +55,7 @@ class SmartScript
         uint32 GetPathId() const { return mPathId; }
         WorldObject* GetBaseObject()
         {
-            WorldObject* obj = NULL;
+            WorldObject* obj = nullptr;
             if (me)
                 obj = me;
             else if (go)
@@ -63,22 +63,33 @@ class SmartScript
             return obj;
         }
 
-        bool IsUnit(WorldObject* obj)
+        static bool IsUnit(WorldObject* obj)
         {
             return obj && (obj->GetTypeId() == TYPEID_UNIT || obj->GetTypeId() == TYPEID_PLAYER);
         }
 
-        bool IsPlayer(WorldObject* obj)
+        static bool IsPlayer(WorldObject* obj)
         {
             return obj && obj->GetTypeId() == TYPEID_PLAYER;
         }
 
-        bool IsCreature(WorldObject* obj)
+        static bool IsCreature(WorldObject* obj)
         {
             return obj && obj->GetTypeId() == TYPEID_UNIT;
         }
 
-        bool IsGameObject(WorldObject* obj)
+        static bool IsCharmedCreature(WorldObject* obj)
+        {
+            if (!obj)
+                return false;
+
+            if (Creature* creatureObj = obj->ToCreature())
+                return creatureObj->IsCharmed();
+
+            return false;
+        }
+
+        static bool IsGameObject(WorldObject* obj)
         {
             return obj && obj->GetTypeId() == TYPEID_GAMEOBJECT;
         }
@@ -108,7 +119,7 @@ class SmartScript
             (*mTargetStorage)[id] = new ObjectGuidList(targets, GetBaseObject());
         }
 
-        bool IsSmart(Creature* c = NULL)
+        bool IsSmart(Creature* c = nullptr)
         {
             bool smart = true;
             if (c && c->GetAIName() != "SmartAI")
@@ -123,7 +134,7 @@ class SmartScript
             return smart;
         }
 
-        bool IsSmartGO(GameObject* g = NULL)
+        bool IsSmartGO(GameObject* g = nullptr)
         {
             bool smart = true;
             if (g && g->GetAIName() != "SmartGameObjectAI")
@@ -142,34 +153,28 @@ class SmartScript
             ObjectListMap::iterator itr = mTargetStorage->find(id);
             if (itr != mTargetStorage->end())
                 return (*itr).second->GetObjectList();
-            return NULL;
+            return nullptr;
         }
 
         void StoreCounter(uint32 id, uint32 value, uint32 reset)
         {
-            CounterMap::const_iterator itr = mCounterList.find(id);
+            CounterMap::iterator itr = mCounterList.find(id);
             if (itr != mCounterList.end())
             {
                 if (reset == 0)
-                    value += GetCounterValue(id);
-                mCounterList.erase(id);
+                    itr->second += value;
+                else
+                    itr->second = value;
             }
+            else
+                mCounterList.insert(std::make_pair(id, value));
 
-            mCounterList.insert(std::make_pair(id, value));
-            ProcessEventsFor(SMART_EVENT_COUNTER_SET);
+            ProcessEventsFor(SMART_EVENT_COUNTER_SET, nullptr, id);
         }
 
-        uint32 GetCounterId(uint32 id)
+        uint32 GetCounterValue(uint32 id) const
         {
-            CounterMap::iterator itr = mCounterList.find(id);
-            if (itr != mCounterList.end())
-                return itr->first;
-            return 0;
-        }
-
-        uint32 GetCounterValue(uint32 id)
-        {
-            CounterMap::iterator itr = mCounterList.find(id);
+            CounterMap::const_iterator itr = mCounterList.find(id);
             if (itr != mCounterList.end())
                 return itr->second;
             return 0;
@@ -209,19 +214,20 @@ class SmartScript
 
             if (lookupRoot)
             {
-                if (!meOrigGUID)
+                if (!meOrigGUID.IsEmpty())
                 {
                     if (Creature* m = ObjectAccessor::GetCreature(*lookupRoot, meOrigGUID))
                     {
                         me = m;
-                        go = NULL;
+                        go = nullptr;
                     }
                 }
-                if (!goOrigGUID)
+
+                if (!goOrigGUID.IsEmpty())
                 {
                     if (GameObject* o = ObjectAccessor::GetGameObject(*lookupRoot, goOrigGUID))
                     {
-                        me = NULL;
+                        me = nullptr;
                         go = o;
                     }
                 }
@@ -232,29 +238,33 @@ class SmartScript
 
         //TIMED_ACTIONLIST (script type 9 aka script9)
         void SetScript9(SmartScriptHolder& e, uint32 entry);
-        Unit* GetLastInvoker();
+        Unit* GetLastInvoker(Unit* invoker = nullptr);
         ObjectGuid mLastInvoker;
         typedef std::unordered_map<uint32, uint32> CounterMap;
         CounterMap mCounterList;
 
     private:
-        void IncPhase(int32 p = 1)
+        void IncPhase(uint32 p)
         {
-            if (p >= 0)
-                mEventPhase += (uint32)p;
-            else
-                DecPhase(abs(p));
+            // protect phase from overflowing
+            mEventPhase = std::min<uint32>(SMART_EVENT_PHASE_12, mEventPhase + p);
         }
 
-        void DecPhase(int32 p = 1) 
-        { 
-            if(mEventPhase > (uint32)p)
-                mEventPhase -= (uint32)p; 
-            else
+        void DecPhase(uint32 p)
+        {
+            if (p >= mEventPhase)
                 mEventPhase = 0;
+            else
+                mEventPhase -= p;
         }
 
-        bool IsInPhase(uint32 p) const { return ((1 << (mEventPhase - 1)) & p) != 0; }
+        bool IsInPhase(uint32 p) const
+        {
+            if (mEventPhase == 0)
+                return false;
+            return ((1 << (mEventPhase - 1)) & p) != 0;
+        }
+
         void SetPhase(uint32 p = 0) { mEventPhase = p; }
 
         SmartAIEventList mEvents;
@@ -270,8 +280,8 @@ class SmartScript
         uint32 mEventPhase;
 
         uint32 mPathId;
-        SmartAIEventList mStoredEvents;
-        std::list<uint32>mRemIDs;
+        SmartAIEventStoredList mStoredEvents;
+        std::vector<uint32> mRemIDs;
 
         uint32 mTextTimer;
         uint32 mLastTextID;
@@ -285,7 +295,7 @@ class SmartScript
         {
             if (!mStoredEvents.empty())
             {
-                for (SmartAIEventList::iterator i = mStoredEvents.begin(); i != mStoredEvents.end(); ++i)
+                for (auto i = mStoredEvents.begin(); i != mStoredEvents.end(); ++i)
                 {
                     if (i->event_id == id)
                     {

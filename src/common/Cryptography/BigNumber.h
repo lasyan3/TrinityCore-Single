@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2015 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2017 TrinityCore <http://www.trinitycore.org/>
  * Copyright (C) 2005-2009 MaNGOS <http://getmangos.com/>
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -21,10 +21,11 @@
 
 #include <memory>
 #include "Define.h"
+#include <string>
 
 struct bignum_st;
 
-class BigNumber
+class TC_COMMON_API BigNumber
 {
     public:
         BigNumber();
@@ -76,7 +77,8 @@ class BigNumber
             return t %= bn;
         }
 
-        bool isZero() const;
+        bool IsZero() const;
+        bool IsNegative() const;
 
         BigNumber ModExp(BigNumber const& bn1, BigNumber const& bn2);
         BigNumber Exp(BigNumber const&);
@@ -89,8 +91,8 @@ class BigNumber
 
         std::unique_ptr<uint8[]> AsByteArray(int32 minSize = 0, bool littleEndian = true);
 
-        char * AsHexStr() const;
-        char * AsDecStr() const;
+        std::string AsHexStr() const;
+        std::string AsDecStr() const;
 
     private:
         struct bignum_st *_bn;

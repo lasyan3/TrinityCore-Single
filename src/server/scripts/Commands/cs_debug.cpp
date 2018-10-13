@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2015 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2017 TrinityCore <http://www.trinitycore.org/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -34,8 +34,11 @@ EndScriptData */
 #include "Transport.h"
 #include "Language.h"
 #include "MapManager.h"
+#include "M2Stores.h"
+#include "BattlefieldMgr.h"
 
 #include <fstream>
+#include <limits>
 
 class debug_commandscript : public CommandScript
 {
@@ -70,15 +73,15 @@ public:
             { "threat",        rbac::RBAC_PERM_COMMAND_DEBUG_THREAT,        false, &HandleDebugThreatListCommand,       "" },
             { "hostil",        rbac::RBAC_PERM_COMMAND_DEBUG_HOSTIL,        false, &HandleDebugHostileRefListCommand,   "" },
             { "anim",          rbac::RBAC_PERM_COMMAND_DEBUG_ANIM,          false, &HandleDebugAnimCommand,             "" },
-            { "arena",         rbac::RBAC_PERM_COMMAND_DEBUG_ARENA,         false, &HandleDebugArenaCommand,            "" },
-            { "bg",            rbac::RBAC_PERM_COMMAND_DEBUG_BG,            false, &HandleDebugBattlegroundCommand,     "" },
+            { "arena",         rbac::RBAC_PERM_COMMAND_DEBUG_ARENA,         true,  &HandleDebugArenaCommand,            "" },
+            { "bg",            rbac::RBAC_PERM_COMMAND_DEBUG_BG,            true,  &HandleDebugBattlegroundCommand,     "" },
             { "getitemstate",  rbac::RBAC_PERM_COMMAND_DEBUG_GETITEMSTATE,  false, &HandleDebugGetItemStateCommand,     "" },
             { "lootrecipient", rbac::RBAC_PERM_COMMAND_DEBUG_LOOTRECIPIENT, false, &HandleDebugGetLootRecipientCommand, "" },
             { "getvalue",      rbac::RBAC_PERM_COMMAND_DEBUG_GETVALUE,      false, &HandleDebugGetValueCommand,         "" },
             { "getitemvalue",  rbac::RBAC_PERM_COMMAND_DEBUG_GETITEMVALUE,  false, &HandleDebugGetItemValueCommand,     "" },
             { "Mod32Value",    rbac::RBAC_PERM_COMMAND_DEBUG_MOD32VALUE,    false, &HandleDebugMod32ValueCommand,       "" },
-            { "play",          rbac::RBAC_PERM_COMMAND_DEBUG_PLAY,          false, NULL,              "", debugPlayCommandTable },
-            { "send",          rbac::RBAC_PERM_COMMAND_DEBUG_SEND,          false, NULL,              "", debugSendCommandTable },
+            { "play",          rbac::RBAC_PERM_COMMAND_DEBUG_PLAY,          false, nullptr,                             "", debugPlayCommandTable },
+            { "send",          rbac::RBAC_PERM_COMMAND_DEBUG_SEND,          false, nullptr,                             "", debugSendCommandTable },
             { "setaurastate",  rbac::RBAC_PERM_COMMAND_DEBUG_SETAURASTATE,  false, &HandleDebugSetAuraStateCommand,     "" },
             { "setitemvalue",  rbac::RBAC_PERM_COMMAND_DEBUG_SETITEMVALUE,  false, &HandleDebugSetItemValueCommand,     "" },
             { "setvalue",      rbac::RBAC_PERM_COMMAND_DEBUG_SETVALUE,      false, &HandleDebugSetValueCommand,         "" },
@@ -93,11 +96,14 @@ public:
             { "moveflags",     rbac::RBAC_PERM_COMMAND_DEBUG_MOVEFLAGS,     false, &HandleDebugMoveflagsCommand,        "" },
             { "transport",     rbac::RBAC_PERM_COMMAND_DEBUG_TRANSPORT,     false, &HandleDebugTransportCommand,        "" },
             { "loadcells",     rbac::RBAC_PERM_COMMAND_DEBUG_LOADCELLS,     false, &HandleDebugLoadCellsCommand,        "" },
+            { "boundary",      rbac::RBAC_PERM_COMMAND_DEBUG_BOUNDARY,      false, &HandleDebugBoundaryCommand,         "" },
+            { "raidreset",     rbac::RBAC_PERM_COMMAND_INSTANCE_UNBIND,     false, &HandleDebugRaidResetCommand,        "" },
+            { "neargraveyard", rbac::RBAC_PERM_COMMAND_NEARGRAVEYARD,       false, &HandleDebugNearGraveyard,           "" },
         };
         static std::vector<ChatCommand> commandTable =
         {
-            { "debug",         rbac::RBAC_PERM_COMMAND_DEBUG,   true,  NULL,               "", debugCommandTable },
-            { "wpgps",         rbac::RBAC_PERM_COMMAND_WPGPS,  false, &HandleWPGPSCommand, "" },
+            { "debug",         rbac::RBAC_PERM_COMMAND_DEBUG,               true,  nullptr,                             "", debugCommandTable },
+            { "wpgps",         rbac::RBAC_PERM_COMMAND_WPGPS,               false, &HandleWPGPSCommand,                 "" },
         };
         return commandTable;
     }
@@ -120,6 +126,23 @@ public:
             handler->PSendSysMessage(LANG_CINEMATIC_NOT_EXIST, id);
             handler->SetSentErrorMessage(true);
             return false;
+        }
+
+        // Dump camera locations
+        if (CinematicSequencesEntry const* cineSeq = sCinematicSequencesStore.LookupEntry(id))
+        {
+            std::unordered_map<uint32, FlyByCameraCollection>::const_iterator itr = sFlyByCameraStore.find(cineSeq->cinematicCamera);
+            if (itr != sFlyByCameraStore.end())
+            {
+                handler->PSendSysMessage("Waypoints for sequence %u, camera %u", id, cineSeq->cinematicCamera);
+                uint32 count = 1 ;
+                for (FlyByCamera cam : itr->second)
+                {
+                    handler->PSendSysMessage("%02u - %7ums [%f, %f, %f] Facing %f (%f degrees)", count, cam.timeStamp, cam.locations.x, cam.locations.y, cam.locations.z, cam.locations.w, cam.locations.w * (180 / M_PI));
+                    count++;
+                }
+                handler->PSendSysMessage("%u waypoints dumped", itr->second.size());
+            }
         }
 
         handler->GetSession()->GetPlayer()->SendCinematicStart(id);
@@ -828,7 +851,7 @@ public:
             if (Unit* unit = ref->GetSource()->GetOwner())
             {
                 ++count;
-                handler->PSendSysMessage("   %u.   %s   (guid %u)  - threat %f", count, unit->GetName().c_str(), unit->GetGUID().GetCounter(), ref->getThreat());
+                handler->PSendSysMessage("   %u.   %s   (current guid %u, DB guid %u)  - threat %f", count, unit->GetName().c_str(), unit->GetGUID().GetCounter(), unit->GetTypeId() == TYPEID_UNIT ? unit->ToCreature()->GetSpawnId() : 0, ref->getThreat());
             }
             ref = ref->next();
         }
@@ -904,7 +927,7 @@ public:
         uint32 entry = (uint32)atoi(e);
 
         float x, y, z, o = handler->GetSession()->GetPlayer()->GetOrientation();
-        handler->GetSession()->GetPlayer()->GetClosePoint(x, y, z, handler->GetSession()->GetPlayer()->GetObjectSize());
+        handler->GetSession()->GetPlayer()->GetClosePoint(x, y, z, handler->GetSession()->GetPlayer()->GetCombatReach());
 
         if (!i)
             return handler->GetSession()->GetPlayer()->SummonCreature(entry, x, y, z, o) != nullptr;
@@ -1043,7 +1066,8 @@ public:
             return false;
 
         uint32 animId = atoi((char*)args);
-        handler->GetSession()->GetPlayer()->HandleEmoteCommand(animId);
+        if (Unit* unit = handler->getSelectedUnit())
+            unit->HandleEmoteCommand(animId);
         return true;
     }
 
@@ -1407,11 +1431,108 @@ public:
             map = player->GetMap();
 
         handler->PSendSysMessage("Loading all cells (mapId: %u). Current next GameObject %u, Creature %u", map->GetId(), map->GetMaxLowGuid<HighGuid::GameObject>(), map->GetMaxLowGuid<HighGuid::Unit>());
-        for (uint32 cellX = 0; cellX < TOTAL_NUMBER_OF_CELLS_PER_MAP; cellX++)
-            for (uint32 cellY = 0; cellY < TOTAL_NUMBER_OF_CELLS_PER_MAP; cellY++)
-                map->LoadGrid((cellX + 0.5f - CENTER_GRID_CELL_ID) * SIZE_OF_GRID_CELL, (cellY + 0.5f - CENTER_GRID_CELL_ID) * SIZE_OF_GRID_CELL);
-
+        map->LoadAllCells();
         handler->PSendSysMessage("Cells loaded (mapId: %u) After load - Next GameObject %u, Creature %u", map->GetId(), map->GetMaxLowGuid<HighGuid::GameObject>(), map->GetMaxLowGuid<HighGuid::Unit>());
+        return true;
+    }
+
+    static bool HandleDebugBoundaryCommand(ChatHandler* handler, char const* args)
+    {
+        Player* player = handler->GetSession()->GetPlayer();
+        if (!player)
+            return false;
+        Creature* target = handler->getSelectedCreature();
+        if (!target || !target->IsAIEnabled || !target->AI())
+        {
+            return false;
+        }
+
+        char* fill_str = args ? strtok((char*)args, " ") : nullptr;
+        char* duration_str = args ? strtok(nullptr, " ") : nullptr;
+
+        int duration = duration_str ? atoi(duration_str) : -1;
+        if (duration <= 0 || duration >= 30 * MINUTE) // arbitary upper limit
+            duration = 3 * MINUTE;
+
+        bool doFill = fill_str ? (stricmp(fill_str, "FILL") == 0) : false;
+
+        int32 errMsg = target->AI()->VisualizeBoundary(duration, player, doFill);
+        if (errMsg > 0)
+            handler->PSendSysMessage(errMsg);
+
+        return true;
+    }
+
+    static bool HandleDebugRaidResetCommand(ChatHandler* /*handler*/, char const* args)
+    {
+        char* map_str = args ? strtok((char*)args, " ") : nullptr;
+        char* difficulty_str = args ? strtok(nullptr, " ") : nullptr;
+
+        int32 map = map_str ? atoi(map_str) : -1;
+        if (map <= 0)
+            return false;
+        MapEntry const* mEntry = sMapStore.LookupEntry(map);
+        if (!mEntry || !mEntry->IsRaid())
+            return false;
+        int32 difficulty = difficulty_str ? atoi(difficulty_str) : -1;
+        if (difficulty >= MAX_RAID_DIFFICULTY || difficulty < -1)
+            return false;
+
+        if (difficulty == -1)
+            for (uint8 diff = 0; diff < MAX_RAID_DIFFICULTY; ++diff)
+            {
+                if (GetMapDifficultyData(mEntry->MapID, Difficulty(diff)))
+                    sInstanceSaveMgr->ForceGlobalReset(mEntry->MapID, Difficulty(diff));
+            }
+        else
+            sInstanceSaveMgr->ForceGlobalReset(mEntry->MapID, Difficulty(difficulty));
+        return true;
+    }
+
+    static bool HandleDebugNearGraveyard(ChatHandler* handler, char const* args)
+    {
+        Player* player = handler->GetSession()->GetPlayer();
+        const WorldSafeLocsEntry* nearestLoc = nullptr;
+
+        if (stricmp(args, "linked"))
+        {
+            if (Battleground* bg = player->GetBattleground())
+                nearestLoc = bg->GetClosestGraveYard(player);
+            else
+            {
+                if (Battlefield* bf = sBattlefieldMgr->GetBattlefieldToZoneId(player->GetZoneId()))
+                    nearestLoc = bf->GetClosestGraveYard(player);
+                else
+                    nearestLoc = sObjectMgr->GetClosestGraveYard(player->GetPositionX(), player->GetPositionY(), player->GetPositionZ(), player->GetMapId(), player->GetTeam());
+            }
+        }
+        else
+        {
+            float x = player->GetPositionX();
+            float y = player->GetPositionY();
+            float z = player->GetPositionZ();
+            float distNearest = std::numeric_limits<float>::max();
+
+            for (uint32 i = 0; i < sWorldSafeLocsStore.GetNumRows(); ++i)
+            {
+                const WorldSafeLocsEntry* loc = sWorldSafeLocsStore.LookupEntry(i);
+                if (loc && loc->map_id == player->GetMapId())
+                {
+                    float dist = (loc->x - x) * (loc->x - x) + (loc->y - y) * (loc->y - y) + (loc->z - z) * (loc->z - z);
+                    if (dist < distNearest)
+                    {
+                        distNearest = dist;
+                        nearestLoc = loc;
+                    }
+                }
+            }
+        }
+
+        if (nearestLoc)
+            handler->PSendSysMessage(LANG_COMMAND_NEARGRAVEYARD, nearestLoc->ID, nearestLoc->x, nearestLoc->y, nearestLoc->z);
+        else
+            handler->PSendSysMessage(LANG_COMMAND_NEARGRAVEYARD_NOTFOUND);
+
         return true;
     }
 };

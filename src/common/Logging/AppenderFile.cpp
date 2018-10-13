@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2015 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2017 TrinityCore <http://www.trinitycore.org/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -28,6 +28,7 @@ AppenderFile::AppenderFile(uint8 id, std::string const& name, LogLevel level, Ap
     Appender(id, name, level, flags),
     logfile(NULL),
     _logDir(sLog->GetLogsDir()),
+    _maxFileSize(0),
     _fileSize(0)
 {
     if (extraArgs.empty())
@@ -41,7 +42,7 @@ AppenderFile::AppenderFile(uint8 id, std::string const& name, LogLevel level, Ap
 
     if (flags & APPENDER_FLAGS_USE_TIMESTAMP)
     {
-        size_t dot_pos = _fileName.find_last_of(".");
+        size_t dot_pos = _fileName.find_last_of('.');
         if (dot_pos != std::string::npos)
             _fileName.insert(dot_pos, sLog->GetLogsTimestamp());
         else
@@ -50,8 +51,6 @@ AppenderFile::AppenderFile(uint8 id, std::string const& name, LogLevel level, Ap
 
     if (extraArgs.size() > 2)
         _maxFileSize = atoi(extraArgs[2]);
-    else
-        _maxFileSize = 0;
 
     _dynamicName = std::string::npos != _fileName.find("%s");
     _backup = (flags & APPENDER_FLAGS_MAKE_FILE_BACKUP) != 0;

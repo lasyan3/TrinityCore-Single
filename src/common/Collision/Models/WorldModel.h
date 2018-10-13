@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2015 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2017 TrinityCore <http://www.trinitycore.org/>
  * Copyright (C) 2005-2010 MaNGOS <http://getmangos.com/>
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -32,8 +32,9 @@ namespace VMAP
     class TreeNode;
     struct AreaInfo;
     struct LocationInfo;
+    enum class ModelIgnoreFlags : uint32;
 
-    class MeshTriangle
+    class TC_COMMON_API MeshTriangle
     {
         public:
             MeshTriangle() : idx0(0), idx1(0), idx2(0) { }
@@ -44,7 +45,7 @@ namespace VMAP
             uint32 idx2;
     };
 
-    class WmoLiquid
+    class TC_COMMON_API WmoLiquid
     {
         public:
             WmoLiquid(uint32 width, uint32 height, const G3D::Vector3 &corner, uint32 type);
@@ -70,7 +71,7 @@ namespace VMAP
     };
 
     /*! holding additional info for WMO group files */
-    class GroupModel
+    class TC_COMMON_API GroupModel
     {
         public:
             GroupModel() : iBound(), iMogpFlags(0), iGroupWMOID(0), iLiquid(NULL) { }
@@ -103,20 +104,21 @@ namespace VMAP
     };
 
     /*! Holds a model (converted M2 or WMO) in its original coordinate space */
-    class WorldModel
+    class TC_COMMON_API WorldModel
     {
         public:
-            WorldModel(): RootWMOID(0) { }
+            WorldModel(): Flags(0), RootWMOID(0) { }
 
             //! pass group models to WorldModel and create BIH. Passed vector is swapped with old geometry!
             void setGroupModels(std::vector<GroupModel> &models);
             void setRootWmoID(uint32 id) { RootWMOID = id; }
-            bool IntersectRay(const G3D::Ray &ray, float &distance, bool stopAtFirstHit) const;
+            bool IntersectRay(const G3D::Ray &ray, float &distance, bool stopAtFirstHit, ModelIgnoreFlags ignoreFlags) const;
             bool IntersectPoint(const G3D::Vector3 &p, const G3D::Vector3 &down, float &dist, AreaInfo &info) const;
             bool GetLocationInfo(const G3D::Vector3 &p, const G3D::Vector3 &down, float &dist, LocationInfo &info) const;
             bool writeFile(const std::string &filename);
             bool readFile(const std::string &filename);
             void getGroupModels(std::vector<GroupModel>& outGroupModels);
+            uint32 Flags;
         protected:
             uint32 RootWMOID;
             std::vector<GroupModel> groupModels;

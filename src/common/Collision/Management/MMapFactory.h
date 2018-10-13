@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2015 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2017 TrinityCore <http://www.trinitycore.org/>
  * Copyright (C) 2005-2010 MaNGOS <http://getmangos.com/>
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -38,12 +38,11 @@ namespace MMAP
     // static class
     // holds all mmap global data
     // access point to MMapManager singleton
-    class MMapFactory
+    class TC_COMMON_API MMapFactory
     {
         public:
             static MMapManager* createOrGetMMapManager();
             static void clear();
-            static bool IsPathfindingEnabled(uint32 mapId);
     };
 }
 

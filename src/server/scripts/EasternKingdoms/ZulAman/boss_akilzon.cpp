@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2015 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2017 TrinityCore <http://www.trinitycore.org/>
  * Copyright (C) 2006-2009 ScriptDev2 <https://scriptdev2.svn.sourceforge.net/>
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -86,7 +86,7 @@ class boss_akilzon : public CreatureScript
 
         struct boss_akilzonAI : public BossAI
         {
-            boss_akilzonAI(Creature* creature) : BossAI(creature, DATA_AKILZONEVENT)
+            boss_akilzonAI(Creature* creature) : BossAI(creature, BOSS_AKILZON)
             {
                 Initialize();
             }
@@ -114,6 +114,8 @@ class boss_akilzon : public CreatureScript
 
             void EnterCombat(Unit* /*who*/) override
             {
+                _EnterCombat();
+
                 events.ScheduleEvent(EVENT_STATIC_DISRUPTION, urand(10000, 20000)); // 10 to 20 seconds (bosskillers)
                 events.ScheduleEvent(EVENT_GUST_OF_WIND, urand(20000, 30000));      // 20 to 30 seconds(bosskillers)
                 events.ScheduleEvent(EVENT_CALL_LIGHTNING, urand(10000, 20000));    // totaly random timer. can't find any info on this
@@ -122,8 +124,6 @@ class boss_akilzon : public CreatureScript
                 events.ScheduleEvent(EVENT_ENRAGE, 10*MINUTE*IN_MILLISECONDS);      // 10 minutes till enrage(bosskillers)
 
                 Talk(SAY_AGGRO);
-                //DoZoneInCombat();
-                instance->SetData(DATA_AKILZONEVENT, IN_PROGRESS);
             }
 
             void JustDied(Unit* /*killer*/) override
@@ -376,7 +376,7 @@ class boss_akilzon : public CreatureScript
 
         CreatureAI* GetAI(Creature* creature) const override
         {
-            return GetInstanceAI<boss_akilzonAI>(creature);
+            return GetZulAmanAI<boss_akilzonAI>(creature);
         }
 };
 
@@ -425,7 +425,7 @@ class npc_akilzon_eagle : public CreatureScript
                     if (Unit* target = ObjectAccessor::GetUnit(*me, TargetGUID))
                         DoCast(target, SPELL_EAGLE_SWOOP, true);
                     TargetGUID.Clear();
-                    me->SetSpeed(MOVE_RUN, 1.2f);
+                    me->SetSpeedRate(MOVE_RUN, 1.2f);
                     EagleSwoop_Timer = urand(5000, 10000);
                 }
             }
@@ -454,7 +454,7 @@ class npc_akilzon_eagle : public CreatureScript
                         {
                             target->GetContactPoint(me, x, y, z);
                             z += 2;
-                            me->SetSpeed(MOVE_RUN, 5.0f);
+                            me->SetSpeedRate(MOVE_RUN, 5.0f);
                             TargetGUID = target->GetGUID();
                         }
                         me->GetMotionMaster()->MovePoint(0, x, y, z);
@@ -466,7 +466,7 @@ class npc_akilzon_eagle : public CreatureScript
 
         CreatureAI* GetAI(Creature* creature) const override
         {
-            return new npc_akilzon_eagleAI(creature);
+            return GetZulAmanAI<npc_akilzon_eagleAI>(creature);
         }
 };
 

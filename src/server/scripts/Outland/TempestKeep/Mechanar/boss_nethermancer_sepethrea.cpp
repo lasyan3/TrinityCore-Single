@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2015 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2017 TrinityCore <http://www.trinitycore.org/>
  * Copyright (C) 2006-2009 ScriptDev2 <https://scriptdev2.svn.sourceforge.net/>
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -130,6 +130,9 @@ class boss_nethermancer_sepethrea : public CreatureScript
                         default:
                             break;
                     }
+
+                    if (me->HasUnitState(UNIT_STATE_CASTING))
+                        return;
                 }
 
                 DoMeleeAttackIfReady();
@@ -176,7 +179,7 @@ class npc_ragin_flames : public CreatureScript
                     Initialize();
                     me->ApplySpellImmune(0, IMMUNITY_DAMAGE, SPELL_SCHOOL_MASK_MAGIC, true);
                     me->ApplySpellImmune(0, IMMUNITY_DAMAGE, SPELL_SCHOOL_MASK_NORMAL, true);
-                    me->SetSpeed(MOVE_RUN, DUNGEON_MODE(0.5f, 0.7f));
+                    me->SetSpeedRate(MOVE_RUN, DUNGEON_MODE(0.5f, 0.7f));
                 }
 
                 void EnterCombat(Unit* /*who*/) override
@@ -191,8 +194,8 @@ class npc_ragin_flames : public CreatureScript
                         if (instance->GetData(DATA_NETHERMANCER_SEPRETHREA) != IN_PROGRESS)
                         {
                             //remove
-                            me->setDeathState(JUST_DIED);
-                            me->RemoveCorpse();
+                            me->DespawnOrUnsummon();
+                            return;
                         }
                         Check_Timer = 1000;
                     } else Check_Timer -= diff;

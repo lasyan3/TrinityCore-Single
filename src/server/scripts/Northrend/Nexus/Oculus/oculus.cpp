@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2015 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2017 TrinityCore <http://www.trinitycore.org/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -375,7 +375,7 @@ class npc_ruby_emerald_amber_drake : public CreatureScript
                         {
                             me->DespawnOrUnsummon(2050);
                             me->SetOrientation(2.5f);
-                            me->SetSpeed(MOVE_FLIGHT, 1.0f, true);
+                            me->SetSpeedRate(MOVE_FLIGHT, 1.0f);
                             Talk(SAY_DRAKES_TAKEOFF);
                             Position pos = me->GetPosition();
                             Position offset = { 10.0f, 10.0f, 12.0f, 0.0f };
@@ -604,8 +604,11 @@ class spell_oculus_temporal_rift : public SpellScriptLoader
             void HandleProc(AuraEffect const* aurEff, ProcEventInfo& eventInfo)
             {
                 PreventDefaultAction();
-                int32 amount = aurEff->GetAmount() + eventInfo.GetDamageInfo()->GetDamage();
+                DamageInfo* damageInfo = eventInfo.GetDamageInfo();
+                if (!damageInfo || !damageInfo->GetDamage())
+                    return;
 
+                int32 amount = aurEff->GetAmount() + damageInfo->GetDamage();
                 if (amount >= 15000)
                 {
                     if (Unit* caster = GetCaster())

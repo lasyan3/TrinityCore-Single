@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2015 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2017 TrinityCore <http://www.trinitycore.org/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -39,7 +39,7 @@ void Field::SetByteValue(void* newValue, enum_field_types newType, uint32 length
     data.raw = true;
 }
 
-void Field::SetStructuredValue(char* newValue, enum_field_types newType)
+void Field::SetStructuredValue(char* newValue, enum_field_types newType, uint32 length)
 {
     if (data.value)
         CleanUp();
@@ -47,10 +47,10 @@ void Field::SetStructuredValue(char* newValue, enum_field_types newType)
     // This value stores somewhat structured data that needs function style casting
     if (newValue)
     {
-        size_t size = strlen(newValue);
-        data.value = new char [size+1];
-        strcpy((char*)data.value, newValue);
-        data.length = size;
+        data.value = new char[length + 1];
+        memcpy(data.value, newValue, length);
+        *(reinterpret_cast<char*>(data.value) + length) = '\0';
+        data.length = length;
     }
 
     data.type = newType;

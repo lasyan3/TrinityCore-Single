@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2015 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2017 TrinityCore <http://www.trinitycore.org/>
  * Copyright (C) 2005-2009 MaNGOS <http://getmangos.com/>
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -33,7 +33,8 @@ enum DisableType
     DISABLE_TYPE_ACHIEVEMENT_CRITERIA   = 4,
     DISABLE_TYPE_OUTDOORPVP             = 5,
     DISABLE_TYPE_VMAP                   = 6,
-    DISABLE_TYPE_MMAP                   = 7
+    DISABLE_TYPE_MMAP                   = 7,
+    DISABLE_TYPE_LFG_MAP                = 8
 };
 
 enum SpellDisableTypes
@@ -57,11 +58,11 @@ enum MMapDisableTypes
 
 namespace DisableMgr
 {
-    void LoadDisables();
-    bool IsDisabledFor(DisableType type, uint32 entry, Unit const* unit, uint8 flags = 0);
-    void CheckQuestDisables();
-    bool IsVMAPDisabledFor(uint32 entry, uint8 flags);
-    bool IsPathfindingEnabled(uint32 mapId);
+    TC_GAME_API void LoadDisables();
+    TC_GAME_API bool IsDisabledFor(DisableType type, uint32 entry, Unit const* unit, uint8 flags = 0);
+    TC_GAME_API void CheckQuestDisables();
+    TC_GAME_API bool IsVMAPDisabledFor(uint32 entry, uint8 flags);
+    TC_GAME_API bool IsPathfindingEnabled(uint32 mapId);
 }
 
 #endif //TRINITY_DISABLEMGR_H

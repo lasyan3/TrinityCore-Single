@@ -1,20 +1,20 @@
 /*
-* Copyright (C) 2008-2015 TrinityCore <http://www.trinitycore.org/>
-* Copyright (C) 2005-2009 MaNGOS <http://getmangos.com/>
-*
-* This program is free software; you can redistribute it and/or modify it
-* under the terms of the GNU General Public License as published by the
-* Free Software Foundation; either version 2 of the License, or (at your
-* option) any later version.
-*
-* This program is distributed in the hope that it will be useful, but WITHOUT
-* ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-* FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
-* more details.
-*
-* You should have received a copy of the GNU General Public License along
-* with this program. If not, see <http://www.gnu.org/licenses/>.
-*/
+ * Copyright (C) 2008-2017 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2005-2009 MaNGOS <http://getmangos.com/>
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License as published by the
+ * Free Software Foundation; either version 2 of the License, or (at your
+ * option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
+ * more details.
+ *
+ * You should have received a copy of the GNU General Public License along
+ * with this program. If not, see <http://www.gnu.org/licenses/>.
+ */
 
 #include <memory>
 #include <boost/asio/write.hpp>
@@ -26,6 +26,7 @@
 #include "DatabaseEnv.h"
 #include "World.h"
 #include "Config.h"
+#include "ServerMotd.h"
 
 using boost::asio::ip::tcp;
 
@@ -73,7 +74,7 @@ void RASession::Start()
     TC_LOG_INFO("commands.ra", "User %s (IP: %s) authenticated correctly to RA", username.c_str(), GetRemoteIpAddress().c_str());
 
     // Authentication successful, send the motd
-    Send(std::string(std::string(sWorld->GetMotd()) + "\r\n").c_str());
+    Send(std::string(std::string(Motd::GetMotd()) + "\r\n").c_str());
 
     // Read commands
     for (;;)
@@ -121,7 +122,7 @@ bool RASession::CheckAccessLevel(const std::string& user)
 {
     std::string safeUser = user;
 
-    AccountMgr::normalizeString(safeUser);
+    Utf8ToUpperOnlyLatin(safeUser);
 
     PreparedStatement* stmt = LoginDatabase.GetPreparedStatement(LOGIN_SEL_ACCOUNT_ACCESS);
     stmt->setString(0, safeUser);
@@ -135,7 +136,7 @@ bool RASession::CheckAccessLevel(const std::string& user)
 
     Field* fields = result->Fetch();
 
-    if (fields[1].GetUInt8() < sConfigMgr->GetIntDefault("RA.MinLevel", 3))
+    if (fields[1].GetUInt8() < sConfigMgr->GetIntDefault("Ra.MinLevel", 3))
     {
         TC_LOG_INFO("commands.ra", "User %s has no privilege to login", user.c_str());
         return false;
@@ -153,10 +154,10 @@ bool RASession::CheckPassword(const std::string& user, const std::string& pass)
 {
     std::string safe_user = user;
     std::transform(safe_user.begin(), safe_user.end(), safe_user.begin(), ::toupper);
-    AccountMgr::normalizeString(safe_user);
+    Utf8ToUpperOnlyLatin(safe_user);
 
     std::string safe_pass = pass;
-    AccountMgr::normalizeString(safe_pass);
+    Utf8ToUpperOnlyLatin(safe_pass);
     std::transform(safe_pass.begin(), safe_pass.end(), safe_pass.begin(), ::toupper);
 
     std::string hash = AccountMgr::CalculateShaPassHash(safe_user, safe_pass);

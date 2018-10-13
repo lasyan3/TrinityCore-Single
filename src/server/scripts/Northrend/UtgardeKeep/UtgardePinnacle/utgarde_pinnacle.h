@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2015 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2017 TrinityCore <http://www.trinitycore.org/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -23,7 +23,7 @@
 
 uint32 const EncounterCount = 4;
 
-enum DataTypes
+enum UPDataTypes
 {
     // Encounter States/Boss GUIDs
     DATA_SVALA_SORROWGRAVE          = 0,
@@ -41,11 +41,13 @@ enum DataTypes
     DATA_MASSIVE_JORMUNGAR          = 9,
     DATA_FEROCIOUS_RHINO            = 10,
     DATA_GORTOK_ORB                 = 11,
-    DATA_GORTOK_PALEHOOF_SPHERE     = 12
+    DATA_GORTOK_PALEHOOF_SPHERE     = 12,
+    DATA_GRAUF                      = 13
 };
 
-enum CreatureIds
+enum UPCreatureIds
 {
+    // Bosses
     NPC_SVALA_SORROWGRAVE           = 26668,
     NPC_GORTOK_PALEHOOF             = 26687,
     NPC_SKADI_THE_RUTHLESS          = 26693,
@@ -59,7 +61,18 @@ enum CreatureIds
     NPC_RAVENOUS_FURBOLG            = 26684,
     NPC_MASSIVE_JORMUNGAR           = 26685,
     NPC_FEROCIOUS_RHINO             = 26686,
-    NPC_PALEHOOF_ORB                = 26688,
+    NPC_PALEHOOF_ORB                = 22515, // World Trigger
+    NPC_JORMUNGAR_WORM              = 27228,
+
+    // Skadi
+    NPC_GRAUF                       = 26893,
+    NPC_YMIRJAR_WARRIOR             = 26690,
+    NPC_YMIRJAR_WITCH_DOCTOR        = 26691,
+    NPC_YMIRJAR_HARPOONER           = 26692,
+    NPC_TRIGGER_RESET               = 23472,
+    NPC_TRIGGER2                    = 19871,
+    NPC_WORLD_TRIGGER               = 22515,
+    NPC_COMBAT_TRIGGER              = 38667,
 
     // Ymiron
     NPC_BJORN                       = 27303,
@@ -74,7 +87,7 @@ enum CreatureIds
     NPC_AVENGING_SPIRIT             = 27386
 };
 
-enum GameObjectIds
+enum UPGameObjectIds
 {
     GO_GORTOK_PALEHOOF_SPHERE       = 188593,
     GO_UTGARDE_MIRROR               = 191745,

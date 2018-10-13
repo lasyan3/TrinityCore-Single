@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2015 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2017 TrinityCore <http://www.trinitycore.org/>
  * Copyright (C) 2006-2009 ScriptDev2 <https://scriptdev2.svn.sourceforge.net/>
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -121,11 +121,7 @@ public:
                 return;
 
             if (id == 0)
-            {
-                me->setDeathState(JUST_DIED);
-                me->RemoveCorpse();
-                me->SetHealth(0);
-            }
+                me->DespawnOrUnsummon(1);
         }
 
         void SpellHit(Unit* caster, const SpellInfo* spell) override
@@ -153,7 +149,8 @@ public:
                         EnterEvadeMode();
                         me->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NON_ATTACKABLE);
                         IsNihil = true;
-                    }else
+                    }
+                    else
                         AttackStart(caster);
                 }
             }
@@ -912,7 +909,7 @@ class go_apexis_relic : public GameObjectScript
 
         bool OnGossipSelect(Player* player, GameObject* go, uint32 /*sender*/, uint32 /*action*/) override
         {
-            player->CLOSE_GOSSIP_MENU();
+            CloseGossipMenuFor(player);
 
             bool large = (go->GetEntry() == GO_APEXIS_MONUMENT);
             if (player->HasItemCount(ITEM_APEXIS_SHARD, large ? 35 : 1))
@@ -959,7 +956,7 @@ public:
             {
                 // Spell 37392 does not exist in dbc, manually spawning
                 me->SummonCreature(NPC_OSCILLATING_FREQUENCY_SCANNER_TOP_BUNNY, me->GetPositionX(), me->GetPositionY(), me->GetPositionZ() + 0.5f, me->GetOrientation(), TEMPSUMMON_TIMED_OR_DEAD_DESPAWN, 50000);
-                me->SummonGameObject(GO_OSCILLATING_FREQUENCY_SCANNER, me->GetPositionX(), me->GetPositionY(), me->GetPositionZ(), me->GetOrientation(), 0, 0, 0, 0, 50);
+                me->SummonGameObject(GO_OSCILLATING_FREQUENCY_SCANNER, *me, G3D::Quat(), 50);
                 me->DespawnOrUnsummon(50000);
             }
 

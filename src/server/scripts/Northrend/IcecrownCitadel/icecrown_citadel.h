@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2015 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2017 TrinityCore <http://www.trinitycore.org/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -37,7 +37,7 @@ extern Position const TerenasSpawnHeroic;
 extern Position const SpiritWardenSpawn;
 
 // Shared spells used by more than one script
-enum SharedSpells
+enum ICSharedSpells
 {
     SPELL_BERSERK                       = 26662,
     SPELL_BERSERK2                      = 47008,
@@ -58,7 +58,7 @@ enum SharedSpells
     SPELL_SHADOWS_FATE                  = 71169
 };
 
-enum TeleporterSpells
+enum ICTeleporterSpells
 {
     LIGHT_S_HAMMER_TELEPORT         = 70781,
     ORATORY_OF_THE_DAMNED_TELEPORT  = 70856,
@@ -69,56 +69,57 @@ enum TeleporterSpells
     SINDRAGOSA_S_LAIR_TELEPORT      = 70861
 };
 
-enum DataTypes
+enum ICDataTypes
 {
     // Encounter States/Boss GUIDs
-    DATA_LORD_MARROWGAR             = 0,
-    DATA_LADY_DEATHWHISPER          = 1,
-    DATA_ICECROWN_GUNSHIP_BATTLE    = 2,
-    DATA_DEATHBRINGER_SAURFANG      = 3,
-    DATA_FESTERGUT                  = 4,
-    DATA_ROTFACE                    = 5,
-    DATA_PROFESSOR_PUTRICIDE        = 6,
-    DATA_BLOOD_PRINCE_COUNCIL       = 7,
-    DATA_BLOOD_QUEEN_LANA_THEL      = 8,
-    DATA_SISTER_SVALNA              = 9,
-    DATA_VALITHRIA_DREAMWALKER      = 10,
-    DATA_SINDRAGOSA                 = 11,
-    DATA_THE_LICH_KING              = 12,
+    DATA_LORD_MARROWGAR                = 0,
+    DATA_LADY_DEATHWHISPER             = 1,
+    DATA_ICECROWN_GUNSHIP_BATTLE       = 2,
+    DATA_DEATHBRINGER_SAURFANG         = 3,
+    DATA_FESTERGUT                     = 4,
+    DATA_ROTFACE                       = 5,
+    DATA_PROFESSOR_PUTRICIDE           = 6,
+    DATA_BLOOD_PRINCE_COUNCIL          = 7,
+    DATA_BLOOD_QUEEN_LANA_THEL         = 8,
+    DATA_SISTER_SVALNA                 = 9,
+    DATA_VALITHRIA_DREAMWALKER         = 10,
+    DATA_SINDRAGOSA                    = 11,
+    DATA_THE_LICH_KING                 = 12,
 
     // Additional data
-    DATA_SAURFANG_EVENT_NPC         = 13,
-    DATA_BONED_ACHIEVEMENT          = 14,
-    DATA_OOZE_DANCE_ACHIEVEMENT     = 15,
-    DATA_PUTRICIDE_TABLE            = 16,
-    DATA_NAUSEA_ACHIEVEMENT         = 17,
-    DATA_ORB_WHISPERER_ACHIEVEMENT  = 18,
-    DATA_PRINCE_KELESETH_GUID       = 19,
-    DATA_PRINCE_TALDARAM_GUID       = 20,
-    DATA_PRINCE_VALANAR_GUID        = 21,
-    DATA_BLOOD_PRINCES_CONTROL      = 22,
-    DATA_SINDRAGOSA_FROSTWYRMS      = 23,
-    DATA_SPINESTALKER               = 24,
-    DATA_RIMEFANG                   = 25,
-    DATA_COLDFLAME_JETS             = 26,
-    DATA_TEAM_IN_INSTANCE           = 27,
-    DATA_BLOOD_QUICKENING_STATE     = 28,
-    DATA_HEROIC_ATTEMPTS            = 29,
-    DATA_CROK_SCOURGEBANE           = 30,
-    DATA_CAPTAIN_ARNATH             = 31,
-    DATA_CAPTAIN_BRANDON            = 32,
-    DATA_CAPTAIN_GRONDEL            = 33,
-    DATA_CAPTAIN_RUPERT             = 34,
-    DATA_VALITHRIA_TRIGGER          = 35,
-    DATA_VALITHRIA_LICH_KING        = 36,
-    DATA_HIGHLORD_TIRION_FORDRING   = 37,
-    DATA_ARTHAS_PLATFORM            = 38,
-    DATA_TERENAS_MENETHIL           = 39,
-    DATA_ENEMY_GUNSHIP              = 40,
-    DATA_UPPERSPIRE_TELE_ACT        = 41,
+    DATA_SAURFANG_EVENT_NPC            = 13,
+    DATA_BONED_ACHIEVEMENT             = 14,
+    DATA_OOZE_DANCE_ACHIEVEMENT        = 15,
+    DATA_PUTRICIDE_TABLE               = 16,
+    DATA_NAUSEA_ACHIEVEMENT            = 17,
+    DATA_ORB_WHISPERER_ACHIEVEMENT     = 18,
+    DATA_PRINCE_KELESETH               = 19,
+    DATA_PRINCE_TALDARAM               = 20,
+    DATA_PRINCE_VALANAR                = 21,
+    DATA_BLOOD_PRINCES_CONTROL         = 22,
+    DATA_SINDRAGOSA_FROSTWYRMS         = 23,
+    DATA_SPINESTALKER                  = 24,
+    DATA_RIMEFANG                      = 25,
+    DATA_COLDFLAME_JETS                = 26,
+    DATA_TEAM_IN_INSTANCE              = 27,
+    DATA_BLOOD_QUICKENING_STATE        = 28,
+    DATA_HEROIC_ATTEMPTS               = 29,
+    DATA_CROK_SCOURGEBANE              = 30,
+    DATA_CAPTAIN_ARNATH                = 31,
+    DATA_CAPTAIN_BRANDON               = 32,
+    DATA_CAPTAIN_GRONDEL               = 33,
+    DATA_CAPTAIN_RUPERT                = 34,
+    DATA_VALITHRIA_TRIGGER             = 35,
+    DATA_VALITHRIA_LICH_KING           = 36,
+    DATA_HIGHLORD_TIRION_FORDRING      = 37,
+    DATA_ARTHAS_PLATFORM               = 38,
+    DATA_TERENAS_MENETHIL              = 39,
+    DATA_ENEMY_GUNSHIP                 = 40,
+    DATA_UPPERSPIRE_TELE_ACT           = 41, /// also used by conditions
+    DATA_BLOOD_QUEEN_LANA_THEL_COUNCIL = 42
 };
 
-enum CreaturesIds
+enum ICCreaturesIds
 {
     // At Light's Hammer
     NPC_HIGHLORD_TIRION_FORDRING_LH             = 37119,
@@ -247,6 +248,7 @@ enum CreaturesIds
     NPC_KINETIC_BOMB_TARGET                     = 38458,
     NPC_KINETIC_BOMB                            = 38454,
     NPC_SHOCK_VORTEX                            = 38422,
+    NPC_BLOOD_QUEEN_LANA_THEL_COUNCIL           = 38004,
 
     // Blood-Queen Lana'thel
     NPC_BLOOD_QUEEN_LANA_THEL                   = 37955,
@@ -315,12 +317,13 @@ enum CreaturesIds
     NPC_WORLD_TRIGGER_INFINITE_AOI              = 36171,
     NPC_SPIRIT_BOMB                             = 39189,
     NPC_FROSTMOURNE_TRIGGER                     = 38584,
+    NPC_SHADOW_TRAP                             = 39137,
 
     // Generic
     NPC_INVISIBLE_STALKER                       = 30298
 };
 
-enum GameObjectsIds
+enum ICGameObjectsIds
 {
     // ICC Teleporters
     GO_SCOURGE_TRANSPORTER_LICHKING         = 202223,
@@ -426,7 +429,7 @@ enum GameObjectsIds
     GO_LAVAMAN_PILLARS_UNCHAINED            = 202438
 };
 
-enum AchievementCriteriaIds
+enum ICAchievementCriteriaIds
 {
     // Lord Marrowgar
     CRITERIA_BONED_10N                  = 12775,
@@ -461,7 +464,7 @@ enum AchievementCriteriaIds
     CRITERIA_ONCE_BITTEN_TWICE_SHY_25V  = 13013
 };
 
-enum SharedActions
+enum ICSharedActions
 {
     // Icecrown Gunship Battle
     ACTION_ENEMY_GUNSHIP_TALK   = -369390,
@@ -493,7 +496,7 @@ enum SharedActions
     ACTION_FROSTMOURNE_INTRO    = -36823
 };
 
-enum WeekliesICC
+enum ICWeekliesICC
 {
     QUEST_DEPROGRAMMING_10                  = 24869,
     QUEST_DEPROGRAMMING_25                  = 24875,
@@ -507,7 +510,7 @@ enum WeekliesICC
     QUEST_RESPITE_FOR_A_TORNMENTED_SOUL_25  = 24880
 };
 
-enum WorldStatesICC
+enum ICWorldStatesICC
 {
     WORLDSTATE_SHOW_TIMER           = 4903,
     WORLDSTATE_EXECUTION_TIME       = 4904,
@@ -516,10 +519,9 @@ enum WorldStatesICC
     WORLDSTATE_ATTEMPTS_MAX         = 4942
 };
 
-enum AreaIds
+enum ICAreaIds
 {
-    AREA_ICECROWN_CITADEL   = 4812,
-    AREA_THE_FROZEN_THRONE  = 4859
+    AREA_ICECROWN_CITADEL   = 4812
 };
 
 class spell_trigger_spell_from_caster : public SpellScriptLoader
@@ -567,14 +569,10 @@ class spell_trigger_spell_from_caster : public SpellScriptLoader
         TriggerCastFlags _triggerFlags;
 };
 
-template<class AI>
-CreatureAI* GetIcecrownCitadelAI(Creature* creature)
+template<class AI, class T>
+inline AI* GetIcecrownCitadelAI(T* obj)
 {
-    if (InstanceMap* instance = creature->GetMap()->ToInstanceMap())
-        if (instance->GetInstanceScript())
-            if (instance->GetScriptId() == sObjectMgr->GetScriptId(ICCScriptName))
-                return new AI(creature);
-    return NULL;
+    return GetInstanceAI<AI>(obj, ICCScriptName);
 }
 
 #endif // ICECROWN_CITADEL_H_

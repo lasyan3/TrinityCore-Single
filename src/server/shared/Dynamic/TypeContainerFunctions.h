@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2015 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2017 TrinityCore <http://www.trinitycore.org/>
  * Copyright (C) 2005-2009 MaNGOS <http://getmangos.com/>
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -160,7 +160,8 @@ namespace Trinity
 
     // non-const insert functions
     template<class SPECIFIC_TYPE>
-    SPECIFIC_TYPE* Insert(ContainerMapList<SPECIFIC_TYPE>& elements, SPECIFIC_TYPE* obj)    {
+    SPECIFIC_TYPE* Insert(ContainerMapList<SPECIFIC_TYPE>& elements, SPECIFIC_TYPE* obj)
+    {
         //elements._element[hdl] = obj;
         obj->AddToGrid(elements._element);
         return obj;
@@ -209,7 +210,7 @@ namespace Trinity
     //{
     //    // The head element is bad
     //    SPECIFIC_TYPE* t = Remove(elements._elements, obj);
-    //    return ( t != nullptr ? t : Remove(elements._TailElements, obj) );
+    //    return (t != nullptr ? t : Remove(elements._TailElements, obj));
     //}
 }
 #endif

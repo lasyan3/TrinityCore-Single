@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2015 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2017 TrinityCore <http://www.trinitycore.org/>
  * Copyright (C) 2005-2009 MaNGOS <http://getmangos.com/>
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -47,7 +47,8 @@ template<>
 struct ContainerMapList<TypeNull>                /* nothing is in type null */
 {
 };
-template<class H, class T> 
+
+template<class H, class T>
 struct ContainerMapList<TypeList<H, T> >
 {
     ContainerMapList<H> _elements;
@@ -72,23 +73,6 @@ struct ContainerUnorderedMap<TypeList<H, T>, KEY_TYPE>
     ContainerUnorderedMap<T, KEY_TYPE> _TailElements;
 };
 
-/*
- * @class ContainerList is a simple list of different types of elements
- *
- */
-template<class OBJECT> struct ContainerList
-{
-    OBJECT _element;
-};
-
-/* TypeNull is underfined */
-template<> struct ContainerList<TypeNull> { };
-template<class H, class T> struct ContainerList<TypeList<H, T> >
-{
-    ContainerList<H> _elements;
-    ContainerMapList<T> _TailElements;
-};
-
 #include "TypeContainerFunctions.h"
 
 /*
@@ -105,7 +89,7 @@ class TypeMapContainer
         template<class SPECIFIC_TYPE> size_t Count() const { return Trinity::Count(i_elements, (SPECIFIC_TYPE*)NULL); }
 
         /// inserts a specific object into the container
-        template<class SPECIFIC_TYPE> 
+        template<class SPECIFIC_TYPE>
         bool insert(SPECIFIC_TYPE *obj)
         {
             SPECIFIC_TYPE* t = Trinity::Insert(i_elements, obj);
@@ -113,7 +97,7 @@ class TypeMapContainer
         }
 
         ///  Removes the object from the container, and returns the removed object
-        //template<class SPECIFIC_TYPE> 
+        //template<class SPECIFIC_TYPE>
         //bool remove(SPECIFIC_TYPE* obj)
         //{
         //    SPECIFIC_TYPE* t = Trinity::Remove(i_elements, obj);
@@ -157,4 +141,3 @@ private:
 };
 
 #endif
-

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2015 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2017 TrinityCore <http://www.trinitycore.org/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -55,7 +55,7 @@ public:
             me->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE);
 
             float x, y, z;
-            me->GetClosePoint(x, y, z, me->GetObjectSize() / 3, 0.1f);
+            me->GetClosePoint(x, y, z, me->GetCombatReach() / 3, 0.1f);
 
             if (Creature* summon = me->SummonCreature(NPC_RAGECLAW, x, y, z, 0, TEMPSUMMON_DEAD_DESPAWN, 1000))
             {
@@ -180,7 +180,7 @@ public:
         void Reset() override
         {
             float x, y, z;
-            me->GetClosePoint(x, y, z, me->GetObjectSize() / 3, 25.0f);
+            me->GetClosePoint(x, y, z, me->GetCombatReach() / 3, 25.0f);
             me->GetMotionMaster()->MovePoint(0, x, y, z);
         }
 
@@ -270,7 +270,7 @@ public:
         void sGossipSelect(Player* player, uint32 /*menuId*/, uint32 /*gossipListId*/) override
         {
             _events.ScheduleEvent(EVENT_RECRUIT_1, 100);
-            player->CLOSE_GOSSIP_MENU();
+            CloseGossipMenuFor(player);
             me->CastSpell(player, SPELL_QUEST_CREDIT, true);
             me->SetFacingToObject(player);
         }
@@ -554,7 +554,7 @@ public:
 
             void sGossipSelect(Player* player, uint32 /*menuId*/, uint32 /*gossipListId*/) override
             {
-                player->CLOSE_GOSSIP_MENU();
+                CloseGossipMenuFor(player);
                 DoCast(player, SPELL_ALCHEMIST_APPRENTICE_INVISBUFF);
                 _playerGUID = player->GetGUID();
                 _getingredienttry = 1;

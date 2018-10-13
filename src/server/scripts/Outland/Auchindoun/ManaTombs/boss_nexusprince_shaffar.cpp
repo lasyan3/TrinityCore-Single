@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2017 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2018 TrinityCore <https://www.trinitycore.org/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -23,8 +23,9 @@ SDCategory: Auchindoun, Mana Tombs
 EndScriptData */
 
 #include "ScriptMgr.h"
-#include "ScriptedCreature.h"
 #include "mana_tombs.h"
+#include "MotionMaster.h"
+#include "ScriptedCreature.h"
 
 enum Yells
 {
@@ -104,10 +105,10 @@ class boss_nexusprince_shaffar : public CreatureScript
                 }
             }
 
-            void EnterCombat(Unit* /*who*/) override
+            void JustEngagedWith(Unit* /*who*/) override
             {
                 Talk(SAY_AGGRO);
-                _EnterCombat();
+                _JustEngagedWith();
 
                 events.ScheduleEvent(EVENT_BEACON, 10000);
                 events.ScheduleEvent(EVENT_FIREBALL, 8000);
@@ -210,7 +211,7 @@ class npc_ethereal_beacon : public CreatureScript
                 _events.Reset();
             }
 
-            void EnterCombat(Unit* who) override
+            void JustEngagedWith(Unit* who) override
             {
                 if (Creature* shaffar = me->FindNearestCreature(NPC_SHAFFAR, 100.0f))
                     if (!shaffar->IsInCombat())
@@ -259,7 +260,7 @@ class npc_ethereal_beacon : public CreatureScript
 
         CreatureAI* GetAI(Creature* creature) const override
         {
-            return new npc_ethereal_beaconAI(creature);
+            return GetManaTombsAI<npc_ethereal_beaconAI>(creature);
         }
 };
 
@@ -285,7 +286,7 @@ class npc_ethereal_apprentice : public CreatureScript
                 _events.Reset();
             }
 
-            void EnterCombat(Unit* /*who*/) override
+            void JustEngagedWith(Unit* /*who*/) override
             {
                 _events.ScheduleEvent(EVENT_ETHEREAL_APPRENTICE_FIREBOLT, 3000);
             }
@@ -324,7 +325,7 @@ class npc_ethereal_apprentice : public CreatureScript
 
         CreatureAI* GetAI(Creature* creature) const override
         {
-            return new npc_ethereal_apprenticeAI(creature);
+            return GetManaTombsAI<npc_ethereal_apprenticeAI>(creature);
         }
 };
 
@@ -345,7 +346,7 @@ public:
 
         void Reset() override { }
 
-        void EnterCombat(Unit* /*who*/) override
+        void JustEngagedWith(Unit* /*who*/) override
         {
             _events.ScheduleEvent(EVENT_DOUBLE_BREATH, urand(6000,9000));
         }
@@ -380,7 +381,7 @@ public:
 
     CreatureAI* GetAI(Creature* creature) const override
     {
-        return new npc_yorAI(creature);
+        return GetManaTombsAI<npc_yorAI>(creature);
     }
 };
 

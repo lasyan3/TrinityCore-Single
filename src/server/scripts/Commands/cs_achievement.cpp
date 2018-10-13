@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2017 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2018 TrinityCore <https://www.trinitycore.org/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -22,11 +22,12 @@ Comment: All achievement related commands
 Category: commandscripts
 EndScriptData */
 
+#include "ScriptMgr.h"
 #include "AchievementMgr.h"
 #include "Chat.h"
 #include "Language.h"
 #include "Player.h"
-#include "ScriptMgr.h"
+#include "RBAC.h"
 
 class achievement_commandscript : public CommandScript
 {
@@ -41,7 +42,7 @@ public:
         };
         static std::vector<ChatCommand> commandTable =
         {
-            { "achievement", rbac::RBAC_PERM_COMMAND_ACHIEVEMENT,  false, NULL, "", achievementCommandTable },
+            { "achievement", rbac::RBAC_PERM_COMMAND_ACHIEVEMENT,  false, nullptr, "", achievementCommandTable },
         };
         return commandTable;
     }

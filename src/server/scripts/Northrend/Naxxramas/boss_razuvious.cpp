@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2017 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2018 TrinityCore <https://www.trinitycore.org/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -16,9 +16,12 @@
  */
 
 #include "ScriptMgr.h"
+#include "InstanceScript.h"
+#include "MotionMaster.h"
+#include "naxxramas.h"
+#include "ObjectAccessor.h"
 #include "ScriptedCreature.h"
 #include "SpellInfo.h"
-#include "naxxramas.h"
 
 enum Yells
 {
@@ -60,7 +63,7 @@ public:
 
     CreatureAI* GetAI(Creature* creature) const override
     {
-        return new boss_razuviousAI(creature);
+        return GetNaxxramasAI<boss_razuviousAI>(creature);
     }
 
     struct boss_razuviousAI : public BossAI
@@ -76,7 +79,7 @@ public:
 
         void InitializeAI() override
         {
-            if (!me->isDead())
+            if (!me->isDead() && instance->GetBossState(BOSS_RAZUVIOUS) != DONE)
             {
                 Reset();
                 SummonAdds();
@@ -114,9 +117,9 @@ public:
             instance->SetBossState(BOSS_RAZUVIOUS, DONE);
         }
 
-        void EnterCombat(Unit* /*who*/) override
+        void JustEngagedWith(Unit* /*who*/) override
         {
-            _EnterCombat();
+            _JustEngagedWith();
             me->StopMoving();
             summons.DoZoneInCombat();
             Talk(SAY_AGGRO);
@@ -182,7 +185,7 @@ class npc_dk_understudy : public CreatureScript
                 creature->LoadEquipment(1);
             }
 
-            void EnterCombat(Unit* /*who*/) override
+            void JustEngagedWith(Unit* /*who*/) override
             {
                 me->SetUInt32Value(UNIT_NPC_EMOTESTATE, EMOTE_ONESHOT_NONE);
                 if (Creature* razuvious = ObjectAccessor::GetCreature(*me, _instance->GetGuidData(DATA_RAZUVIOUS)))
@@ -219,7 +222,7 @@ class npc_dk_understudy : public CreatureScript
                 if (apply)
                 {
                     if (!me->IsInCombat())
-                        EnterCombat(nullptr);
+                        JustEngagedWith(nullptr);
                     me->StopMoving();
                     me->SetReactState(REACT_PASSIVE);
                     _charmer = me->GetCharmerGUID();
@@ -228,7 +231,7 @@ class npc_dk_understudy : public CreatureScript
                 {
                     me->SetReactState(REACT_AGGRESSIVE);
                     if (Unit* charmer = ObjectAccessor::GetUnit(*me, _charmer))
-                        me->AddThreat(charmer, 100000.0f);
+                        AddThreat(charmer, 100000.0f);
                     DoZoneInCombat(nullptr, 250.0f);
                 }
             }
@@ -240,7 +243,7 @@ class npc_dk_understudy : public CreatureScript
 
         CreatureAI* GetAI(Creature* creature) const override
         {
-            return GetInstanceAI<npc_dk_understudyAI>(creature);
+            return GetNaxxramasAI<npc_dk_understudyAI>(creature);
         }
 };
 

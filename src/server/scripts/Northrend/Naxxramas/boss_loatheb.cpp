@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2017 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2018 TrinityCore <https://www.trinitycore.org/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -16,10 +16,11 @@
  */
 
 #include "ScriptMgr.h"
-#include "ScriptedCreature.h"
-#include "SpellScript.h"
-#include "SpellAuraEffects.h"
+#include "InstanceScript.h"
 #include "naxxramas.h"
+#include "ScriptedCreature.h"
+#include "SpellAuras.h"
+#include "SpellScript.h"
 
 enum Spells
 {
@@ -71,9 +72,9 @@ class boss_loatheb : public CreatureScript
                 _sporeLoser = true;
             }
 
-            void EnterCombat(Unit* /*who*/) override
+            void JustEngagedWith(Unit* /*who*/) override
             {
-                _EnterCombat();
+                _JustEngagedWith();
                 events.ScheduleEvent(EVENT_NECROTIC_AURA, Seconds(17));
                 events.ScheduleEvent(EVENT_DEATHBLOOM, Seconds(5));
                 events.ScheduleEvent(EVENT_SPORE, Seconds(18));
@@ -146,7 +147,7 @@ class boss_loatheb : public CreatureScript
 
         CreatureAI* GetAI(Creature* creature) const override
         {
-            return new boss_loathebAI(creature);
+            return GetNaxxramasAI<boss_loathebAI>(creature);
         }
 };
 
@@ -172,9 +173,7 @@ class spell_loatheb_deathbloom : public SpellScriptLoader
 
             bool Validate(SpellInfo const* /*spell*/) override
             {
-                if (!sSpellMgr->GetSpellInfo(SPELL_DEATHBLOOM_FINAL_DAMAGE))
-                    return false;
-                return true;
+                return ValidateSpellInfo({ SPELL_DEATHBLOOM_FINAL_DAMAGE });
             }
 
             void AfterRemove(AuraEffect const* eff, AuraEffectHandleModes /*mode*/)
@@ -182,7 +181,7 @@ class spell_loatheb_deathbloom : public SpellScriptLoader
                 if (GetTargetApplication()->GetRemoveMode() != AURA_REMOVE_BY_EXPIRE)
                     return;
 
-                GetTarget()->CastSpell(nullptr, SPELL_DEATHBLOOM_FINAL_DAMAGE, true, nullptr, eff, GetCasterGUID());
+                GetTarget()->CastSpell(nullptr, SPELL_DEATHBLOOM_FINAL_DAMAGE, CastSpellExtraArgs(eff).SetOriginalCaster(GetCasterGUID()));
             }
 
             void Register() override

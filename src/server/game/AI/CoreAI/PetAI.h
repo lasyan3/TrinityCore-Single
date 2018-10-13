@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2017 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2018 TrinityCore <https://www.trinitycore.org/>
  * Copyright (C) 2005-2009 MaNGOS <http://getmangos.com/>
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -34,14 +34,15 @@ class TC_GAME_API PetAI : public CreatureAI
         explicit PetAI(Creature* c);
 
         void UpdateAI(uint32) override;
-        static int Permissible(const Creature*);
+        static int32 Permissible(Creature const* creature);
 
         void KilledUnit(Unit* /*victim*/) override;
-        void AttackStart(Unit* target) override;
+        void AttackStart(Unit* target) override; // only start attacking if not attacking something else already
+        void _AttackStart(Unit* target); // always start attacking if possible
         void MovementInform(uint32 moveType, uint32 data) override;
         void OwnerAttackedBy(Unit* attacker) override;
         void OwnerAttacked(Unit* target) override;
-        void AttackedBy(Unit* attacker) override;
+        void DamageTaken(Unit* attacker, uint32& /*damage*/) override { AttackStart(attacker); }
         void ReceiveEmote(Player* player, uint32 textEmote) override;
 
         // The following aren't used by the PetAI but need to be defined to override
@@ -54,7 +55,6 @@ class TC_GAME_API PetAI : public CreatureAI
         void OnCharmed(bool /*apply*/) override;
 
     private:
-        bool _isVisible(Unit*) const;
         bool _needToStop(void);
         void _stopAttack(void);
 
@@ -71,4 +71,3 @@ class TC_GAME_API PetAI : public CreatureAI
         void ClearCharmInfoFlags();
 };
 #endif
-

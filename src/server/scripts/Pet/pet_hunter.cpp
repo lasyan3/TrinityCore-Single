@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2017 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2018 TrinityCore <https://www.trinitycore.org/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -21,9 +21,11 @@
  */
 
 #include "ScriptMgr.h"
+#include "CreatureAIImpl.h"
 #include "ScriptedCreature.h"
 #include "SpellScript.h"
 #include "SpellAuraEffects.h"
+#include "TemporarySummon.h"
 
 enum HunterSpells
 {
@@ -70,7 +72,7 @@ class npc_pet_hunter_snake_trap : public CreatureScript
                 _isViper = false;
             }
 
-            void EnterCombat(Unit* /*who*/) override { }
+            void JustEngagedWith(Unit* /*who*/) override { }
 
             void Reset() override
             {
@@ -168,10 +170,11 @@ class spell_pet_charge : public SpellScriptLoader
 
             bool Validate(SpellInfo const* /*spellInfo*/) override
             {
-                if (!sSpellMgr->GetSpellInfo(SPELL_PET_SWOOP) ||
-                    !sSpellMgr->GetSpellInfo(SPELL_PET_CHARGE))
-                    return false;
-                return true;
+                return ValidateSpellInfo(
+                {
+                    SPELL_PET_SWOOP,
+                    SPELL_PET_CHARGE
+                });
             }
 
             void HandleDummy(AuraEffect const* /*aurEff*/, ProcEventInfo& eventInfo)
@@ -214,9 +217,7 @@ class spell_pet_guard_dog : public SpellScriptLoader
 
             bool Validate(SpellInfo const* /*spellInfo*/) override
             {
-                if (!sSpellMgr->GetSpellInfo(SPELL_PET_GUARD_DOG_HAPPINESS))
-                    return false;
-                return true;
+                return ValidateSpellInfo({ SPELL_PET_GUARD_DOG_HAPPINESS });
             }
 
             bool CheckProc(ProcEventInfo& eventInfo)
@@ -235,10 +236,13 @@ class spell_pet_guard_dog : public SpellScriptLoader
                 PreventDefaultAction();
 
                 Unit* caster = eventInfo.GetActor();
-                caster->CastSpell((Unit*)nullptr, SPELL_PET_GUARD_DOG_HAPPINESS, true, nullptr, aurEff);
+                caster->CastSpell(nullptr, SPELL_PET_GUARD_DOG_HAPPINESS, aurEff);
 
+                Unit* target = eventInfo.GetProcTarget();
+                if (!target->CanHaveThreatList())
+                    return;
                 float addThreat = CalculatePct(ASSERT_NOTNULL(eventInfo.GetSpellInfo())->Effects[EFFECT_0].CalcValue(caster), aurEff->GetAmount());
-                eventInfo.GetProcTarget()->AddThreat(caster, addThreat);
+                target->GetThreatManager().AddThreat(caster, addThreat, GetSpellInfo(), false, true);
             }
 
             void Register() override
@@ -266,9 +270,7 @@ class spell_pet_silverback : public SpellScriptLoader
 
             bool Validate(SpellInfo const* /*spellInfo*/) override
             {
-                if (!sSpellMgr->GetSpellInfo(SPELL_PET_GUARD_DOG_HAPPINESS))
-                    return false;
-                return true;
+                return ValidateSpellInfo({ SPELL_PET_GUARD_DOG_HAPPINESS });
             }
 
             bool CheckProc(ProcEventInfo& eventInfo)
@@ -289,7 +291,7 @@ class spell_pet_silverback : public SpellScriptLoader
                 PreventDefaultAction();
 
                 uint32 spellId = triggerSpell[GetSpellInfo()->GetRank() - 1];
-                eventInfo.GetActor()->CastSpell((Unit*)nullptr, spellId, true, nullptr, aurEff);
+                eventInfo.GetActor()->CastSpell(nullptr, spellId, aurEff);
             }
 
             void Register() override

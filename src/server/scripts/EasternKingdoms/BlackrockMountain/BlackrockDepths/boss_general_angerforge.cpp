@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2017 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2018 TrinityCore <https://www.trinitycore.org/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -16,6 +16,7 @@
  */
 
 #include "ScriptMgr.h"
+#include "blackrock_depths.h"
 #include "ScriptedCreature.h"
 
 enum Spells
@@ -54,7 +55,7 @@ class boss_general_angerforge : public CreatureScript
                 _events.Reset();
             }
 
-            void EnterCombat(Unit* /*who*/) override
+            void JustEngagedWith(Unit* /*who*/) override
             {
                 _events.SetPhase(PHASE_ONE);
                 _events.ScheduleEvent(EVENT_MIGHTYBLOW, 8000);
@@ -130,7 +131,7 @@ class boss_general_angerforge : public CreatureScript
 
         CreatureAI* GetAI(Creature* creature) const override
         {
-            return new boss_general_angerforgeAI(creature);
+            return GetBlackrockDepthsAI<boss_general_angerforgeAI>(creature);
         }
 };
 

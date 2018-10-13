@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2017 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2018 TrinityCore <https://www.trinitycore.org/>
  * Copyright (C) 2005-2009 MaNGOS <http://getmangos.com/>
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -16,11 +16,12 @@
  * with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include "HomeMovementGenerator.h"
 #include "Creature.h"
 #include "CreatureAI.h"
-#include "MoveSplineInit.h"
 #include "MoveSpline.h"
-#include "HomeMovementGenerator.h"
+#include "MoveSplineInit.h"
+#include "PathGenerator.h"
 
 template<class T>
 HomeMovementGenerator<T>::~HomeMovementGenerator() { }

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2017 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2018 TrinityCore <https://www.trinitycore.org/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -23,9 +23,14 @@ SDCategory: Ulduar - Ulduar
 EndScriptData */
 
 #include "ScriptMgr.h"
+#include "InstanceScript.h"
+#include "MotionMaster.h"
+#include "ObjectAccessor.h"
 #include "ScriptedCreature.h"
+#include "SpellAuras.h"
+#include "SpellMgr.h"
 #include "SpellScript.h"
-#include "SpellAuraEffects.h"
+#include "TemporarySummon.h"
 #include "ulduar.h"
 
 enum AssemblySpells
@@ -157,9 +162,9 @@ class boss_steelbreaker : public CreatureScript
                 me->RemoveAllAuras();
             }
 
-            void EnterCombat(Unit* /*who*/) override
+            void JustEngagedWith(Unit* /*who*/) override
             {
-                _EnterCombat();
+                _JustEngagedWith();
                 Talk(SAY_STEELBREAKER_AGGRO);
                 DoCast(me, SPELL_HIGH_VOLTAGE);
                 events.SetPhase(++phase);
@@ -206,7 +211,7 @@ class boss_steelbreaker : public CreatureScript
                 }
                 else
                 {
-                    me->SetLootRecipient(NULL);
+                    me->SetLootRecipient(nullptr);
                     Talk(SAY_STEELBREAKER_DEATH);
                     //DoCastAOE(SPELL_SUPERCHARGE, true);
 
@@ -305,9 +310,9 @@ class boss_runemaster_molgeim : public CreatureScript
                 me->RemoveAllAuras();
             }
 
-            void EnterCombat(Unit* /*who*/) override
+            void JustEngagedWith(Unit* /*who*/) override
             {
-                _EnterCombat();
+                _JustEngagedWith();
                 Talk(SAY_MOLGEIM_AGGRO);
                 events.SetPhase(++phase);
                 events.ScheduleEvent(EVENT_BERSERK, 900000);
@@ -354,7 +359,7 @@ class boss_runemaster_molgeim : public CreatureScript
                 }
                 else
                 {
-                    me->SetLootRecipient(NULL);
+                    me->SetLootRecipient(nullptr);
                     Talk(SAY_MOLGEIM_DEATH);
                     //DoCastAOE(SPELL_SUPERCHARGE, true);
 
@@ -484,9 +489,9 @@ class boss_stormcaller_brundir : public CreatureScript
                 return 0;
             }
 
-            void EnterCombat(Unit* /*who*/) override
+            void JustEngagedWith(Unit* /*who*/) override
             {
-                _EnterCombat();
+                _JustEngagedWith();
                 Talk(SAY_BRUNDIR_AGGRO);
                 events.SetPhase(++phase);
                 events.ScheduleEvent(EVENT_MOVE_POSITION, 1000);
@@ -530,7 +535,7 @@ class boss_stormcaller_brundir : public CreatureScript
                 }
                 else
                 {
-                    me->SetLootRecipient(NULL);
+                    me->SetLootRecipient(nullptr);
                     Talk(SAY_BRUNDIR_DEATH);
                     //DoCastAOE(SPELL_SUPERCHARGE, true);
 
@@ -625,7 +630,7 @@ class boss_stormcaller_brundir : public CreatureScript
                             me->RemoveAurasDueToSpell(SPELL_LIGHTNING_TENDRILS_VISUAL);
                             DoStartMovement(me->GetVictim());
                             events.CancelEvent(EVENT_GROUND);
-                            me->getThreatManager().resetAllAggro();
+                            ResetThreatList();
                             break;
                         case EVENT_MOVE_POSITION:
                             if (me->IsWithinMeleeRange(me->GetVictim()))
@@ -725,15 +730,13 @@ class spell_assembly_rune_of_summoning : public SpellScriptLoader
 
             bool Validate(SpellInfo const* /*spell*/) override
             {
-                if (!sSpellMgr->GetSpellInfo(SPELL_RUNE_OF_SUMMONING_SUMMON))
-                    return false;
-                return true;
+                return ValidateSpellInfo({ SPELL_RUNE_OF_SUMMONING_SUMMON });
             }
 
             void HandlePeriodic(AuraEffect const* aurEff)
             {
                 PreventDefaultAction();
-                GetTarget()->CastSpell(GetTarget(), SPELL_RUNE_OF_SUMMONING_SUMMON, true, NULL, aurEff, GetTarget()->IsSummon() ? GetTarget()->ToTempSummon()->GetSummonerGUID() : ObjectGuid::Empty);
+                GetTarget()->CastSpell(GetTarget(), SPELL_RUNE_OF_SUMMONING_SUMMON, { aurEff, GetTarget()->IsSummon() ? GetTarget()->ToTempSummon()->GetSummonerGUID() : ObjectGuid::Empty });
             }
 
             void OnRemove(AuraEffect const* /*aurEff*/, AuraEffectHandleModes /*mode*/)

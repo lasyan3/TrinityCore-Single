@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2016 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2017 TrinityCore <http://www.trinitycore.org/>
  * Copyright (C) 2005-2009 MaNGOS <http://getmangos.com/>
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -29,6 +29,7 @@
 
 class AccountMgr;
 class AuctionHouseObject;
+class Aura;
 class AuraScript;
 class Battleground;
 class BattlegroundMap;
@@ -52,6 +53,7 @@ class Player;
 class Quest;
 class ScriptMgr;
 class Spell;
+class SpellInfo;
 class SpellScript;
 class SpellCastTargets;
 class Transport;
@@ -377,6 +379,9 @@ class TC_GAME_API ItemScript : public ScriptObject
 
         // Called when the item is destroyed.
         virtual bool OnRemove(Player* /*player*/, Item* /*item*/) { return false; }
+
+        // Called before casting a combat spell from this item (chance on hit spells of item template, can be used to prevent cast if returning false)
+        virtual bool OnCastItemCombatSpell(Player* /*player*/, Unit* /*victim*/, SpellInfo const* /*spellInfo*/, Item* /*item*/) { return true; }
   
         // Called when a player selects an option in an item gossip window
         virtual void OnGossipSelect(Player* /*player*/, Item* /*item*/, uint32 /*sender*/, uint32 /*action*/) { }
@@ -747,6 +752,9 @@ class TC_GAME_API PlayerScript : public UnitScript
 
         // Called after a player's quest status has been changed
         virtual void OnQuestStatusChange(Player* /*player*/, uint32 /*questId*/) { }
+
+        // Called when a player presses release when he died
+        virtual void OnPlayerRepop(Player* /*player*/) { }
     
         // Called when a player selects an option in a player gossip window
         virtual void OnGossipSelect(Player* /*player*/, uint32 /*menu_id*/, uint32 /*sender*/, uint32 /*action*/) { }
@@ -908,8 +916,8 @@ class TC_GAME_API ScriptMgr
 
     public: /* SpellScriptLoader */
 
-        void CreateSpellScripts(uint32 spellId, std::list<SpellScript*>& scriptVector);
-        void CreateAuraScripts(uint32 spellId, std::list<AuraScript*>& scriptVector);
+        void CreateSpellScripts(uint32 spellId, std::vector<SpellScript*>& scriptVector, Spell* invoker) const;
+        void CreateAuraScripts(uint32 spellId, std::vector<AuraScript*>& scriptVector, Aura* invoker) const;
         SpellScriptLoader* GetSpellScriptLoader(uint32 scriptId);
 
     public: /* ServerScript */
@@ -963,6 +971,7 @@ class TC_GAME_API ScriptMgr
         bool OnItemUse(Player* player, Item* item, SpellCastTargets const& targets);
         bool OnItemExpire(Player* player, ItemTemplate const* proto);
         bool OnItemRemove(Player* player, Item* item);
+        bool OnCastItemCombatSpell(Player* player, Unit* victim, SpellInfo const* spellInfo, Item* item);
         void OnGossipSelect(Player* player, Item* item, uint32 sender, uint32 action);
         void OnGossipSelectCode(Player* player, Item* item, uint32 sender, uint32 action, const char* code);
 
@@ -1085,6 +1094,7 @@ class TC_GAME_API ScriptMgr
         void OnPlayerBindToInstance(Player* player, Difficulty difficulty, uint32 mapid, bool permanent, uint8 extendState);
         void OnPlayerUpdateZone(Player* player, uint32 newZone, uint32 newArea);
         void OnQuestStatusChange(Player* player, uint32 questId);
+        void OnPlayerRepop(Player* player);
         void OnGossipSelect(Player* player, uint32 menu_id, uint32 sender, uint32 action);
         void OnGossipSelectCode(Player* player, uint32 menu_id, uint32 sender, uint32 action, const char* code);
 

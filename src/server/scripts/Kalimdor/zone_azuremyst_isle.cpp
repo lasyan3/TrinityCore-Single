@@ -1,5 +1,5 @@
- /*
- * Copyright (C) 2008-2015 TrinityCore <http://www.trinitycore.org/>
+/*
+ * Copyright (C) 2008-2017 TrinityCore <http://www.trinitycore.org/>
  * Copyright (C) 2006-2009 ScriptDev2 <https://scriptdev2.svn.sourceforge.net/>
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -230,9 +230,9 @@ public:
             Talk(ATTACK_YELL, who);
         }
 
-        void sGossipSelect(Player* player, uint32 /*sender*/, uint32 /*action*/) override
+        void sGossipSelect(Player* player, uint32 /*menuId*/, uint32 /*gossipListId*/) override
         {
-            player->CLOSE_GOSSIP_MENU();
+            CloseGossipMenuFor(player);
             me->setFaction(FACTION_HOSTILE);
             me->Attack(player, true);
         }
@@ -331,7 +331,14 @@ enum Magwin
     SAY_END1                    = 3,
     SAY_END2                    = 4,
     EMOTE_HUG                   = 5,
-    QUEST_A_CRY_FOR_SAY_HELP    = 9528,
+    NPC_COWLEN                  = 17311,
+    SAY_COWLEN                  = 0,
+    EVENT_ACCEPT_QUEST          = 1,
+    EVENT_START_ESCORT          = 2,
+    EVENT_STAND                 = 3,
+    EVENT_TALK_END              = 4,
+    EVENT_COWLEN_TALK           = 5,
+    QUEST_A_CRY_FOR_HELP        = 9528,
     FACTION_QUEST               = 113
 };
 
@@ -344,7 +351,10 @@ public:
     {
         npc_magwinAI(Creature* creature) : npc_escortAI(creature) { }
 
-        void Reset() override { }
+        void Reset() override
+        {
+            _events.Reset();
+        }
 
         void EnterCombat(Unit* who) override
         {
@@ -353,10 +363,10 @@ public:
 
         void sQuestAccept(Player* player, Quest const* quest) override
         {
-            if (quest->GetQuestId() == QUEST_A_CRY_FOR_SAY_HELP)
+            if (quest->GetQuestId() == QUEST_A_CRY_FOR_HELP)
             {
-                me->setFaction(FACTION_QUEST);
-                npc_escortAI::Start(true, false, player->GetGUID());
+                _player = player->GetGUID();
+                _events.ScheduleEvent(EVENT_ACCEPT_QUEST, Seconds(2));
             }
         }
 
@@ -366,23 +376,63 @@ public:
             {
                 switch (waypointId)
                 {
-                    case 0:
-                        Talk(SAY_START, player);
-                        break;
                     case 17:
                         Talk(SAY_PROGRESS, player);
                         break;
                     case 28:
-                        Talk(SAY_END1, player);
+                        player->GroupEventHappens(QUEST_A_CRY_FOR_HELP, me);
+                        _events.ScheduleEvent(EVENT_TALK_END, Seconds(2));
+                        SetRun(true);
                         break;
                     case 29:
-                        Talk(EMOTE_HUG, player);
+                        if (Creature* cowlen = me->FindNearestCreature(NPC_COWLEN, 50.0f, true))
+                            Talk(EMOTE_HUG, cowlen);
                         Talk(SAY_END2, player);
-                        player->GroupEventHappens(QUEST_A_CRY_FOR_SAY_HELP, me);
                         break;
                 }
             }
         }
+
+        void UpdateEscortAI(uint32 diff) override
+        {
+            _events.Update(diff);
+
+            if (uint32 eventId = _events.ExecuteEvent())
+            {
+                switch (eventId)
+                {
+                    case EVENT_ACCEPT_QUEST:
+                        if (Player* player = ObjectAccessor::GetPlayer(*me, _player))
+                            Talk(SAY_START, player);
+                        me->setFaction(FACTION_QUEST);
+                        _events.ScheduleEvent(EVENT_START_ESCORT, Seconds(1));
+                        break;
+                    case EVENT_START_ESCORT:
+                        if (Player* player = ObjectAccessor::GetPlayer(*me, _player))
+                            npc_escortAI::Start(true, false, player->GetGUID());
+                        _events.ScheduleEvent(EVENT_STAND, Seconds(2));
+                        break;
+                    case EVENT_STAND: // Remove kneel standstate. Using a separate delayed event because it causes unwanted delay before starting waypoint movement.
+                        me->SetByteValue(UNIT_FIELD_BYTES_1, 0, 0);
+                        break;
+                    case EVENT_TALK_END:
+                        if (Player* player = ObjectAccessor::GetPlayer(*me, _player))
+                            Talk(SAY_END1, player);
+                        _events.ScheduleEvent(EVENT_COWLEN_TALK, Seconds(2));
+                        break;
+                    case EVENT_COWLEN_TALK:
+                        if (Creature* cowlen = me->FindNearestCreature(NPC_COWLEN, 50.0f, true))
+                            cowlen->AI()->Talk(SAY_COWLEN);
+                        break;
+                }
+            }
+
+            npc_escortAI::UpdateEscortAI(diff);
+        }
+
+    private:
+        EventMap _events;
+        ObjectGuid _player;
     };
 
     CreatureAI* GetAI(Creature* creature) const override
@@ -465,13 +515,13 @@ public:
             SayTimer = 8000;
         }
 
-        uint32 NextStep(uint8 Step)
+        uint32 NextStep(uint8 step)
         {
             Creature* Spark = ObjectAccessor::GetCreature(*me, SparkGUID);
             if (!Spark)
                 return 99999999;
 
-            switch (Step)
+            switch (step)
             {
                 case 0:
                     Spark->GetMotionMaster()->MovePoint(0, -5080.70f, -11253.61f, 0.56f);

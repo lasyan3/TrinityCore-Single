@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2015 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2017 TrinityCore <http://www.trinitycore.org/>
  * Copyright (C) 2005-2009 MaNGOS <http://getmangos.com/>
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -19,6 +19,22 @@
 #ifndef DBCENUMS_H
 #define DBCENUMS_H
 
+#pragma pack(push, 1)
+
+struct DBCPosition2D
+{
+    float X;
+    float Y;
+};
+
+struct DBCPosition3D
+{
+    float X;
+    float Y;
+    float Z;
+};
+
+#pragma pack(pop)
 enum LevelLimit
 {
     // Client expected level limitation, like as used in DBC item max levels for "until max player level"
@@ -84,7 +100,9 @@ enum AchievementCriteriaCondition
     ACHIEVEMENT_CRITERIA_CONDITION_NO_LOSE         = 4,    // only used in "Win 10 arenas without losing"
     ACHIEVEMENT_CRITERIA_CONDITION_NO_SPELL_HIT    = 9,    // requires the player not to be hit by specific spell
     ACHIEVEMENT_CRITERIA_CONDITION_NOT_IN_GROUP    = 10,   // requires the player not to be in group
-    ACHIEVEMENT_CRITERIA_CONDITION_UNK13           = 13    // unk
+    ACHIEVEMENT_CRITERIA_CONDITION_UNK13           = 13,   // unk
+
+    ACHIEVEMENT_CRITERIA_CONDITION_MAX
 };
 
 enum AchievementCriteriaFlags
@@ -215,7 +233,7 @@ enum AchievementCriteriaTypes
     ACHIEVEMENT_CRITERIA_TYPE_USE_LFD_TO_GROUP_WITH_PLAYERS = 119,
 };
 
-#define ACHIEVEMENT_CRITERIA_TYPE_TOTAL 120
+#define ACHIEVEMENT_CRITERIA_TYPE_TOTAL 124
 
 enum AchievementCategory
 {

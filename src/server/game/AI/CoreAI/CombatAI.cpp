@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2015 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2017 TrinityCore <http://www.trinitycore.org/>
  * Copyright (C) 2005-2009 MaNGOS <http://getmangos.com/>
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -50,7 +50,7 @@ void AggressorAI::UpdateAI(uint32 /*diff*/)
 
 void CombatAI::InitializeAI()
 {
-    for (uint32 i = 0; i < CREATURE_MAX_SPELLS; ++i)
+    for (uint32 i = 0; i < MAX_CREATURE_SPELLS; ++i)
         if (me->m_spells[i] && sSpellMgr->GetSpellInfo(me->m_spells[i]))
             spells.push_back(me->m_spells[i]);
 
@@ -259,7 +259,7 @@ void TurretAI::UpdateAI(uint32 /*diff*/)
 // VehicleAI
 //////////////
 
-VehicleAI::VehicleAI(Creature* creature) : CreatureAI(creature), m_ConditionsTimer(VEHICLE_CONDITION_CHECK_TIME)
+VehicleAI::VehicleAI(Creature* creature) : CreatureAI(creature), m_HasConditions(false), m_ConditionsTimer(VEHICLE_CONDITION_CHECK_TIME)
 {
     LoadConditions();
     m_DoDismiss = false;
@@ -285,7 +285,7 @@ void VehicleAI::UpdateAI(uint32 diff)
 
 void VehicleAI::OnCharmed(bool apply)
 {
-    if (!me->GetVehicleKit()->IsVehicleInUse() && !apply && !conditions.empty()) // was used and has conditions
+    if (!me->GetVehicleKit()->IsVehicleInUse() && !apply && m_HasConditions) // was used and has conditions
     {
         m_DoDismiss = true; // needs reset
     }
@@ -297,31 +297,32 @@ void VehicleAI::OnCharmed(bool apply)
 
 void VehicleAI::LoadConditions()
 {
-    conditions = sConditionMgr->GetConditionsForNotGroupedEntry(CONDITION_SOURCE_TYPE_CREATURE_TEMPLATE_VEHICLE, me->GetEntry());
-    if (!conditions.empty())
-        TC_LOG_DEBUG("condition", "VehicleAI::LoadConditions: loaded %u conditions", uint32(conditions.size()));
+    m_HasConditions = sConditionMgr->HasConditionsForNotGroupedEntry(CONDITION_SOURCE_TYPE_CREATURE_TEMPLATE_VEHICLE, me->GetEntry());
 }
 
 void VehicleAI::CheckConditions(uint32 diff)
 {
-    if (m_ConditionsTimer < diff)
+    if (!m_HasConditions)
+        return;
+
+    if (m_ConditionsTimer <= diff)
     {
-        if (!conditions.empty())
+        if (Vehicle* vehicleKit = me->GetVehicleKit())
         {
-            if (Vehicle* vehicleKit = me->GetVehicleKit())
-                for (SeatMap::iterator itr = vehicleKit->Seats.begin(); itr != vehicleKit->Seats.end(); ++itr)
-                    if (Unit* passenger = ObjectAccessor::GetUnit(*me, itr->second.Passenger.Guid))
+            for (SeatMap::iterator itr = vehicleKit->Seats.begin(); itr != vehicleKit->Seats.end(); ++itr)
+                if (Unit* passenger = ObjectAccessor::GetUnit(*me, itr->second.Passenger.Guid))
+                {
+                    if (Player* player = passenger->ToPlayer())
                     {
-                        if (Player* player = passenger->ToPlayer())
+                        if (!sConditionMgr->IsObjectMeetingNotGroupedConditions(CONDITION_SOURCE_TYPE_CREATURE_TEMPLATE_VEHICLE, me->GetEntry(), player, me))
                         {
-                            if (!sConditionMgr->IsObjectMeetToConditions(player, me, conditions))
-                            {
-                                player->ExitVehicle();
-                                return; // check other pessanger in next tick
-                            }
+                            player->ExitVehicle();
+                            return; // check other pessanger in next tick
                         }
                     }
+                }
         }
+
         m_ConditionsTimer = VEHICLE_CONDITION_CHECK_TIME;
     }
     else

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2015 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2017 TrinityCore <http://www.trinitycore.org/>
  * Copyright (C) 2005-2011 MaNGOS <http://getmangos.com/>
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -22,11 +22,12 @@
 #include "Log.h"
 #include "Opcodes.h"
 #include "ByteBuffer.h"
-#include <openssl/sha.h>
-#include "World.h"
+#include "GameTime.h"
 #include "Util.h"
 #include "Warden.h"
 #include "AccountMgr.h"
+
+#include <openssl/sha.h>
 
 Warden::Warden() : _session(NULL), _inputCrypto(16), _outputCrypto(16), _checkTimer(10000/*10 sec*/), _clientResponseTimer(0),
                    _dataSent(false), _previousTimestamp(0), _module(NULL), _initialized(false)
@@ -94,7 +95,7 @@ void Warden::Update()
 {
     if (_initialized)
     {
-        uint32 currentTimestamp = getMSTime();
+        uint32 currentTimestamp = GameTime::GetGameTimeMS();
         uint32 diff = currentTimestamp - _previousTimestamp;
         _previousTimestamp = currentTimestamp;
 

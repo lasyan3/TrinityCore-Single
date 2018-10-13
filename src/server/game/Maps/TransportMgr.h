@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2015 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2017 TrinityCore <http://www.trinitycore.org/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -21,6 +21,7 @@
 #include <G3D/Quat.h>
 #include "Spline.h"
 #include "DBCStores.h"
+#include "ObjectGuid.h"
 
 struct KeyFrame;
 struct GameObjectTemplate;
@@ -37,7 +38,7 @@ typedef std::unordered_map<uint32, std::set<uint32> > TransportInstanceMap;
 
 struct KeyFrame
 {
-    explicit KeyFrame(TaxiPathNodeEntry const& _node) : Index(0), Node(&_node), InitialOrientation(0.0f),
+    explicit KeyFrame(TaxiPathNodeEntry const* node) : Index(0), Node(node), InitialOrientation(0.0f),
         DistSinceStop(-1.0f), DistUntilStop(-1.0f), DistFromPrev(-1.0f), TimeFrom(0.0f), TimeTo(0.0f),
         Teleport(false), ArriveTime(0), DepartureTime(0), Spline(NULL), NextDistFromPrev(0.0f), NextArriveTime(0)
     {
@@ -81,7 +82,7 @@ struct TransportTemplate
 typedef std::map<uint32, TransportAnimationEntry const*> TransportPathContainer;
 typedef std::map<uint32, TransportRotationEntry const*> TransportPathRotationContainer;
 
-struct TransportAnimation
+struct TC_GAME_API TransportAnimation
 {
     TransportAnimation() : TotalTime(0) { }
 
@@ -95,23 +96,19 @@ struct TransportAnimation
 
 typedef std::map<uint32, TransportAnimation> TransportAnimationContainer;
 
-class TransportMgr
+class TC_GAME_API TransportMgr
 {
-        friend void LoadDBCStores(std::string const&);
+        friend TC_GAME_API void LoadDBCStores(std::string const&);
 
     public:
-        static TransportMgr* instance()
-        {
-            static TransportMgr instance;
-            return &instance;
-        }
+        static TransportMgr* instance();
 
         void Unload();
 
         void LoadTransportTemplates();
 
         // Creates a transport using given GameObject template entry
-        Transport* CreateTransport(uint32 entry, uint32 guid = 0, Map* map = NULL);
+        Transport* CreateTransport(uint32 entry, ObjectGuid::LowType guid = 0, Map* map = NULL);
 
         // Spawns all continent transports, used at core startup
         void SpawnContinentTransports();

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2015 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2017 TrinityCore <http://www.trinitycore.org/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -18,17 +18,17 @@
 #include "InstanceScript.h"
 #include "Player.h"
 #include "ScriptMgr.h"
-#include "WorldSession.h"
 #include "gundrak.h"
+#include "EventMap.h"
 
 DoorData const doorData[] =
 {
-    { GO_GAL_DARAH_DOOR_1,              DATA_GAL_DARAH,         DOOR_TYPE_PASSAGE,  BOUNDARY_NONE },
-    { GO_GAL_DARAH_DOOR_2,              DATA_GAL_DARAH,         DOOR_TYPE_PASSAGE,  BOUNDARY_NONE },
-    { GO_GAL_DARAH_DOOR_3,              DATA_GAL_DARAH,         DOOR_TYPE_ROOM,     BOUNDARY_NONE },
-    { GO_ECK_THE_FEROCIOUS_DOOR,        DATA_MOORABI,           DOOR_TYPE_PASSAGE,  BOUNDARY_NONE },
-    { GO_ECK_THE_FEROCIOUS_DOOR_BEHIND, DATA_ECK_THE_FEROCIOUS, DOOR_TYPE_PASSAGE,  BOUNDARY_NONE },
-    { 0,                                0,                      DOOR_TYPE_ROOM,     BOUNDARY_NONE } // END
+    { GO_GAL_DARAH_DOOR_1,              DATA_GAL_DARAH,         DOOR_TYPE_PASSAGE },
+    { GO_GAL_DARAH_DOOR_2,              DATA_GAL_DARAH,         DOOR_TYPE_PASSAGE },
+    { GO_GAL_DARAH_DOOR_3,              DATA_GAL_DARAH,         DOOR_TYPE_ROOM },
+    { GO_ECK_THE_FEROCIOUS_DOOR,        DATA_MOORABI,           DOOR_TYPE_PASSAGE },
+    { GO_ECK_THE_FEROCIOUS_DOOR_BEHIND, DATA_ECK_THE_FEROCIOUS, DOOR_TYPE_PASSAGE },
+    { 0,                                0,                      DOOR_TYPE_ROOM } // END
 };
 
 ObjectData const creatureData[] =
@@ -190,7 +190,7 @@ class instance_gundrak : public InstanceMapScript
 
             bool CheckRequiredBosses(uint32 bossId, Player const* player = nullptr) const override
             {
-                if (player && player->GetSession()->HasPermission(rbac::RBAC_PERM_SKIP_CHECK_INSTANCE_REQUIRED_BOSSES))
+                if (_SkipCheckRequiredBosses(player))
                     return true;
 
                 switch (bossId)

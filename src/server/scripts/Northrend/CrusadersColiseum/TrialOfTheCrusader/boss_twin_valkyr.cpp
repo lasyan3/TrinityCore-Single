@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2015 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2017 TrinityCore <http://www.trinitycore.org/>
  * Copyright (C) 2006-2010 ScriptDev2 <https://scriptdev2.svn.sourceforge.net/>
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -132,7 +132,7 @@ class OrbsDespawner : public BasicEvent
         {
         }
 
-        bool Execute(uint64 /*currTime*/, uint32 /*diff*/)
+        bool Execute(uint64 /*currTime*/, uint32 /*diff*/) override
         {
             Trinity::CreatureWorker<OrbsDespawner> worker(_creature, *this);
             _creature->VisitNearbyGridObject(5000.0f, worker);
@@ -416,10 +416,10 @@ class boss_fjola : public CreatureScript
                 boss_twin_baseAI::EnterCombat(who);
             }
 
-            void EnterEvadeMode() override
+            void EnterEvadeMode(EvadeReason why) override
             {
                 instance->DoUseDoorOrButton(instance->GetGuidData(GO_MAIN_GATE_DOOR));
-                boss_twin_baseAI::EnterEvadeMode();
+                boss_twin_baseAI::EnterEvadeMode(why);
             }
 
             void JustReachedHome() override
@@ -440,10 +440,8 @@ class boss_fjola : public CreatureScript
                 // Allocate an unique random stage to each position in the array.
                 for (int i = 0; i < MAX_STAGES - 1; ++i)
                 {
-                    int random = i + (rand32() % (MAX_STAGES - i));
-                    int temp = Stage[i];
-                    Stage[i] = Stage[random];
-                    Stage[random] = temp;
+                    int random = i + urand(0, MAX_STAGES - i);
+                    std::swap(Stage[i], Stage[random]);
                 }
             }
             private:
@@ -527,7 +525,7 @@ class npc_essence_of_twin : public CreatureScript
         {
             player->RemoveAurasDueToSpell(creature->GetAI()->GetData(ESSENCE_REMOVE));
             player->CastSpell(player, creature->GetAI()->GetData(ESSENCE_APPLY), true);
-            player->CLOSE_GOSSIP_MENU();
+            CloseGossipMenuFor(player);
             return true;
         }
 };
@@ -804,8 +802,8 @@ class spell_valkyr_essences : public SpellScriptLoader
                                     else
                                     {
                                         owner->CastSpell(owner, poweringUp, true);
-                                        if (Aura* pTemp = owner->GetAura(poweringUp))
-                                            pTemp->ModStackAmount(stacksCount);
+                                        if ((pAura = owner->GetAura(poweringUp)))
+                                            pAura->ModStackAmount(stacksCount);
                                     }
                                 }
                             }
@@ -829,8 +827,8 @@ class spell_valkyr_essences : public SpellScriptLoader
                                     else
                                     {
                                         owner->CastSpell(owner, poweringUp, true);
-                                        if (Aura* pTemp = owner->GetAura(poweringUp))
-                                            pTemp->ModStackAmount(stacksCount);
+                                        if ((pAura = owner->GetAura(poweringUp)))
+                                            pAura->ModStackAmount(stacksCount);
                                     }
                                 }
                             }

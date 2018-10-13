@@ -1,5 +1,5 @@
- /*
- * Copyright (C) 2008-2015 TrinityCore <http://www.trinitycore.org/>
+/*
+ * Copyright (C) 2008-2017 TrinityCore <http://www.trinitycore.org/>
  * Copyright (C) 2006-2009 ScriptDev2 <https://scriptdev2.svn.sourceforge.net/>
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -25,7 +25,6 @@ EndScriptData */
 
 /* ContentData
 npc_barnes
-npc_berthold
 npc_image_of_medivh
 EndContentData */
 
@@ -169,7 +168,7 @@ public:
 
         void StartEvent()
         {
-            instance->SetData(TYPE_OPERA, IN_PROGRESS);
+            instance->SetBossState(DATA_OPERA_PERFORMANCE, IN_PROGRESS);
 
             //resets count for this event, in case earlier failed
             if (m_uiEventId == EVENT_OZ)
@@ -310,11 +309,7 @@ public:
                 {
                     if (WipeTimer <= diff)
                     {
-                        Map* map = me->GetMap();
-                        if (!map->IsDungeon())
-                            return;
-
-                        Map::PlayerList const &PlayerList = map->GetPlayers();
+                        Map::PlayerList const &PlayerList = me->GetMap()->GetPlayers();
                         if (PlayerList.isEmpty())
                             return;
 
@@ -344,31 +339,31 @@ public:
 
     bool OnGossipSelect(Player* player, Creature* creature, uint32 /*sender*/, uint32 action) override
     {
-        player->PlayerTalkClass->ClearMenus();
+        ClearGossipMenuFor(player);
         npc_barnesAI* pBarnesAI = ENSURE_AI(npc_barnes::npc_barnesAI, creature->AI());
 
         switch (action)
         {
             case GOSSIP_ACTION_INFO_DEF+1:
-                player->ADD_GOSSIP_ITEM(GOSSIP_ICON_CHAT, OZ_GOSSIP2, GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF+2);
-                player->SEND_GOSSIP_MENU(8971, creature->GetGUID());
+                AddGossipItemFor(player, GOSSIP_ICON_CHAT, OZ_GOSSIP2, GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF+2);
+                SendGossipMenuFor(player, 8971, creature->GetGUID());
                 break;
             case GOSSIP_ACTION_INFO_DEF+2:
-                player->CLOSE_GOSSIP_MENU();
+                CloseGossipMenuFor(player);
                 pBarnesAI->StartEvent();
                 break;
             case GOSSIP_ACTION_INFO_DEF+3:
-                player->CLOSE_GOSSIP_MENU();
+                CloseGossipMenuFor(player);
                 pBarnesAI->m_uiEventId = EVENT_OZ;
                 TC_LOG_DEBUG("scripts", "player (%s) manually set Opera event to EVENT_OZ", player->GetGUID().ToString().c_str());
                 break;
             case GOSSIP_ACTION_INFO_DEF+4:
-                player->CLOSE_GOSSIP_MENU();
+                CloseGossipMenuFor(player);
                 pBarnesAI->m_uiEventId = EVENT_HOOD;
                 TC_LOG_DEBUG("scripts", "player (%s) manually set Opera event to EVENT_HOOD", player->GetGUID().ToString().c_str());
                 break;
             case GOSSIP_ACTION_INFO_DEF+5:
-                player->CLOSE_GOSSIP_MENU();
+                CloseGossipMenuFor(player);
                 pBarnesAI->m_uiEventId = EVENT_RAJ;
                 TC_LOG_DEBUG("scripts", "player (%s) manually set Opera event to EVENT_RAJ", player->GetGUID().ToString().c_str());
                 break;
@@ -382,71 +377,36 @@ public:
         if (InstanceScript* instance = creature->GetInstanceScript())
         {
             // Check for death of Moroes and if opera event is not done already
-            if (instance->GetData(TYPE_MOROES) == DONE && instance->GetData(TYPE_OPERA) != DONE)
+            if (instance->GetBossState(DATA_MOROES) == DONE && instance->GetBossState(DATA_OPERA_PERFORMANCE) != DONE)
             {
-                player->ADD_GOSSIP_ITEM(GOSSIP_ICON_CHAT, OZ_GOSSIP1, GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF + 1);
+                AddGossipItemFor(player, GOSSIP_ICON_CHAT, OZ_GOSSIP1, GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF + 1);
 
                 if (player->IsGameMaster())
                 {
-                    player->ADD_GOSSIP_ITEM(GOSSIP_ICON_DOT, OZ_GM_GOSSIP1, GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF + 3);
-                    player->ADD_GOSSIP_ITEM(GOSSIP_ICON_DOT, OZ_GM_GOSSIP2, GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF + 4);
-                    player->ADD_GOSSIP_ITEM(GOSSIP_ICON_DOT, OZ_GM_GOSSIP3, GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF + 5);
+                    AddGossipItemFor(player, GOSSIP_ICON_DOT, OZ_GM_GOSSIP1, GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF + 3);
+                    AddGossipItemFor(player, GOSSIP_ICON_DOT, OZ_GM_GOSSIP2, GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF + 4);
+                    AddGossipItemFor(player, GOSSIP_ICON_DOT, OZ_GM_GOSSIP3, GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF + 5);
                 }
 
                 if (npc_barnesAI* pBarnesAI = CAST_AI(npc_barnes::npc_barnesAI, creature->AI()))
                 {
                     if (!pBarnesAI->RaidWiped)
-                        player->SEND_GOSSIP_MENU(8970, creature->GetGUID());
+                        SendGossipMenuFor(player, 8970, creature->GetGUID());
                     else
-                        player->SEND_GOSSIP_MENU(8975, creature->GetGUID());
+                        SendGossipMenuFor(player, 8975, creature->GetGUID());
 
                     return true;
                 }
             }
         }
 
-        player->SEND_GOSSIP_MENU(8978, creature->GetGUID());
+        SendGossipMenuFor(player, 8978, creature->GetGUID());
         return true;
     }
 
     CreatureAI* GetAI(Creature* creature) const override
     {
         return GetInstanceAI<npc_barnesAI>(creature);
-    }
-};
-
-/*###
-# npc_berthold
-####*/
-
-#define GOSSIP_ITEM_TELEPORT    "Teleport me to the Guardian's Library"
-
-class npc_berthold : public CreatureScript
-{
-public:
-    npc_berthold() : CreatureScript("npc_berthold") { }
-
-    bool OnGossipSelect(Player* player, Creature* /*creature*/, uint32 /*sender*/, uint32 action) override
-    {
-        player->PlayerTalkClass->ClearMenus();
-        if (action == GOSSIP_ACTION_INFO_DEF + 1)
-            player->CastSpell(player, SPELL_TELEPORT, true);
-
-        player->CLOSE_GOSSIP_MENU();
-        return true;
-    }
-
-    bool OnGossipHello(Player* player, Creature* creature) override
-    {
-        if (InstanceScript* instance = creature->GetInstanceScript())
-        {
-            // Check if Shade of Aran event is done
-            if (instance->GetData(TYPE_ARAN) == DONE)
-                player->ADD_GOSSIP_ITEM(GOSSIP_ICON_CHAT, GOSSIP_ITEM_TELEPORT, GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF + 1);
-        }
-
-        player->SEND_GOSSIP_MENU(player->GetGossipTextId(creature), creature->GetGUID());
-        return true;
     }
 };
 
@@ -519,8 +479,7 @@ public:
             }
             else
             {
-                me->DealDamage(me, me->GetHealth(), NULL, DIRECT_DAMAGE, SPELL_SCHOOL_MASK_NORMAL, NULL, false);
-                me->RemoveCorpse();
+                me->DespawnOrUnsummon();
             }
         }
         void EnterCombat(Unit* /*who*/) override { }
@@ -552,32 +511,30 @@ public:
             YellTimer = 10000;
         }
 
-        uint32 NextStep(uint32 Step)
+        uint32 NextStep(uint32 step)
         {
-            Creature* arca = ObjectAccessor::GetCreature(*me, ArcanagosGUID);
-            Map* map = me->GetMap();
-            switch (Step)
+            switch (step)
             {
             case 0: return 9999999;
             case 1:
                 me->Yell(SAY_DIALOG_MEDIVH_1, LANG_UNIVERSAL);
                 return 10000;
             case 2:
-                if (arca)
+                if (Creature* arca = ObjectAccessor::GetCreature(*me, ArcanagosGUID))
                     arca->Yell(SAY_DIALOG_ARCANAGOS_2, LANG_UNIVERSAL);
                 return 20000;
             case 3:
                 me->Yell(SAY_DIALOG_MEDIVH_3, LANG_UNIVERSAL);
                 return 10000;
             case 4:
-                if (arca)
+                if (Creature* arca = ObjectAccessor::GetCreature(*me, ArcanagosGUID))
                     arca->Yell(SAY_DIALOG_ARCANAGOS_4, LANG_UNIVERSAL);
                 return 20000;
             case 5:
                 me->Yell(SAY_DIALOG_MEDIVH_5, LANG_UNIVERSAL);
                 return 20000;
             case 6:
-                if (arca)
+                if (Creature* arca = ObjectAccessor::GetCreature(*me, ArcanagosGUID))
                     arca->Yell(SAY_DIALOG_ARCANAGOS_6, LANG_UNIVERSAL);
                 return 10000;
             case 7:
@@ -591,47 +548,47 @@ public:
                 me->TextEmote(EMOTE_DIALOG_MEDIVH_7);
                 return 10000;
             case 10:
-                if (arca)
+                if (Creature* arca = ObjectAccessor::GetCreature(*me, ArcanagosGUID))
                     DoCast(arca, SPELL_CONFLAGRATION_BLAST, false);
                 return 1000;
             case 11:
-                if (arca)
+                if (Creature* arca = ObjectAccessor::GetCreature(*me, ArcanagosGUID))
                     arca->Yell(SAY_DIALOG_ARCANAGOS_8, LANG_UNIVERSAL);
                 return 5000;
             case 12:
-                if (arca)
+                if (Creature* arca = ObjectAccessor::GetCreature(*me, ArcanagosGUID))
                 {
                     arca->GetMotionMaster()->MovePoint(0, -11010.82f, -1761.18f, 156.47f);
                     arca->setActive(true);
                     arca->InterruptNonMeleeSpells(true);
-                    arca->SetSpeed(MOVE_FLIGHT, 2.0f);
+                    arca->SetSpeedRate(MOVE_FLIGHT, 2.0f);
                 }
                 return 10000;
             case 13:
                 me->Yell(SAY_DIALOG_MEDIVH_9, LANG_UNIVERSAL);
                 return 10000;
             case 14:
+            {
                 me->SetVisible(false);
                 me->ClearInCombat();
 
-                if (map->IsDungeon())
+                InstanceMap::PlayerList const &PlayerList = me->GetMap()->GetPlayers();
+                for (InstanceMap::PlayerList::const_iterator i = PlayerList.begin(); i != PlayerList.end(); ++i)
                 {
-                    InstanceMap::PlayerList const &PlayerList = map->GetPlayers();
-                    for (InstanceMap::PlayerList::const_iterator i = PlayerList.begin(); i != PlayerList.end(); ++i)
+                    if (i->GetSource()->IsAlive())
                     {
-                        if (i->GetSource()->IsAlive())
-                        {
-                            if (i->GetSource()->GetQuestStatus(9645) == QUEST_STATUS_INCOMPLETE)
-                                i->GetSource()->CompleteQuest(9645);
-                        }
+                        if (i->GetSource()->GetQuestStatus(9645) == QUEST_STATUS_INCOMPLETE)
+                            i->GetSource()->CompleteQuest(9645);
                     }
                 }
                 return 50000;
+            }
             case 15:
-                if (arca)
+                if (Creature* arca = ObjectAccessor::GetCreature(*me, ArcanagosGUID))
                     arca->DealDamage(arca, arca->GetHealth(), NULL, DIRECT_DAMAGE, SPELL_SCHOOL_MASK_NORMAL, NULL, false);
                 return 5000;
-            default : return 9999999;
+            default:
+                return 9999999;
             }
         }
 
@@ -668,6 +625,5 @@ public:
 void AddSC_karazhan()
 {
     new npc_barnes();
-    new npc_berthold();
     new npc_image_of_medivh();
 }

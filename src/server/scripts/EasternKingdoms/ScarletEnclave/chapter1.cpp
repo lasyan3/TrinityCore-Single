@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2015 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2017 TrinityCore <http://www.trinitycore.org/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -93,11 +93,6 @@ class npc_unworthy_initiate : public CreatureScript
 public:
     npc_unworthy_initiate() : CreatureScript("npc_unworthy_initiate") { }
 
-    CreatureAI* GetAI(Creature* creature) const override
-    {
-        return new npc_unworthy_initiateAI(creature);
-    }
-
     struct npc_unworthy_initiateAI : public ScriptedAI
     {
         npc_unworthy_initiateAI(Creature* creature) : ScriptedAI(creature)
@@ -132,7 +127,7 @@ public:
             events.Reset();
             me->setFaction(7);
             me->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_PC);
-            me->SetUInt32Value(UNIT_FIELD_BYTES_1, 8);
+            me->SetStandState(UNIT_STAND_STATE_KNEEL);
             me->LoadEquipment(0, true);
         }
 
@@ -152,10 +147,11 @@ public:
             if (id == 1)
             {
                 wait_timer = 5000;
+                me->LoadEquipment(1);
                 me->CastSpell(me, SPELL_DK_INITIATE_VISUAL, true);
 
                 if (Player* starter = ObjectAccessor::GetPlayer(*me, playerGUID))
-                    sCreatureTextMgr->SendChat(me, SAY_EVENT_ATTACK, NULL, CHAT_MSG_ADDON, LANG_ADDON, TEXT_RANGE_NORMAL, 0, TEAM_OTHER, false, starter);
+                    Talk(SAY_EVENT_ATTACK, starter);
 
                 phase = PHASE_TO_ATTACK;
             }
@@ -166,7 +162,7 @@ public:
             wait_timer = 5000;
             phase = PHASE_TO_EQUIP;
 
-            me->SetUInt32Value(UNIT_FIELD_BYTES_1, 0);
+            me->SetStandState(UNIT_STAND_STATE_STAND);
             me->RemoveAurasDueToSpell(SPELL_SOUL_PRISON_CHAIN_SELF);
             me->RemoveAurasDueToSpell(SPELL_SOUL_PRISON_CHAIN);
 
@@ -285,6 +281,11 @@ public:
             }
         }
     };
+
+    CreatureAI* GetAI(Creature* creature) const override
+    {
+        return new npc_unworthy_initiateAI(creature);
+    }
 };
 
 class npc_unworthy_initiate_anchor : public CreatureScript
@@ -395,7 +396,7 @@ class npc_eye_of_acherus : public CreatureScript
                             if (Player* owner = me->GetCharmerOrOwner()->ToPlayer())
                             {
                                 for (uint8 i = 0; i < MAX_MOVE_TYPE; ++i)
-                                    me->SetSpeed(UnitMoveType(i), owner->GetSpeedRate(UnitMoveType(i)), true);
+                                    me->SetSpeedRate(UnitMoveType(i), owner->GetSpeedRate(UnitMoveType(i)));
                                 Talk(TALK_MOVE_START, owner);
                             }
                             me->GetMotionMaster()->MovePath(me->GetEntry() * 100, false);
@@ -411,14 +412,14 @@ class npc_eye_of_acherus : public CreatureScript
             {
                 if (movementType == WAYPOINT_MOTION_TYPE && pointId == POINT_EYE_MOVE_END - 1)
                 {
-                    me->SetByteValue(UNIT_FIELD_BYTES_2, 0, SHEATH_STATE_MELEE);
+                    me->SetSheath(SHEATH_STATE_MELEE);
                     me->RemoveAllAuras();
 
                     if (Player* owner = me->GetCharmerOrOwner()->ToPlayer())
                     {
                         owner->RemoveAura(SPELL_EYE_FLIGHT_BOOST);
                         for (uint8 i = 0; i < MAX_MOVE_TYPE; ++i)
-                            me->SetSpeed(UnitMoveType(i), owner->GetSpeedRate(UnitMoveType(i)), true);
+                            me->SetSpeedRate(UnitMoveType(i), owner->GetSpeedRate(UnitMoveType(i)));
 
                         Talk(TALK_CONTROL, owner);
                     }
@@ -448,14 +449,13 @@ class npc_eye_of_acherus : public CreatureScript
 ## npc_death_knight_initiate
 ######*/
 
-#define GOSSIP_ACCEPT_DUEL      "I challenge you, death knight!"
-
 enum Spells_DKI
 {
     SPELL_DUEL                  = 52996,
     //SPELL_DUEL_TRIGGERED        = 52990,
     SPELL_DUEL_VICTORY          = 52994,
     SPELL_DUEL_FLAG             = 52991,
+    SPELL_GROVEL                = 7267,
 };
 
 enum Says_VBM
@@ -476,10 +476,10 @@ public:
 
     bool OnGossipSelect(Player* player, Creature* creature, uint32 /*sender*/, uint32 action) override
     {
-        player->PlayerTalkClass->ClearMenus();
+        ClearGossipMenuFor(player);
         if (action == GOSSIP_ACTION_INFO_DEF)
         {
-            player->CLOSE_GOSSIP_MENU();
+            CloseGossipMenuFor(player);
 
             if (player->IsInCombat() || creature->IsInCombat())
                 return true;
@@ -492,8 +492,6 @@ public:
 
             creature->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_PC);
             creature->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_UNK_15);
-
-            sCreatureTextMgr->SendChat(creature, SAY_DUEL, NULL, CHAT_MSG_ADDON, LANG_ADDON, TEXT_RANGE_NORMAL, 0, TEAM_OTHER, false, player);
 
             player->CastSpell(creature, SPELL_DUEL, false);
             player->CastSpell(player, SPELL_DUEL_FLAG, true);
@@ -511,15 +509,10 @@ public:
             if (player->IsInCombat() || creature->IsInCombat())
                 return true;
 
-            player->ADD_GOSSIP_ITEM(GOSSIP_ICON_CHAT, GOSSIP_ACCEPT_DUEL, GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF);
-            player->SEND_GOSSIP_MENU(player->GetGossipTextId(creature), creature->GetGUID());
+            AddGossipItemFor(player, Player::GetDefaultGossipMenuForSource(creature), 0, GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF);
+            SendGossipMenuFor(player, player->GetGossipTextId(creature), creature->GetGUID());
         }
         return true;
-    }
-
-    CreatureAI* GetAI(Creature* creature) const override
-    {
-        return new npc_death_knight_initiateAI(creature);
     }
 
     struct npc_death_knight_initiateAI : public CombatAI
@@ -556,6 +549,7 @@ public:
             if (!m_bIsDuelInProgress && pSpell->Id == SPELL_DUEL)
             {
                 m_uiDuelerGUID = pCaster->GetGUID();
+                Talk(SAY_DUEL, pCaster);
                 m_bIsDuelInProgress = true;
             }
         }
@@ -576,7 +570,7 @@ public:
                         pDoneBy->AttackStop();
                         me->CastSpell(pDoneBy, SPELL_DUEL_VICTORY, true);
                         lose = true;
-                        me->CastSpell(me, 7267, true);
+                        me->CastSpell(me, SPELL_GROVEL, true);
                         me->RestoreFaction();
                     }
                 }
@@ -606,13 +600,13 @@ public:
             {
                 if (lose)
                 {
-                    if (!me->HasAura(7267))
+                    if (!me->HasAura(SPELL_GROVEL))
                         EnterEvadeMode();
                     return;
                 }
                 else if (me->GetVictim() && me->EnsureVictim()->GetTypeId() == TYPEID_PLAYER && me->EnsureVictim()->HealthBelowPct(10))
                 {
-                    me->EnsureVictim()->CastSpell(me->GetVictim(), 7267, true); // beg
+                    me->EnsureVictim()->CastSpell(me->GetVictim(), SPELL_GROVEL, true); // beg
                     me->EnsureVictim()->RemoveGameObject(SPELL_DUEL_FLAG, true);
                     EnterEvadeMode();
                     return;
@@ -625,6 +619,10 @@ public:
         }
     };
 
+    CreatureAI* GetAI(Creature* creature) const override
+    {
+        return new npc_death_knight_initiateAI(creature);
+    }
 };
 
 /*######
@@ -705,7 +703,7 @@ class npc_dark_rider_of_acherus : public CreatureScript
 
                 TargetGUID = who->GetGUID();
                 me->SetWalk(true);
-                me->SetSpeed(MOVE_RUN, 0.4f);
+                me->SetSpeedRate(MOVE_RUN, 0.4f);
                 me->GetMotionMaster()->MoveChase(who);
                 me->SetTarget(TargetGUID);
                 Intro = true;
@@ -728,13 +726,19 @@ class npc_dark_rider_of_acherus : public CreatureScript
 ## npc_salanar_the_horseman
 ######*/
 
-enum Spells_Salanar
+enum SalanarTheHorseman
 {
-    SPELL_REALM_OF_SHADOWS            = 52693,
+    GOSSIP_SALANAR_MENU               = 9739,
+    GOSSIP_SALANAR_OPTION             = 0,
+    SALANAR_SAY                       = 0,
+    QUEST_INTO_REALM_OF_SHADOWS       = 12687,
+    NPC_DARK_RIDER_OF_ACHERUS         = 28654,
+    NPC_SALANAR_IN_REALM_OF_SHADOWS   = 28788,
     SPELL_EFFECT_STOLEN_HORSE         = 52263,
     SPELL_DELIVER_STOLEN_HORSE        = 52264,
     SPELL_CALL_DARK_RIDER             = 52266,
-    SPELL_EFFECT_OVERTAKE             = 52349
+    SPELL_EFFECT_OVERTAKE             = 52349,
+    SPELL_REALM_OF_SHADOWS            = 52693
 };
 
 class npc_salanar_the_horseman : public CreatureScript
@@ -742,14 +746,18 @@ class npc_salanar_the_horseman : public CreatureScript
 public:
     npc_salanar_the_horseman() : CreatureScript("npc_salanar_the_horseman") { }
 
-    CreatureAI* GetAI(Creature* creature) const override
-    {
-        return new npc_salanar_the_horsemanAI(creature);
-    }
-
     struct npc_salanar_the_horsemanAI : public ScriptedAI
     {
         npc_salanar_the_horsemanAI(Creature* creature) : ScriptedAI(creature) { }
+
+        void sGossipSelect(Player* player, uint32 menuId, uint32 gossipListId) override
+        {
+            if (menuId == GOSSIP_SALANAR_MENU && gossipListId == GOSSIP_SALANAR_OPTION)
+            {
+                player->CastSpell(player, SPELL_REALM_OF_SHADOWS, true);
+                player->PlayerTalkClass->SendCloseGossip();
+            }
+        }
 
         void SpellHit(Unit* caster, const SpellInfo* spell) override
         {
@@ -765,7 +773,7 @@ public:
                             caster->RemoveFlag(UNIT_NPC_FLAGS, UNIT_NPC_FLAG_SPELLCLICK);
                             caster->setFaction(35);
                             DoCast(caster, SPELL_CALL_DARK_RIDER, true);
-                            if (Creature* Dark_Rider = me->FindNearestCreature(28654, 15))
+                            if (Creature* Dark_Rider = me->FindNearestCreature(NPC_DARK_RIDER_OF_ACHERUS, 15))
                                 ENSURE_AI(npc_dark_rider_of_acherus::npc_dark_rider_of_acherusAI, Dark_Rider->AI())->InitDespawnHorse(caster);
                         }
                     }
@@ -783,10 +791,11 @@ public:
                 {
                     if (Player* player = charmer->ToPlayer())
                     {
-                        // for quest Into the Realm of Shadows(12687)
-                        if (me->GetEntry() == 28788 && player->GetQuestStatus(12687) == QUEST_STATUS_INCOMPLETE)
+                        // for quest Into the Realm of Shadows(QUEST_INTO_REALM_OF_SHADOWS)
+                        if (me->GetEntry() == NPC_SALANAR_IN_REALM_OF_SHADOWS && player->GetQuestStatus(QUEST_INTO_REALM_OF_SHADOWS) == QUEST_STATUS_INCOMPLETE)
                         {
-                            player->GroupEventHappens(12687, me);
+                            player->GroupEventHappens(QUEST_INTO_REALM_OF_SHADOWS, me);
+                            Talk(SALANAR_SAY);
                             charmer->RemoveAurasDueToSpell(SPELL_EFFECT_OVERTAKE);
                             if (Creature* creature = who->ToCreature())
                             {
@@ -795,14 +804,17 @@ public:
                             }
                         }
 
-                        if (player->HasAura(SPELL_REALM_OF_SHADOWS))
-                            player->RemoveAurasDueToSpell(SPELL_REALM_OF_SHADOWS);
+                        player->RemoveAurasDueToSpell(SPELL_REALM_OF_SHADOWS);
                     }
                 }
             }
         }
     };
 
+    CreatureAI* GetAI(Creature* creature) const override
+    {
+        return new npc_salanar_the_horsemanAI(creature);
+    }
 };
 
 /*######
@@ -1011,7 +1023,6 @@ class npc_scarlet_miner_cart : public CreatureScript
         {
             npc_scarlet_miner_cartAI(Creature* creature) : PassiveAI(creature)
             {
-                me->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_PC);
                 me->SetDisplayId(me->GetCreatureTemplate()->Modelid1); // Modelid2 is a horse.
             }
 
@@ -1038,7 +1049,7 @@ class npc_scarlet_miner_cart : public CreatureScript
 
                     // Not 100% correct, but movement is smooth. Sometimes miner walks faster
                     // than normal, this speed is fast enough to keep up at those times.
-                    me->SetSpeed(MOVE_RUN, 1.25f);
+                    me->SetSpeedRate(MOVE_RUN, 1.25f);
 
                     me->GetMotionMaster()->MoveFollow(miner, 1.0f, 0);
                 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2015 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2017 TrinityCore <http://www.trinitycore.org/>
  * Copyright (C) 2006-2009 ScriptDev2 <https://scriptdev2.svn.sourceforge.net/>
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -50,15 +50,17 @@ enum Spells
     SPELL_HAMSTRING         = 26211
 };
 
+enum Misc
+{
+    EMOTE_SPOUT             = 0,     // "The Lurker Below takes a deep breath."
+    SPOUT_DIST              = 100
+};
+
 enum Creatures
 {
     NPC_COILFANG_GUARDIAN   = 21873,
     NPC_COILFANG_AMBUSHER   = 21865
 };
-
-#define EMOTE_SPOUT "The Lurker Below takes a deep breath."
-
-#define SPOUT_DIST  100
 
 float AddPos[9][3] =
 {
@@ -240,7 +242,7 @@ public:
 
                 if (SpoutTimer <= diff)
                 {
-                    me->TextEmote(EMOTE_SPOUT, nullptr, true);
+                    Talk(EMOTE_SPOUT);
                     me->SetReactState(REACT_PASSIVE);
                     me->GetMotionMaster()->MoveRotate(20000, urand(0, 1) ? ROTATE_DIRECTION_LEFT : ROTATE_DIRECTION_RIGHT);
                     SpoutTimer = 45000;
@@ -259,8 +261,7 @@ public:
                 if (CheckTimer <= diff)//check if there are players in melee range
                 {
                     InRange = false;
-                    Map* map = me->GetMap();
-                    Map::PlayerList const &PlayerList = map->GetPlayers();
+                    Map::PlayerList const &PlayerList = me->GetMap()->GetPlayers();
                     if (!PlayerList.isEmpty())
                     {
                         for (Map::PlayerList::const_iterator i = PlayerList.begin(); i != PlayerList.end(); ++i)
@@ -274,15 +275,11 @@ public:
 
                 if (RotTimer)
                 {
-                    Map* map = me->GetMap();
-                    if (map->IsDungeon())
+                    Map::PlayerList const &PlayerList = me->GetMap()->GetPlayers();
+                    for (Map::PlayerList::const_iterator i = PlayerList.begin(); i != PlayerList.end(); ++i)
                     {
-                        Map::PlayerList const &PlayerList = map->GetPlayers();
-                        for (Map::PlayerList::const_iterator i = PlayerList.begin(); i != PlayerList.end(); ++i)
-                        {
-                            if (i->GetSource() && i->GetSource()->IsAlive() && me->HasInArc(diff/20000.f*float(M_PI)*2.f, i->GetSource()) && me->IsWithinDist(i->GetSource(), SPOUT_DIST) && !i->GetSource()->IsInWater())
-                                DoCast(i->GetSource(), SPELL_SPOUT, true); // only knock back players in arc, in 100yards, not in water
-                        }
+                        if (i->GetSource() && i->GetSource()->IsAlive() && me->HasInArc(diff/20000.f*float(M_PI)*2.f, i->GetSource()) && me->IsWithinDist(i->GetSource(), SPOUT_DIST) && !i->GetSource()->IsInWater())
+                            DoCast(i->GetSource(), SPELL_SPOUT, true); // only knock back players in arc, in 100yards, not in water
                     }
 
                     if (SpoutAnimTimer <= diff)

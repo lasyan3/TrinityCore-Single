@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2015 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2017 TrinityCore <http://www.trinitycore.org/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -126,7 +126,7 @@ enum CalendarError
 #define CALENDAR_MAX_GUILD_EVENTS   100
 #define CALENDAR_MAX_INVITES        100
 
-struct CalendarInvite
+struct TC_GAME_API CalendarInvite
 {
     public:
         CalendarInvite(CalendarInvite const& calendarInvite, uint64 inviteId, uint64 eventId)
@@ -186,7 +186,7 @@ struct CalendarInvite
         std::string _text;
 };
 
-struct CalendarEvent
+struct TC_GAME_API CalendarEvent
 {
     public:
         CalendarEvent(CalendarEvent const& calendarEvent, uint64 eventId)
@@ -203,7 +203,7 @@ struct CalendarEvent
             _description = calendarEvent.GetDescription();
         }
 
-        CalendarEvent(uint64 eventId, ObjectGuid creatorGUID, uint32 guildId, CalendarEventType type, int32 dungeonId,
+        CalendarEvent(uint64 eventId, ObjectGuid creatorGUID, ObjectGuid::LowType guildId, CalendarEventType type, int32 dungeonId,
             time_t eventTime, uint32 flags, time_t timezoneTime, std::string title, std::string description) :
             _eventId(eventId), _creatorGUID(creatorGUID), _guildId(guildId), _type(type), _dungeonId(dungeonId),
             _eventTime(eventTime), _flags(flags), _timezoneTime(timezoneTime), _title(title),
@@ -220,8 +220,8 @@ struct CalendarEvent
         void SetCreatorGUID(ObjectGuid guid) { _creatorGUID = guid; }
         ObjectGuid GetCreatorGUID() const { return _creatorGUID; }
 
-        void SetGuildId(uint32 guildId) { _guildId = guildId; }
-        uint32 GetGuildId() const { return _guildId; }
+        void SetGuildId(ObjectGuid::LowType guildId) { _guildId = guildId; }
+        ObjectGuid::LowType GetGuildId() const { return _guildId; }
 
         void SetTitle(const std::string& title) { _title = title; }
         std::string GetTitle() const { return _title; }
@@ -253,7 +253,7 @@ struct CalendarEvent
     private:
         uint64 _eventId;
         ObjectGuid _creatorGUID;
-        uint32 _guildId;
+        ObjectGuid::LowType _guildId;
         CalendarEventType _type;
         int32 _dungeonId;
         time_t _eventTime;
@@ -266,7 +266,7 @@ typedef std::vector<CalendarInvite*> CalendarInviteStore;
 typedef std::set<CalendarEvent*> CalendarEventStore;
 typedef std::map<uint64 /* eventId */, CalendarInviteStore > CalendarEventInviteStore;
 
-class CalendarMgr
+class TC_GAME_API CalendarMgr
 {
     private:
         CalendarMgr();
@@ -281,11 +281,7 @@ class CalendarMgr
         uint64 _maxInviteId;
 
     public:
-        static CalendarMgr* instance()
-        {
-            static CalendarMgr instance;
-            return &instance;
-        }
+        static CalendarMgr* instance();
 
         void LoadFromDB();
 
@@ -316,7 +312,7 @@ class CalendarMgr
         void UpdateInvite(CalendarInvite* invite, SQLTransaction& trans);
 
         void RemoveAllPlayerEventsAndInvites(ObjectGuid guid);
-        void RemovePlayerGuildEventsAndSignups(ObjectGuid guid, uint32 guildId);
+        void RemovePlayerGuildEventsAndSignups(ObjectGuid guid, ObjectGuid::LowType guildId);
 
         void SendCalendarEvent(ObjectGuid guid, CalendarEvent const& calendarEvent, CalendarSendEventType sendType);
         void SendCalendarEventInvite(CalendarInvite const& invite);

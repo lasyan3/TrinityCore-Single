@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2015 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2017 TrinityCore <http://www.trinitycore.org/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -100,20 +100,17 @@ class boss_kologarn : public CreatureScript
 
         struct boss_kologarnAI : public BossAI
         {
-            boss_kologarnAI(Creature* creature) : BossAI(creature, BOSS_KOLOGARN), vehicle(creature->GetVehicleKit()),
+            boss_kologarnAI(Creature* creature) : BossAI(creature, BOSS_KOLOGARN),
                 left(false), right(false)
             {
-                ASSERT(vehicle);
-
                 me->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE);
-                me->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_DISABLE_MOVE);
+                me->SetControlled(true, UNIT_STATE_ROOT);
 
                 DoCast(SPELL_KOLOGARN_REDUCE_PARRY);
                 SetCombatMovement(false);
                 Reset();
             }
 
-            Vehicle* vehicle;
             bool left, right;
             ObjectGuid eyebeamTarget;
 
@@ -128,9 +125,10 @@ class boss_kologarn : public CreatureScript
                 events.ScheduleEvent(EVENT_FOCUSED_EYEBEAM, 21000);
                 events.ScheduleEvent(EVENT_ENRAGE, 600000);
 
-                for (uint8 i = 0; i < 2; ++i)
-                    if (Unit* arm = vehicle->GetPassenger(i))
-                        arm->ToCreature()->SetInCombatWithZone();
+                if (Vehicle* vehicle = me->GetVehicleKit())
+                    for (uint8 i = 0; i < 2; ++i)
+                        if (Unit* arm = vehicle->GetPassenger(i))
+                            arm->ToCreature()->SetInCombatWithZone();
 
                 _EnterCombat();
             }
@@ -283,7 +281,7 @@ class boss_kologarn : public CreatureScript
                         case EVENT_RESPAWN_LEFT_ARM:
                         case EVENT_RESPAWN_RIGHT_ARM:
                         {
-                            if (vehicle)
+                            if (Vehicle* vehicle = me->GetVehicleKit())
                             {
                                 int8 seat = eventId == EVENT_RESPAWN_LEFT_ARM ? 0 : 1;
                                 uint32 entry = eventId == EVENT_RESPAWN_LEFT_ARM ? NPC_LEFT_ARM : NPC_RIGHT_ARM;
@@ -311,6 +309,9 @@ class boss_kologarn : public CreatureScript
                             events.ScheduleEvent(EVENT_FOCUSED_EYEBEAM, urand(15, 35) * IN_MILLISECONDS);
                             break;
                     }
+
+                    if (me->HasUnitState(UNIT_STATE_CASTING))
+                        return;
                 }
 
                 DoMeleeAttackIfReady();

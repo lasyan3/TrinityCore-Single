@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2015 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2017 TrinityCore <http://www.trinitycore.org/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -77,14 +77,21 @@ enum LagReportType
     LAG_REPORT_TYPE_SPELL = 6
 };
 
-class GmTicket
+enum TicketType
+{
+    TICKET_TYPE_OPEN = 0,
+    TICKET_TYPE_CLOSED = 1,
+    TICKET_TYPE_CHARACTER_DELETED = 2,
+};
+
+class TC_GAME_API GmTicket
 {
 public:
     GmTicket();
     GmTicket(Player* player);
     ~GmTicket();
 
-    bool IsClosed() const { return !_closedBy.IsEmpty(); }
+    bool IsClosed() const { return _type != TICKET_TYPE_OPEN; }
     bool IsCompleted() const { return _completed; }
     bool IsFromPlayer(ObjectGuid guid) const { return guid == _playerGuid; }
     bool IsAssigned() const { return !_assignedTo.IsEmpty(); }
@@ -97,15 +104,7 @@ public:
     std::string const& GetMessage() const { return _message; }
     Player* GetAssignedPlayer() const { return ObjectAccessor::FindPlayer(_assignedTo); }
     ObjectGuid GetAssignedToGUID() const { return _assignedTo; }
-    std::string GetAssignedToName() const
-    {
-        std::string name;
-        // save queries if ticket is not assigned
-        if (_assignedTo)
-            sObjectMgr->GetPlayerNameByGUID(_assignedTo, name);
-
-        return name;
-    }
+    std::string GetAssignedToName() const;
     uint64 GetLastModifiedTime() const { return _lastModifiedTime; }
     GMTicketEscalationStatus GetEscalatedStatus() const { return _escalatedStatus; }
 
@@ -118,7 +117,8 @@ public:
         else if (_escalatedStatus == TICKET_UNASSIGNED)
             _escalatedStatus = TICKET_ASSIGNED;
     }
-    void SetClosedBy(ObjectGuid value) { _closedBy = value; }
+    void SetClosedBy(ObjectGuid value) { _closedBy = value; _type = TICKET_TYPE_CLOSED; }
+    void SetResolvedBy(ObjectGuid value) { _resolvedBy = value; }
     void SetCompleted() { _completed = true; }
     void SetMessage(std::string const& message)
     {
@@ -149,6 +149,7 @@ public:
 
 private:
     uint32 _id;
+    TicketType _type; // 0 = Open, 1 = Closed, 2 = Character deleted
     ObjectGuid _playerGuid;
     std::string _playerName;
     float _posX;
@@ -158,7 +159,8 @@ private:
     std::string _message;
     uint64 _createTime;
     uint64 _lastModifiedTime;
-    ObjectGuid _closedBy; // 0 = Open, -1 = Console, playerGuid = player abandoned ticket, other = GM who closed it.
+    ObjectGuid _closedBy; // 0 = Open or Closed by Console (if type = 1), playerGuid = GM who closed it or player abandoned ticket or read the GM response message.
+    ObjectGuid _resolvedBy; // 0 = Open or Resolved by Console (if type = 1), playerGuid = GM who resolved it by closing or completing the ticket.
     ObjectGuid _assignedTo;
     std::string _comment;
     bool _completed;
@@ -171,18 +173,14 @@ private:
 };
 typedef std::map<uint32, GmTicket*> GmTicketList;
 
-class TicketMgr
+class TC_GAME_API TicketMgr
 {
 private:
     TicketMgr();
     ~TicketMgr();
 
 public:
-    static TicketMgr* instance()
-    {
-        static TicketMgr instance;
-        return &instance;
-    }
+    static TicketMgr* instance();
 
     void LoadTickets();
     void LoadSurveys();
@@ -216,6 +214,7 @@ public:
 
     void AddTicket(GmTicket* ticket);
     void CloseTicket(uint32 ticketId, ObjectGuid source);
+    void ResolveAndCloseTicket(uint32 ticketId, ObjectGuid source); // used when GM resolves a ticket by simply closing it
     void RemoveTicket(uint32 ticketId);
 
     bool GetStatus() const { return _status; }

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2015 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2017 TrinityCore <http://www.trinitycore.org/>
  * Copyright (C) 2005-2009 MaNGOS <http://getmangos.com/>
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -18,6 +18,7 @@
 
 #include "BattlegroundSA.h"
 #include "GameObject.h"
+#include "GameTime.h"
 #include "Language.h"
 #include "ObjectMgr.h"
 #include "Player.h"
@@ -151,8 +152,8 @@ bool BattlegroundSA::ResetObjs()
     }
 
     // MAD props for Kiper for discovering those values - 4 hours of his work.
-    GetBGObject(BG_SA_BOAT_ONE)->UpdateRotationFields(1.0f, 0.0002f);
-    GetBGObject(BG_SA_BOAT_TWO)->UpdateRotationFields(1.0f, 0.00001f);
+    GetBGObject(BG_SA_BOAT_ONE)->SetParentRotation(G3D::Quat(0.f, 0.f, 1.0f, 0.0002f));
+    GetBGObject(BG_SA_BOAT_TWO)->SetParentRotation(G3D::Quat(0.f, 0.f, 1.0f, 0.00001f));
     SpawnBGObject(BG_SA_BOAT_ONE, RESPAWN_IMMEDIATELY);
     SpawnBGObject(BG_SA_BOAT_TWO, RESPAWN_IMMEDIATELY);
 
@@ -389,6 +390,8 @@ void BattlegroundSA::PostUpdateImpl(uint32 diff)
         {
             if (TotalTime >= BG_SA_ROUNDLENGTH)
             {
+                CastSpellOnTeam(SPELL_END_OF_ROUND, ALLIANCE);
+                CastSpellOnTeam(SPELL_END_OF_ROUND, HORDE);
                 RoundScores[0].winner = Attackers;
                 RoundScores[0].time = BG_SA_ROUNDLENGTH;
                 TotalTime = 0;
@@ -401,8 +404,6 @@ void BattlegroundSA::PostUpdateImpl(uint32 diff)
                 ToggleTimer();
                 ResetObjs();
                 GetBgMap()->UpdateAreaDependentAuras();
-                CastSpellOnTeam(SPELL_END_OF_ROUND, ALLIANCE);
-                CastSpellOnTeam(SPELL_END_OF_ROUND, HORDE);
                 return;
             }
         }
@@ -410,6 +411,8 @@ void BattlegroundSA::PostUpdateImpl(uint32 diff)
         {
             if (TotalTime >= EndRoundTimer)
             {
+                CastSpellOnTeam(SPELL_END_OF_ROUND, ALLIANCE);
+                CastSpellOnTeam(SPELL_END_OF_ROUND, HORDE);
                 RoundScores[1].time = BG_SA_ROUNDLENGTH;
                 RoundScores[1].winner = (Attackers == TEAM_ALLIANCE) ? TEAM_HORDE : TEAM_ALLIANCE;
                 if (RoundScores[0].time == RoundScores[1].time)
@@ -476,7 +479,7 @@ void BattlegroundSA::FillInitialWorldStates(WorldPacket& data)
 void BattlegroundSA::AddPlayer(Player* player)
 {
     Battleground::AddPlayer(player);
-    PlayerScores[player->GetGUIDLow()] = new BattlegroundSAScore(player->GetGUID());
+    PlayerScores[player->GetGUID().GetCounter()] = new BattlegroundSAScore(player->GetGUID());
 
     SendTransportInit(player);
 
@@ -744,7 +747,7 @@ bool BattlegroundSA::CanInteractWithObject(uint32 objectId)
                 return false;
             break;
         default:
-            ASSERT(false);
+            ABORT();
             break;
     }
 
@@ -877,7 +880,7 @@ void BattlegroundSA::CaptureGraveyard(BG_SA_Graveyards i, Player* Source)
 
             break;
         default:
-            ASSERT(false);
+            ABORT();
             break;
     };
 }
@@ -983,11 +986,11 @@ void BattlegroundSA::UpdateDemolisherSpawns()
                     // Demolisher is not in list
                     if (DemoliserRespawnList.find(i) == DemoliserRespawnList.end())
                     {
-                        DemoliserRespawnList[i] = getMSTime()+30000;
+                        DemoliserRespawnList[i] = GameTime::GetGameTimeMS()+30000;
                     }
                     else
                     {
-                        if (DemoliserRespawnList[i] < getMSTime())
+                        if (DemoliserRespawnList[i] < GameTime::GetGameTimeMS())
                         {
                             Demolisher->Relocate(BG_SA_NpcSpawnlocs[i]);
                             Demolisher->Respawn();

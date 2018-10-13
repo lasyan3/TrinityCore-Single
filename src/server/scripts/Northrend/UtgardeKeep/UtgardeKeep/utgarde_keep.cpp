@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2015 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2017 TrinityCore <http://www.trinitycore.org/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -191,6 +191,57 @@ class spell_fixate : public SpellScriptLoader
         }
 };
 
+enum SecondWind
+{
+    SPELL_SECOND_WIND_TRIGGER = 42771
+};
+
+// 42770 - Second Wind
+class spell_uk_second_wind : public SpellScriptLoader
+{
+    public:
+        spell_uk_second_wind() : SpellScriptLoader("spell_uk_second_wind") { }
+
+        class spell_uk_second_wind_AuraScript : public AuraScript
+        {
+            PrepareAuraScript(spell_uk_second_wind_AuraScript);
+
+            bool Validate(SpellInfo const* /*spellInfo*/) override
+            {
+                if (!sSpellMgr->GetSpellInfo(SPELL_SECOND_WIND_TRIGGER))
+                    return false;
+                return true;
+            }
+
+            bool CheckProc(ProcEventInfo& eventInfo)
+            {
+                SpellInfo const* spellInfo = eventInfo.GetSpellInfo();
+                if (!spellInfo)
+                    return false;
+
+                return (spellInfo->GetAllEffectsMechanicMask() & ((1 << MECHANIC_ROOT) | (1 << MECHANIC_STUN))) != 0;
+            }
+
+            void HandleProc(AuraEffect const* aurEff, ProcEventInfo& eventInfo)
+            {
+                PreventDefaultAction();
+                Unit* caster = eventInfo.GetActionTarget();
+                caster->CastSpell(caster, SPELL_SECOND_WIND_TRIGGER, true, nullptr, aurEff);
+            }
+
+            void Register() override
+            {
+                DoCheckProc += AuraCheckProcFn(spell_uk_second_wind_AuraScript::CheckProc);
+                OnEffectProc += AuraEffectProcFn(spell_uk_second_wind_AuraScript::HandleProc, EFFECT_0, SPELL_AURA_DUMMY);
+            }
+        };
+
+        AuraScript* GetAuraScript() const override
+        {
+            return new spell_uk_second_wind_AuraScript();
+        }
+};
+
 enum EnslavedProtoDrake
 {
     TYPE_PROTODRAKE_AT      = 28,
@@ -235,7 +286,7 @@ class npc_enslaved_proto_drake : public CreatureScript
             {
                 if (type == WAYPOINT_MOTION_TYPE && id == POINT_LAST)
                 {
-                    me->RemoveByteFlag(UNIT_FIELD_BYTES_1, 3, UNIT_BYTE1_FLAG_ALWAYS_STAND | UNIT_BYTE1_FLAG_HOVER);
+                    me->RemoveByteFlag(UNIT_FIELD_BYTES_1, UNIT_BYTES_1_OFFSET_ANIM_TIER, UNIT_BYTE1_FLAG_ALWAYS_STAND | UNIT_BYTE1_FLAG_HOVER);
                 }
             }
 
@@ -244,7 +295,7 @@ class npc_enslaved_proto_drake : public CreatureScript
                 if (type == TYPE_PROTODRAKE_AT && data == DATA_PROTODRAKE_MOVE && !_setData && me->GetDistance(protodrakeCheckPos) < 5.0f)
                 {
                     _setData = true;
-                    me->SetByteFlag(UNIT_FIELD_BYTES_1, 3, UNIT_BYTE1_FLAG_ALWAYS_STAND | UNIT_BYTE1_FLAG_HOVER);
+                    me->SetByteFlag(UNIT_FIELD_BYTES_1, UNIT_BYTES_1_OFFSET_ANIM_TIER, UNIT_BYTE1_FLAG_ALWAYS_STAND | UNIT_BYTE1_FLAG_HOVER);
                     me->GetMotionMaster()->MovePath(PATH_PROTODRAKE, false);
                 }
             }
@@ -301,4 +352,5 @@ void AddSC_utgarde_keep()
     new npc_enslaved_proto_drake();
     new spell_ticking_time_bomb();
     new spell_fixate();
+    new spell_uk_second_wind();
 }

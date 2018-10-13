@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2015 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2017 TrinityCore <http://www.trinitycore.org/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -208,6 +208,9 @@ class boss_general_vezax : public CreatureScript
                             DoCast(me, SPELL_BERSERK);
                             break;
                     }
+
+                    if (me->HasUnitState(UNIT_STATE_CASTING))
+                        return;
                 }
 
                 DoMeleeAttackIfReady();
@@ -234,16 +237,12 @@ class boss_general_vezax : public CreatureScript
 
             void CheckShamanisticRage()
             {
-                Map* map = me->GetMap();
-                if (map && map->IsDungeon())
-                {
-                    // If Shaman has Shamanistic Rage and use it during the fight, it will cast Corrupted Rage on him
-                    Map::PlayerList const& Players = map->GetPlayers();
-                    for (Map::PlayerList::const_iterator itr = Players.begin(); itr != Players.end(); ++itr)
-                        if (Player* player = itr->GetSource())
-                            if (player->HasSpell(SPELL_SHAMANTIC_RAGE))
-                                player->CastSpell(player, SPELL_CORRUPTED_RAGE, false);
-                }
+                // If Shaman has Shamanistic Rage and use it during the fight, it will cast Corrupted Rage on him
+                Map::PlayerList const& Players = me->GetMap()->GetPlayers();
+                for (Map::PlayerList::const_iterator itr = Players.begin(); itr != Players.end(); ++itr)
+                    if (Player* player = itr->GetSource())
+                        if (player->HasSpell(SPELL_SHAMANTIC_RAGE))
+                            player->CastSpell(player, SPELL_CORRUPTED_RAGE, false);
             }
 
             uint32 GetData(uint32 type) const override
@@ -280,34 +279,28 @@ class boss_general_vezax : public CreatureScript
             */
             Unit* CheckPlayersInRange(uint8 playersMin, float rangeMin, float rangeMax)
             {
-                Map* map = me->GetMap();
-                if (map && map->IsDungeon())
+                std::list<Player*> PlayerList;
+                Map::PlayerList const& Players = me->GetMap()->GetPlayers();
+                for (Map::PlayerList::const_iterator itr = Players.begin(); itr != Players.end(); ++itr)
                 {
-                    std::list<Player*> PlayerList;
-                    Map::PlayerList const& Players = map->GetPlayers();
-                    for (Map::PlayerList::const_iterator itr = Players.begin(); itr != Players.end(); ++itr)
+                    if (Player* player = itr->GetSource())
                     {
-                        if (Player* player = itr->GetSource())
-                        {
-                            float distance = player->GetDistance(me->GetPositionX(), me->GetPositionY(), me->GetPositionZ());
-                            if (rangeMin > distance || distance > rangeMax)
-                                continue;
+                        float distance = player->GetDistance(me->GetPositionX(), me->GetPositionY(), me->GetPositionZ());
+                        if (rangeMin > distance || distance > rangeMax)
+                            continue;
 
-                            PlayerList.push_back(player);
-                        }
+                        PlayerList.push_back(player);
                     }
-
-                    if (PlayerList.empty())
-                        return NULL;
-
-                    size_t size = PlayerList.size();
-                    if (size < playersMin)
-                        return NULL;
-
-                    return Trinity::Containers::SelectRandomContainerElement(PlayerList);
                 }
 
-                return NULL;
+                if (PlayerList.empty())
+                    return NULL;
+
+                size_t size = PlayerList.size();
+                if (size < playersMin)
+                    return NULL;
+
+                return Trinity::Containers::SelectRandomContainerElement(PlayerList);
             }
         };
 
@@ -338,8 +331,8 @@ class boss_saronite_animus : public CreatureScript
 
             void JustDied(Unit* /*killer*/) override
             {
-                if (Creature* Vezax = ObjectAccessor::GetCreature(*me, instance->GetGuidData(BOSS_VEZAX)))
-                    Vezax->AI()->DoAction(ACTION_ANIMUS_DIE);
+                if (Creature* vezax = instance->GetCreature(BOSS_VEZAX))
+                    vezax->AI()->DoAction(ACTION_ANIMUS_DIE);
             }
 
             void UpdateAI(uint32 diff) override
@@ -363,6 +356,9 @@ class boss_saronite_animus : public CreatureScript
                         default:
                             break;
                     }
+
+                    if (me->HasUnitState(UNIT_STATE_CASTING))
+                        return;
                 }
 
                 DoMeleeAttackIfReady();
@@ -390,7 +386,6 @@ class npc_saronite_vapors : public CreatureScript
             {
                 Talk(EMOTE_VAPORS);
                 instance = me->GetInstanceScript();
-                me->ApplySpellImmune(0, IMMUNITY_EFFECT, SPELL_EFFECT_KNOCK_BACK, true);
                 me->ApplySpellImmune(0, IMMUNITY_ID, 49560, true); // Death Grip jump effect
                 me->SetReactState(REACT_PASSIVE);
             }
@@ -426,15 +421,16 @@ class npc_saronite_vapors : public CreatureScript
                 if (damage >= me->GetHealth())
                 {
                     damage = 0;
-                    me->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NON_ATTACKABLE | UNIT_FLAG_NOT_SELECTABLE | UNIT_FLAG_DISABLE_MOVE);
+                    me->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NON_ATTACKABLE | UNIT_FLAG_NOT_SELECTABLE);
+                    me->SetControlled(true, UNIT_STATE_ROOT);
                     me->SetStandState(UNIT_STAND_STATE_DEAD);
                     me->SetHealth(me->GetMaxHealth());
                     me->RemoveAllAuras();
                     DoCast(me, SPELL_SARONITE_VAPORS);
                     me->DespawnOrUnsummon(30000);
 
-                    if (Creature* Vezax = ObjectAccessor::GetCreature(*me, instance->GetGuidData(BOSS_VEZAX)))
-                        Vezax->AI()->DoAction(ACTION_VAPORS_DIE);
+                    if (Creature* vezax = instance->GetCreature(BOSS_VEZAX))
+                        vezax->AI()->DoAction(ACTION_VAPORS_DIE);
                 }
             }
 

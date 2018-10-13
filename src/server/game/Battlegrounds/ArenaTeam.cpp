@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2015 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2017 TrinityCore <http://www.trinitycore.org/>
  * Copyright (C) 2005-2009 MaNGOS <http://getmangos.com/>
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -25,6 +25,7 @@
 #include "ArenaTeamMgr.h"
 #include "WorldSession.h"
 #include "Opcodes.h"
+#include "CharacterCache.h"
 
 ArenaTeam::ArenaTeam()
     : TeamId(0), Type(0), TeamName(), CaptainGuid(), BackgroundColor(0), EmblemStyle(0), EmblemColor(0),
@@ -63,7 +64,7 @@ bool ArenaTeam::Create(ObjectGuid captainGuid, uint8 type, std::string const& te
     EmblemColor = emblemColor;
     BorderStyle = borderStyle;
     BorderColor = borderColor;
-    uint32 captainLowGuid = captainGuid.GetCounter();
+    ObjectGuid::LowType captainLowGuid = captainGuid.GetCounter();
 
     // Save arena team to db
     PreparedStatement* stmt = CharacterDatabase.GetPreparedStatement(CHAR_INS_ARENA_TEAM);
@@ -95,7 +96,7 @@ bool ArenaTeam::AddMember(ObjectGuid playerGuid)
     if (GetMembersSize() >= GetType() * 2)
         return false;
 
-    // Get player name and class either from db or ObjectMgr
+    // Get player name and class either from db or character cache
     Player* player = ObjectAccessor::FindPlayer(playerGuid);
     if (player)
     {
@@ -104,21 +105,16 @@ bool ArenaTeam::AddMember(ObjectGuid playerGuid)
     }
     else
     {
-        //          0     1
-        // SELECT name, class FROM characters WHERE guid = ?
-        PreparedStatement* stmt = CharacterDatabase.GetPreparedStatement(CHAR_SEL_CHARACTER_NAME_CLASS);
-        stmt->setUInt32(0, playerGuid.GetCounter());
-        PreparedQueryResult result = CharacterDatabase.Query(stmt);
-
-        if (!result)
+        CharacterCacheEntry const* cInfo = sCharacterCache->GetCharacterCacheByGuid(playerGuid);
+        if (!cInfo)
             return false;
 
-        playerName = (*result)[0].GetString();
-        playerClass = (*result)[1].GetUInt8();
+        playerName = cInfo->Name;
+        playerClass = cInfo->Class;
     }
 
     // Check if player is already in a similar arena team
-    if ((player && player->GetArenaTeamId(GetSlot())) || Player::GetArenaTeamIdFromDB(playerGuid, GetType()) != 0)
+    if ((player && player->GetArenaTeamId(GetSlot())) || sCharacterCache->GetCharacterArenaTeamIdByGuid(playerGuid, GetType()) != 0)
     {
         TC_LOG_DEBUG("bg.arena", "Arena: %s %s already has an arena team of type %u", playerGuid.ToString().c_str(), playerName.c_str(), GetType());
         return false;
@@ -161,6 +157,7 @@ bool ArenaTeam::AddMember(ObjectGuid playerGuid)
     newMember.MatchMakerRating = matchMakerRating;
 
     Members.push_back(newMember);
+    sCharacterCache->UpdateCharacterArenaTeamId(playerGuid, GetSlot(), GetId());
 
     // Save player's arena team membership to db
     stmt = CharacterDatabase.GetPreparedStatement(CHAR_INS_ARENA_TEAM_MEMBER);
@@ -193,7 +190,7 @@ bool ArenaTeam::LoadArenaTeamFromDB(QueryResult result)
 
     TeamId            = fields[0].GetUInt32();
     TeamName          = fields[1].GetString();
-    CaptainGuid       = ObjectGuid(HIGHGUID_PLAYER, fields[2].GetUInt32());
+    CaptainGuid       = ObjectGuid(HighGuid::Player, fields[2].GetUInt32());
     Type              = fields[3].GetUInt8();
     BackgroundColor   = fields[4].GetUInt32();
     EmblemStyle       = fields[5].GetUInt8();
@@ -232,7 +229,7 @@ bool ArenaTeam::LoadMembersFromDB(QueryResult result)
             break;
 
         ArenaTeamMember newMember;
-        newMember.Guid             = ObjectGuid(HIGHGUID_PLAYER, fields[1].GetUInt32());
+        newMember.Guid             = ObjectGuid(HighGuid::Player, fields[1].GetUInt32());
         newMember.WeekGames        = fields[2].GetUInt16();
         newMember.WeekWins         = fields[3].GetUInt16();
         newMember.SeasonGames      = fields[4].GetUInt16();
@@ -256,6 +253,7 @@ bool ArenaTeam::LoadMembersFromDB(QueryResult result)
 
         // Put the player in the team
         Members.push_back(newMember);
+        sCharacterCache->UpdateCharacterArenaTeamId(newMember.Guid, GetSlot(), GetId());
     }
     while (result->NextRow());
 
@@ -305,8 +303,8 @@ void ArenaTeam::SetCaptain(ObjectGuid guid)
         if (oldCaptain)
         {
             TC_LOG_DEBUG("bg.arena", "Player: %s [GUID: %u] promoted player: %s [GUID: %u] to leader of arena team [Id: %u, Name: %s] [Type: %u].",
-                oldCaptain->GetName().c_str(), oldCaptain->GetGUIDLow(), newCaptain->GetName().c_str(),
-                newCaptain->GetGUIDLow(), GetId(), GetName().c_str(), GetType());
+                oldCaptain->GetName().c_str(), oldCaptain->GetGUID().GetCounter(), newCaptain->GetName().c_str(),
+                newCaptain->GetGUID().GetCounter(), GetId(), GetName().c_str(), GetType());
         }
     }
 }
@@ -315,11 +313,14 @@ void ArenaTeam::DelMember(ObjectGuid guid, bool cleanDb)
 {
     // Remove member from team
     for (MemberList::iterator itr = Members.begin(); itr != Members.end(); ++itr)
+    {
         if (itr->Guid == guid)
         {
             Members.erase(itr);
+            sCharacterCache->UpdateCharacterArenaTeamId(guid, GetSlot(), 0);
             break;
         }
+    }
 
     // Inform player and remove arena team info from player data
     if (Player* player = ObjectAccessor::FindPlayer(guid))
@@ -328,7 +329,7 @@ void ArenaTeam::DelMember(ObjectGuid guid, bool cleanDb)
         // delete all info regarding this team
         for (uint32 i = 0; i < ARENA_TEAM_END; ++i)
             player->SetArenaTeamInfoField(GetSlot(), ArenaTeamInfoType(i), 0);
-        TC_LOG_DEBUG("bg.arena", "Player: %s [GUID: %u] left arena team type: %u [Id: %u, Name: %s].", player->GetName().c_str(), player->GetGUIDLow(), GetType(), GetId(), GetName().c_str());
+        TC_LOG_DEBUG("bg.arena", "Player: %s [GUID: %u] left arena team type: %u [Id: %u, Name: %s].", player->GetName().c_str(), player->GetGUID().GetCounter(), GetType(), GetId(), GetName().c_str());
     }
 
     // Only used for single member deletion, for arena team disband we use a single query for more efficiency
@@ -353,7 +354,7 @@ void ArenaTeam::Disband(WorldSession* session)
         BroadcastEvent(ERR_ARENA_TEAM_DISBANDED_S, ObjectGuid::Empty, 2, session->GetPlayerName(), GetName(), "");
 
         if (Player* player = session->GetPlayer())
-            TC_LOG_DEBUG("bg.arena", "Player: %s [GUID: %u] disbanded arena team type: %u [Id: %u, Name: %s].", player->GetName().c_str(), player->GetGUIDLow(), GetType(), GetId(), GetName().c_str());
+            TC_LOG_DEBUG("bg.arena", "Player: %s [GUID: %u] disbanded arena team type: %u [Id: %u, Name: %s].", player->GetName().c_str(), player->GetGUID().GetCounter(), GetType(), GetId(), GetName().c_str());
     }
 
     // Update database
@@ -369,7 +370,7 @@ void ArenaTeam::Disband(WorldSession* session)
 
     CharacterDatabase.CommitTransaction(trans);
 
-    // Remove arena team from ObjectMgr
+    // Remove arena team from ArenaTeamMgr
     sArenaTeamMgr->RemoveArenaTeam(TeamId);
 }
 
@@ -392,7 +393,7 @@ void ArenaTeam::Disband()
 
     CharacterDatabase.CommitTransaction(trans);
 
-    // Remove arena team from ObjectMgr
+    // Remove arena team from ArenaTeamMgr
     sArenaTeamMgr->RemoveArenaTeam(TeamId);
 }
 
@@ -612,6 +613,8 @@ uint32 ArenaTeam::GetPoints(uint32 memberRating)
     else if (Type == ARENA_TEAM_3v3)
         points *= 0.88f;
 
+    points *= sWorld->getRate(RATE_ARENA_POINTS);
+
     return (uint32) points;
 }
 
@@ -673,7 +676,7 @@ int32 ArenaTeam::GetMatchmakerRatingMod(uint32 ownRating, uint32 opponentRating,
     */
 
     // Real rating modification
-    mod *= 24.0f;
+    mod *= sWorld->getFloatConfig(CONFIG_ARENA_MATCHMAKER_RATING_MODIFIER);
 
     return (int32)ceil(mod);
 }
@@ -683,21 +686,27 @@ int32 ArenaTeam::GetRatingMod(uint32 ownRating, uint32 opponentRating, bool won 
     // 'Chance' calculation - to beat the opponent
     // This is a simulation. Not much info on how it really works
     float chance = GetChanceAgainst(ownRating, opponentRating);
-    float won_mod = (won) ? 1.0f : 0.0f;
 
     // Calculate the rating modification
     float mod;
 
     /// @todo Replace this hack with using the confidence factor (limiting the factor to 2.0f)
-    if (won && ownRating < 1300)
+    if (won)
     {
-        if (ownRating < 1000)
-            mod = 48.0f * (won_mod - chance);
+        if (ownRating < 1300)
+        {
+            float win_rating_modifier1 = sWorld->getFloatConfig(CONFIG_ARENA_WIN_RATING_MODIFIER_1);
+
+            if (ownRating < 1000)
+                mod =  win_rating_modifier1 * (1.0f - chance);
+            else
+                mod = ((win_rating_modifier1 / 2.0f) + ((win_rating_modifier1 / 2.0f) * (1300.0f - float(ownRating)) / 300.0f)) * (1.0f - chance);
+        }
         else
-            mod = (24.0f + (24.0f * (1300.0f - float(ownRating)) / 300.0f)) * (won_mod - chance);
+            mod = sWorld->getFloatConfig(CONFIG_ARENA_WIN_RATING_MODIFIER_2) * (1.0f - chance);
     }
     else
-        mod = 24.0f * (won_mod - chance);
+        mod = sWorld->getFloatConfig(CONFIG_ARENA_LOSE_RATING_MODIFIER) * (-chance);
 
     return (int32)ceil(mod);
 }
@@ -891,6 +900,10 @@ void ArenaTeam::SaveToDB()
 
     for (MemberList::const_iterator itr = Members.begin(); itr != Members.end(); ++itr)
     {
+        // Save the effort and go
+        if (itr->WeekGames == 0)
+            continue;
+
         stmt = CharacterDatabase.GetPreparedStatement(CHAR_UPD_ARENA_TEAM_MEMBER);
         stmt->setUInt16(0, itr->PersonalRating);
         stmt->setUInt16(1, itr->WeekGames);
@@ -911,8 +924,12 @@ void ArenaTeam::SaveToDB()
     CharacterDatabase.CommitTransaction(trans);
 }
 
-void ArenaTeam::FinishWeek()
+bool ArenaTeam::FinishWeek()
 {
+    // No need to go further than this
+    if (Stats.WeekGames == 0)
+        return false;
+
     // Reset team stats
     Stats.WeekGames = 0;
     Stats.WeekWins = 0;
@@ -923,6 +940,8 @@ void ArenaTeam::FinishWeek()
         itr->WeekGames = 0;
         itr->WeekWins = 0;
     }
+
+    return true;
 }
 
 bool ArenaTeam::IsFighting() const

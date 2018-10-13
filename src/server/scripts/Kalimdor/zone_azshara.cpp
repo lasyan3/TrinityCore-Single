@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2015 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2017 TrinityCore <http://www.trinitycore.org/>
  * Copyright (C) 2006-2009 ScriptDev2 <https://scriptdev2.svn.sourceforge.net/>
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -15,20 +15,6 @@
  * You should have received a copy of the GNU General Public License along
  * with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-
-/* ScriptData
-SDName: Azshara
-SD%Complete: 90
-SDComment: Quest support: 2744, 3141, 9364, 10994
-SDCategory: Azshara
-EndScriptData */
-
-/* ContentData
-npc_spitelashes
-npc_loramus_thalipedes
-npc_rizzle_sprysprocket
-npc_depth_charge
-EndContentData */
 
 #include "ScriptMgr.h"
 #include "ScriptedCreature.h"
@@ -131,78 +117,6 @@ public:
     CreatureAI* GetAI(Creature* creature) const override
     {
         return new npc_spitelashesAI(creature);
-    }
-};
-
-/*######
-## npc_loramus_thalipedes
-######*/
-
-#define GOSSIP_HELLO_LT1    "Can you help me?"
-#define GOSSIP_HELLO_LT2    "Tell me your story"
-#define GOSSIP_SELECT_LT1   "Please continue"
-#define GOSSIP_SELECT_LT2   "I do not understand"
-#define GOSSIP_SELECT_LT3   "Indeed"
-#define GOSSIP_SELECT_LT4   "I will do this with or your help, Loramus"
-#define GOSSIP_SELECT_LT5   "Yes"
-
-class npc_loramus_thalipedes : public CreatureScript
-{
-public:
-    npc_loramus_thalipedes() : CreatureScript("npc_loramus_thalipedes") { }
-
-    bool OnGossipSelect(Player* player, Creature* creature, uint32 /*sender*/, uint32 action) override
-    {
-        player->PlayerTalkClass->ClearMenus();
-        switch (action)
-        {
-            case GOSSIP_ACTION_INFO_DEF+1:
-                player->CLOSE_GOSSIP_MENU();
-                player->AreaExploredOrEventHappens(2744);
-                break;
-
-            case GOSSIP_ACTION_INFO_DEF+2:
-                player->ADD_GOSSIP_ITEM(GOSSIP_ICON_CHAT, GOSSIP_SELECT_LT1, GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF + 21);
-                player->SEND_GOSSIP_MENU(1813, creature->GetGUID());
-                break;
-            case GOSSIP_ACTION_INFO_DEF+21:
-                player->ADD_GOSSIP_ITEM(GOSSIP_ICON_CHAT, GOSSIP_SELECT_LT2, GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF + 22);
-                player->SEND_GOSSIP_MENU(1814, creature->GetGUID());
-                break;
-            case GOSSIP_ACTION_INFO_DEF+22:
-                player->ADD_GOSSIP_ITEM(GOSSIP_ICON_CHAT, GOSSIP_SELECT_LT3, GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF + 23);
-                player->SEND_GOSSIP_MENU(1815, creature->GetGUID());
-                break;
-            case GOSSIP_ACTION_INFO_DEF+23:
-                player->ADD_GOSSIP_ITEM(GOSSIP_ICON_CHAT, GOSSIP_SELECT_LT4, GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF + 24);
-                player->SEND_GOSSIP_MENU(1816, creature->GetGUID());
-                break;
-            case GOSSIP_ACTION_INFO_DEF+24:
-                player->ADD_GOSSIP_ITEM(GOSSIP_ICON_CHAT, GOSSIP_SELECT_LT5, GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF + 25);
-                player->SEND_GOSSIP_MENU(1817, creature->GetGUID());
-                break;
-            case GOSSIP_ACTION_INFO_DEF+25:
-                player->CLOSE_GOSSIP_MENU();
-                player->AreaExploredOrEventHappens(3141);
-                break;
-        }
-        return true;
-    }
-
-    bool OnGossipHello(Player* player, Creature* creature) override
-    {
-        if (creature->IsQuestGiver())
-            player->PrepareQuestMenu(creature->GetGUID());
-
-        if (player->GetQuestStatus(2744) == QUEST_STATUS_INCOMPLETE)
-            player->ADD_GOSSIP_ITEM(GOSSIP_ICON_CHAT, GOSSIP_HELLO_LT1, GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF+1);
-
-        if (player->GetQuestStatus(3141) == QUEST_STATUS_INCOMPLETE)
-            player->ADD_GOSSIP_ITEM(GOSSIP_ICON_CHAT, GOSSIP_HELLO_LT2, GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF+2);
-
-        player->SEND_GOSSIP_MENU(player->GetGossipTextId(creature), creature->GetGUID());
-
-        return true;
     }
 };
 
@@ -345,9 +259,9 @@ public:
             }
         }
 
-        void sGossipSelect(Player* player, uint32 /*sender*/, uint32 /*action*/) override
+        void sGossipSelect(Player* player, uint32 /*menuId*/, uint32 /*gossipListId*/) override
         {
-            player->CLOSE_GOSSIP_MENU();
+            CloseGossipMenuFor(player);
             me->CastSpell(player, SPELL_GIVE_SOUTHFURY_MOONSTONE, true);
             MustDieTimer = 3000;
             MustDie = true;
@@ -404,7 +318,7 @@ public:
                     DoCast(me, SPELL_PERIODIC_DEPTH_CHARGE);
                     me->SetHover(true);
                     me->SetSwim(true);
-                    me->SetSpeed(MOVE_RUN, 0.85f, true);
+                    me->SetSpeedRate(MOVE_RUN, 0.85f);
                     me->GetMotionMaster()->MovementExpired();
                     me->GetMotionMaster()->MovePoint(CurrWP, WPs[CurrWP]);
                     Escape = true;
@@ -470,8 +384,8 @@ public:
     {
         if (player->GetQuestStatus(QUEST_CHASING_THE_MOONSTONE) != QUEST_STATUS_INCOMPLETE)
             return true;
-        player->ADD_GOSSIP_ITEM(GOSSIP_ICON_CHAT, GOSSIP_GET_MOONSTONE, GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF + 1);
-        player->SEND_GOSSIP_MENU(10811, creature->GetGUID());
+        AddGossipItemFor(player, GOSSIP_ICON_CHAT, GOSSIP_GET_MOONSTONE, GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF + 1);
+        SendGossipMenuFor(player, 10811, creature->GetGUID());
         return true;
     }
 
@@ -552,7 +466,6 @@ public:
 void AddSC_azshara()
 {
     new npc_spitelashes();
-    new npc_loramus_thalipedes();
     new npc_rizzle_sprysprocket();
     new npc_depth_charge();
 }

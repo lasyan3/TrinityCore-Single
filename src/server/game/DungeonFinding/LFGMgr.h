@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2015 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2017 TrinityCore <http://www.trinitycore.org/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -28,6 +28,7 @@
 class Group;
 class Player;
 class Quest;
+class Map;
 
 namespace lfg
 {
@@ -289,25 +290,21 @@ struct LFGDungeonData
     uint32 Entry() const { return id + (type << 24); }
 };
 
-class LFGMgr
+class TC_GAME_API LFGMgr
 {
     private:
         LFGMgr();
         ~LFGMgr();
 
     public:
-        static LFGMgr* instance()
-        {
-            static LFGMgr instance;
-            return &instance;
-        }
+        static LFGMgr* instance();
 
         // Functions used outside lfg namespace
         void Update(uint32 diff);
 
         // World.cpp
         /// Finish the dungeon for the given group. All check are performed using internal lfg data
-        void FinishDungeon(ObjectGuid gguid, uint32 dungeonId);
+        void FinishDungeon(ObjectGuid gguid, uint32 dungeonId, Map const* currMap);
         /// Loads rewards for random dungeons
         void LoadRewards();
         /// Loads dungeons from dbc and adds teleport coords
@@ -399,7 +396,7 @@ class LFGMgr
         /// Join Lfg with selected roles, dungeons and comment
         void JoinLfg(Player* player, uint8 roles, LfgDungeonSet& dungeons, std::string const& comment);
         /// Leaves lfg
-        void LeaveLfg(ObjectGuid guid);
+        void LeaveLfg(ObjectGuid guid, bool disconnected = false);
 
         // LfgQueue
         /// Get last lfg state (NONE, DUNGEON or FINISHED_DUNGEON)

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2015 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2017 TrinityCore <http://www.trinitycore.org/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -16,7 +16,8 @@
  */
 
 /*
- * Comment: Complete - BUT THE TRIGGER NEEDS DATA WHETHER THE PRISON OF TALDARAM IS OFFLINE !
+ * Comment: Visuals missing, de-germanize code, wow 3.3.5a-ize
+ * Patch 3.3.2 (2010-01-02): Jedoga Shadowseeker now only ascends once during the encounter.
  */
 
 #include "ScriptMgr.h"
@@ -185,7 +186,7 @@ public:
                         who->RemoveAurasByType(SPELL_AURA_MOD_STEALTH);
                         AttackStart(who);
                     }
-                    else if (me->GetMap()->IsDungeon())
+                    else
                     {
                         who->SetInCombatWith(me);
                         me->AddThreat(who, 0.0f);
@@ -433,7 +434,7 @@ public:
                         {
                             ENSURE_AI(boss_jedoga_shadowseeker::boss_jedoga_shadowseekerAI, boss->AI())->bOpFerok = true;
                             ENSURE_AI(boss_jedoga_shadowseeker::boss_jedoga_shadowseekerAI, boss->AI())->bOpFerokFail = false;
-                            me->Kill(me);
+                            me->KillSelf();
                         }
                     }
                     break;
@@ -454,11 +455,11 @@ public:
                     float distance = me->GetDistance(JedogaPosition[1]);
 
                     if (distance < 9.0f)
-                        me->SetSpeed(MOVE_WALK, 0.5f, true);
+                        me->SetSpeedRate(MOVE_WALK, 0.5f);
                     else if (distance < 15.0f)
-                        me->SetSpeed(MOVE_WALK, 0.75f, true);
+                        me->SetSpeedRate(MOVE_WALK, 0.75f);
                     else if (distance < 20.0f)
-                        me->SetSpeed(MOVE_WALK, 1.0f, true);
+                        me->SetSpeedRate(MOVE_WALK, 1.0f);
 
                     me->GetMotionMaster()->Clear(false);
                     me->GetMotionMaster()->MovePoint(1, JedogaPosition[1]);

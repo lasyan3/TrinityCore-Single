@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2015 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2017 TrinityCore <http://www.trinitycore.org/>
  * Copyright (C) 2005-2009 MaNGOS <http://getmangos.com/>
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -23,22 +23,12 @@
 #include "Errors.h"
 #include "ByteConverter.h"
 #include "Util.h"
-
-#include <exception>
-#include <list>
-#include <map>
-#include <string>
-#include <vector>
 #include <cstring>
-#include <time.h>
-#include <cmath>
-#include <type_traits>
-#include <boost/asio/buffer.hpp>
 
 class MessageBuffer;
 
 // Root of ByteBuffer exception hierarchy
-class ByteBufferException : public std::exception
+class TC_SHARED_API ByteBufferException : public std::exception
 {
 public:
     ~ByteBufferException() throw() { }
@@ -52,7 +42,7 @@ private:
     std::string msg_;
 };
 
-class ByteBufferPositionException : public ByteBufferException
+class TC_SHARED_API ByteBufferPositionException : public ByteBufferException
 {
 public:
     ByteBufferPositionException(bool add, size_t pos, size_t size, size_t valueSize);
@@ -60,7 +50,7 @@ public:
     ~ByteBufferPositionException() throw() { }
 };
 
-class ByteBufferSourceException : public ByteBufferException
+class TC_SHARED_API ByteBufferSourceException : public ByteBufferException
 {
 public:
     ByteBufferSourceException(size_t pos, size_t size, size_t valueSize);
@@ -68,7 +58,7 @@ public:
     ~ByteBufferSourceException() throw() { }
 };
 
-class ByteBuffer
+class TC_SHARED_API ByteBuffer
 {
     public:
         const static size_t DEFAULT_SIZE = 0x1000;
@@ -452,10 +442,23 @@ class ByteBuffer
 
             ASSERT(size() < 10000000);
 
-            if (_storage.size() < _wpos + cnt)
-                _storage.resize(_wpos + cnt);
+            size_t const newSize = _wpos + cnt;
+            if (_storage.capacity() < newSize) // custom memory allocation rules
+            {
+                if (newSize < 100)
+                    _storage.reserve(300);
+                else if (newSize < 750)
+                    _storage.reserve(2500);
+                else if (newSize < 6000)
+                    _storage.reserve(10000);
+                else
+                    _storage.reserve(400000);
+            }
+
+            if (_storage.size() < newSize)
+                _storage.resize(newSize);
             std::memcpy(&_storage[_wpos], src, cnt);
-            _wpos += cnt;
+            _wpos = newSize;
         }
 
         void append(const ByteBuffer& buffer)
@@ -626,17 +629,6 @@ template<>
 inline void ByteBuffer::read_skip<std::string>()
 {
     read_skip<char*>();
-}
-
-namespace boost
-{
-    namespace asio
-    {
-        inline const_buffers_1 buffer(ByteBuffer const& packet)
-        {
-            return buffer(packet.contents(), packet.size());
-        }
-    }
 }
 
 #endif

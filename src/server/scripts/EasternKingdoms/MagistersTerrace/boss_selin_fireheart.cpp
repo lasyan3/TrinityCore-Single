@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2015 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2017 TrinityCore <http://www.trinitycore.org/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -123,7 +123,7 @@ class boss_selin_fireheart : public CreatureScript
                     Crystals.remove(CrystalChosen);
 
                     float x, y, z;
-                    CrystalChosen->GetClosePoint(x, y, z, me->GetObjectSize(), CONTACT_DISTANCE);
+                    CrystalChosen->GetClosePoint(x, y, z, me->GetCombatReach(), CONTACT_DISTANCE);
 
                     events.SetPhase(PHASE_DRAIN);
                     me->SetWalk(false);
@@ -139,7 +139,7 @@ class boss_selin_fireheart : public CreatureScript
                 for (Creature* crystal : Crystals)
                 {
                     if (crystal && crystal->IsAlive())
-                        crystal->Kill(crystal);
+                        crystal->KillSelf();
                 }
             }
 
@@ -218,7 +218,7 @@ class boss_selin_fireheart : public CreatureScript
 
                             Creature* CrystalChosen = ObjectAccessor::GetCreature(*me, CrystalGUID);
                             if (CrystalChosen && CrystalChosen->IsAlive())
-                                CrystalChosen->Kill(CrystalChosen);
+                                CrystalChosen->KillSelf();
 
                             CrystalGUID.Clear();
 
@@ -229,6 +229,9 @@ class boss_selin_fireheart : public CreatureScript
                         default:
                             break;
                     }
+
+                    if (me->HasUnitState(UNIT_STATE_CASTING))
+                        return;
                 }
 
                 if (me->GetPower(POWER_MANA) * 100 / me->GetMaxPower(POWER_MANA) < 10)

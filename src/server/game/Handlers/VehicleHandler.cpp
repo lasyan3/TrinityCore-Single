@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2015 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2017 TrinityCore <http://www.trinitycore.org/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -17,7 +17,6 @@
 
 #include "WorldPacket.h"
 #include "WorldSession.h"
-#include "Opcodes.h"
 #include "Vehicle.h"
 #include "Player.h"
 #include "Log.h"
@@ -64,7 +63,7 @@ void WorldSession::HandleChangeSeatsOnControlledVehicle(WorldPacket &recvData)
     {
         recvData.rfinish();                                // prevent warnings spam
         TC_LOG_ERROR("network", "HandleChangeSeatsOnControlledVehicle, Opcode: %u, Player %u tried to switch seats but current seatflags %u don't permit that.",
-            recvData.GetOpcode(), GetPlayer()->GetGUIDLow(), seat->m_flags);
+            recvData.GetOpcode(), GetPlayer()->GetGUID().GetCounter(), seat->m_flags);
         return;
     }
 
@@ -131,13 +130,16 @@ void WorldSession::HandleEnterPlayerVehicle(WorldPacket &data)
     ObjectGuid guid;
     data >> guid;
 
-    if (Player* player = ObjectAccessor::FindPlayer(guid))
+    if (Player* player = ObjectAccessor::GetPlayer(*_player, guid))
     {
         if (!player->GetVehicleKit())
             return;
         if (!player->IsInRaidWith(_player))
             return;
         if (!player->IsWithinDistInMap(_player, INTERACTION_DISTANCE))
+            return;
+        // Dont' allow players to enter player vehicle on arena
+        if (!_player->FindMap() || _player->FindMap()->IsBattleArena())
             return;
 
         _player->EnterVehicle(player);
@@ -177,7 +179,7 @@ void WorldSession::HandleEjectPassenger(WorldPacket &data)
         if (seat->IsEjectable())
             unit->ExitVehicle();
         else
-            TC_LOG_ERROR("network", "Player %u attempted to eject %s from non-ejectable seat.", GetPlayer()->GetGUIDLow(), guid.ToString().c_str());
+            TC_LOG_ERROR("network", "Player %u attempted to eject %s from non-ejectable seat.", GetPlayer()->GetGUID().GetCounter(), guid.ToString().c_str());
     }
     else
         TC_LOG_ERROR("network", "HandleEjectPassenger: %s tried to eject invalid %s ", GetPlayer()->GetGUID().ToString().c_str(), guid.ToString().c_str());
@@ -195,7 +197,7 @@ void WorldSession::HandleRequestVehicleExit(WorldPacket& /*recvData*/)
                 GetPlayer()->ExitVehicle();
             else
                 TC_LOG_ERROR("network", "Player %u tried to exit vehicle, but seatflags %u (ID: %u) don't permit that.",
-                GetPlayer()->GetGUIDLow(), seat->m_ID, seat->m_flags);
+                GetPlayer()->GetGUID().GetCounter(), seat->m_ID, seat->m_flags);
         }
     }
 }

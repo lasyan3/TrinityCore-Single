@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2015 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2017 TrinityCore <http://www.trinitycore.org/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -15,71 +15,45 @@
  * with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-/*
-Name:     Black_Temple
-Complete: 100%
-Comment:  Spirit of Olum: Player Teleporter to Seer Kanai Teleport after defeating Naj'entus and Supremus.
-*/
-
 #include "ScriptMgr.h"
 #include "ScriptedCreature.h"
-#include "ScriptedGossip.h"
 #include "black_temple.h"
-#include "Player.h"
+#include "SpellScript.h"
+#include "SpellAuraEffects.h"
 
 enum Spells
 {
-    // Spirit of Olum
-    SPELL_TELEPORT                   = 41566,
     // Wrathbone Flayer
-    SPELL_CLEAVE                     = 15496,
-    SPELL_IGNORED                    = 39544,
-    SPELL_SUMMON_CHANNEL             = 40094
+    SPELL_CLEAVE                = 15496,
+    SPELL_IGNORED               = 39544,
+    SPELL_SUMMON_CHANNEL        = 40094,
+
+    // Angered Soul Fragment
+    SPELL_GREATER_INVISIBILITY  = 41253,
+    SPELL_ANGER                 = 41986,
+
+    // Illidari Nightlord
+    SPELL_SHADOW_INFERNO_DAMAGE = 39646
 };
 
 enum Creatures
 {
-    NPC_BLOOD_MAGE                   = 22945,
-    NPC_DEATHSHAPER                  = 22882
+    NPC_BLOOD_MAGE               = 22945,
+    NPC_DEATHSHAPER              = 22882
 };
 
 enum Events
 {
     // Wrathbone Flayer
-    EVENT_GET_CHANNELERS             = 1,
-    EVENT_SET_CHANNELERS             = 2,
-    EVENT_CLEAVE                     = 3,
-    EVENT_IGNORED                    = 4,
+    EVENT_GET_CHANNELERS = 1,
+    EVENT_SET_CHANNELERS,
+    EVENT_CLEAVE,
+    EVENT_IGNORED
 };
 
-// ########################################################
-// Spirit of Olum
-// ########################################################
-
-class npc_spirit_of_olum : public CreatureScript
+enum Misc
 {
-public:
-    npc_spirit_of_olum() : CreatureScript("npc_spirit_of_olum") { }
-
-    struct npc_spirit_of_olumAI : public ScriptedAI
-    {
-        npc_spirit_of_olumAI(Creature* creature) : ScriptedAI(creature) { }
-
-        void sGossipSelect(Player* player, uint32 /*sender*/, uint32 action) override
-        {
-            if (action == 1)
-            {
-                player->CLOSE_GOSSIP_MENU();
-                player->InterruptNonMeleeSpells(false);
-                player->CastSpell(player, SPELL_TELEPORT, false);
-            }
-        }
-    };
-
-    CreatureAI* GetAI(Creature* creature) const override
-    {
-        return new npc_spirit_of_olumAI(creature);
-    }
+    GROUP_OUT_OF_COMBAT = 1
 };
 
 // ########################################################
@@ -123,7 +97,6 @@ public:
 
         void UpdateAI(uint32 diff) override
         {
-
             if (!_enteredCombat)
             {
                 _events.Update(diff);
@@ -215,12 +188,144 @@ public:
 
     CreatureAI* GetAI(Creature* creature) const override
     {
-        return GetInstanceAI<npc_wrathbone_flayerAI>(creature);
+        return GetBlackTempleAI<npc_wrathbone_flayerAI>(creature);
     }
+};
+
+class npc_angered_soul_fragment : public CreatureScript
+{
+public:
+    npc_angered_soul_fragment() : CreatureScript("npc_angered_soul_fragment") { }
+
+    struct npc_angered_soul_fragmentAI : public ScriptedAI
+    {
+        npc_angered_soul_fragmentAI(Creature* creature) : ScriptedAI(creature) { }
+
+        void Reset() override
+        {
+            _scheduler.CancelAll();
+
+            _scheduler.Schedule(Seconds(1), GROUP_OUT_OF_COMBAT, [this](TaskContext invi)
+            {
+                DoCastSelf(SPELL_GREATER_INVISIBILITY);
+
+                /* Workaround - On Retail creature appear and "vanish" again periodically, but i cant find packets
+                with UPDATE_AURA on sniffs about it */
+                _scheduler.Schedule(Seconds(5), Seconds(10), GROUP_OUT_OF_COMBAT, [this](TaskContext /*context*/)
+                {
+                    me->RemoveAurasDueToSpell(SPELL_GREATER_INVISIBILITY);
+                });
+
+                invi.Repeat(Seconds(15), Seconds(25));
+            });
+        }
+
+        void EnterCombat(Unit* /*who*/) override
+        {
+            me->RemoveAurasDueToSpell(SPELL_GREATER_INVISIBILITY);
+
+            _scheduler.CancelGroup(GROUP_OUT_OF_COMBAT);
+            _scheduler.Schedule(Seconds(1), [this](TaskContext anger)
+            {
+                Unit* target = me->GetVictim();
+                if (target && me->IsWithinMeleeRange(target))
+                    DoCastSelf(SPELL_ANGER);
+                else
+                    anger.Repeat(Seconds(1));
+            });
+        }
+
+        void UpdateAI(uint32 diff) override
+        {
+            _scheduler.Update(diff);
+
+            if (!UpdateVictim())
+                return;
+
+            if (me->HasUnitState(UNIT_STATE_CASTING))
+                return;
+
+            DoMeleeAttackIfReady();
+        }
+
+    private:
+        TaskScheduler _scheduler;
+    };
+
+    CreatureAI* GetAI(Creature* creature) const override
+    {
+        return GetBlackTempleAI<npc_angered_soul_fragmentAI>(creature);
+    }
+};
+
+// 41986 - Anger
+class spell_soul_fragment_anger : public SpellScriptLoader
+{
+    public:
+        spell_soul_fragment_anger() : SpellScriptLoader("spell_soul_fragment_anger") { }
+
+        class spell_soul_fragment_anger_SpellScript : public SpellScript
+        {
+            PrepareSpellScript(spell_soul_fragment_anger_SpellScript);
+
+            void HandleKill()
+            {
+                if (Creature* caster = GetCaster()->ToCreature())
+                    caster->DespawnOrUnsummon(Milliseconds(200));
+            }
+
+            void Register() override
+            {
+                AfterCast += SpellCastFn(spell_soul_fragment_anger_SpellScript::HandleKill);
+            }
+        };
+
+        SpellScript* GetSpellScript() const override
+        {
+            return new spell_soul_fragment_anger_SpellScript();
+        }
+};
+
+// 39645 - Shadow Inferno
+class spell_illidari_nightlord_shadow_inferno : public SpellScriptLoader
+{
+    public:
+        spell_illidari_nightlord_shadow_inferno() : SpellScriptLoader("spell_illidari_nightlord_shadow_inferno") { }
+
+        class spell_illidari_nightlord_shadow_inferno_AuraScript : public AuraScript
+        {
+            PrepareAuraScript(spell_illidari_nightlord_shadow_inferno_AuraScript);
+
+            bool Validate(SpellInfo const* /*spellInfo*/) override
+            {
+                if (!sSpellMgr->GetSpellInfo(SPELL_SHADOW_INFERNO_DAMAGE))
+                    return false;
+                return true;
+            }
+
+            void OnPeriodic(AuraEffect const* aurEffect)
+            {
+                PreventDefaultAction();
+                int32 bp = aurEffect->GetTickNumber() * aurEffect->GetAmount();
+                GetUnitOwner()->CastCustomSpell(SPELL_SHADOW_INFERNO_DAMAGE, SPELLVALUE_BASE_POINT0, bp, GetUnitOwner(), true);
+            }
+
+            void Register() override
+            {
+                OnEffectPeriodic += AuraEffectPeriodicFn(spell_illidari_nightlord_shadow_inferno_AuraScript::OnPeriodic, EFFECT_0, SPELL_AURA_PERIODIC_TRIGGER_SPELL);
+            }
+        };
+
+        AuraScript* GetAuraScript() const override
+        {
+            return new spell_illidari_nightlord_shadow_inferno_AuraScript();
+        }
 };
 
 void AddSC_black_temple()
 {
-    new npc_spirit_of_olum();
     new npc_wrathbone_flayer();
+    new npc_angered_soul_fragment();
+    new spell_soul_fragment_anger();
+    new spell_illidari_nightlord_shadow_inferno();
 }

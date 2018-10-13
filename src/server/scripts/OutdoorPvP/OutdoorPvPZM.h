@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2015 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2017 TrinityCore <http://www.trinitycore.org/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -161,9 +161,9 @@ class OPvPCapturePointZM_Beacon : public OPvPCapturePoint
     public:
         OPvPCapturePointZM_Beacon(OutdoorPvP* pvp, ZM_BeaconType type);
 
-        void ChangeState();
+        void ChangeState() override;
 
-        void FillInitialWorldStates(WorldPacket & data);
+        void FillInitialWorldStates(WorldPacket & data) override;
 
         void UpdateTowerState();
 
@@ -188,15 +188,15 @@ class OPvPCapturePointZM_GraveYard : public OPvPCapturePoint
 
         void ChangeState() override { }
 
-        void FillInitialWorldStates(WorldPacket & data);
+        void FillInitialWorldStates(WorldPacket & data) override;
 
         void UpdateTowerState();
 
-        int32 HandleOpenGo(Player* player, ObjectGuid guid) override;
+        int32 HandleOpenGo(Player* player, GameObject* go) override;
 
         void SetBeaconState(uint32 controlling_team); // not good atm
 
-        bool HandleGossipOption(Player* player, ObjectGuid guid, uint32 gossipid) override;
+        bool HandleGossipOption(Player* player, Creature* creature, uint32 gossipid) override;
 
         bool HandleDropFlag(Player* player, uint32 spellId) override;
 
@@ -218,18 +218,18 @@ class OutdoorPvPZM : public OutdoorPvP
     public:
         OutdoorPvPZM();
 
-        bool SetupOutdoorPvP();
+        bool SetupOutdoorPvP() override;
 
-        void HandlePlayerEnterZone(Player* player, uint32 zone);
-        void HandlePlayerLeaveZone(Player* player, uint32 zone);
+        void HandlePlayerEnterZone(Player* player, uint32 zone) override;
+        void HandlePlayerLeaveZone(Player* player, uint32 zone) override;
 
-        bool Update(uint32 diff);
+        bool Update(uint32 diff) override;
 
-        void FillInitialWorldStates(WorldPacket &data);
+        void FillInitialWorldStates(WorldPacket &data) override;
 
-        void SendRemoveWorldStates(Player* player);
+        void SendRemoveWorldStates(Player* player) override;
 
-        void HandleKillImpl(Player* player, Unit* killed);
+        void HandleKillImpl(Player* player, Unit* killed) override;
 
         uint32 GetAllianceTowersControlled() const;
         void SetAllianceTowersControlled(uint32 count);

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2015 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2017 TrinityCore <http://www.trinitycore.org/>
  * Copyright (C) 2006-2009 ScriptDev2 <https://scriptdev2.svn.sourceforge.net/>
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -405,7 +405,7 @@ public:
                                     Creature* Orb = DoSpawnCreature(CREATURE_ARCANE_SPHERE, 5, 5, 0, 0, TEMPSUMMON_TIMED_OR_CORPSE_DESPAWN, 30000);
                                     if (Orb && target)
                                     {
-                                        Orb->SetSpeed(MOVE_RUN, 0.5f);
+                                        Orb->SetSpeedRate(MOVE_RUN, 0.5f);
                                         Orb->AddThreat(target, 1000000.0f);
                                         Orb->AI()->AttackStart(target);
                                     }
@@ -473,7 +473,7 @@ public:
             if (FlameStrikeTimer <= diff)
             {
                 DoCast(me, SPELL_FLAMESTRIKE1_NORMAL, true);
-                me->Kill(me);
+                me->KillSelf();
             } else FlameStrikeTimer -= diff;
         }
     };
@@ -636,7 +636,7 @@ public:
             if (HatchTimer <= diff)
             {
                 me->SummonCreature(CREATURE_PHOENIX, 0.0f, 0.0f, 0.0f, 0.0f, TEMPSUMMON_TIMED_OR_CORPSE_DESPAWN, 60000);
-                me->Kill(me);
+                me->KillSelf();
             } else HatchTimer -= diff;
         }
     };
@@ -675,7 +675,7 @@ public:
         void UpdateAI(uint32 diff) override
         {
             if (DespawnTimer <= diff)
-                me->Kill(me);
+                me->KillSelf();
             else
                 DespawnTimer -= diff;
 

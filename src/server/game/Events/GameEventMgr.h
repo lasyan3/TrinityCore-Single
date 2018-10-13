@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2015 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2017 TrinityCore <http://www.trinitycore.org/>
  * Copyright (C) 2005-2009 MaNGOS <http://getmangos.com/>
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -20,6 +20,7 @@
 #define TRINITY_GAMEEVENT_MGR_H
 
 #include "Common.h"
+#include "ObjectGuid.h"
 #include "SharedDefines.h"
 #include "Define.h"
 
@@ -92,18 +93,14 @@ class Player;
 class Creature;
 class Quest;
 
-class GameEventMgr
+class TC_GAME_API GameEventMgr
 {
     private:
         GameEventMgr();
         ~GameEventMgr() { }
 
     public:
-        static GameEventMgr* instance()
-        {
-            static GameEventMgr instance;
-            return &instance;
-        }
+        static GameEventMgr* instance();
 
         typedef std::set<uint16> ActiveEvents;
         typedef std::vector<GameEventData> GameEventDataMap;
@@ -124,7 +121,6 @@ class GameEventMgr
         void HandleWorldEventGossip(Player* player, Creature* c);
         uint32 GetNPCFlag(Creature* cr);
         uint32 GetNpcTextId(uint32 guid);
-        uint16 GetEventIdForQuest(Quest const* quest) const;
     private:
         void SendWorldStateUpdate(Player* player, uint16 event_id);
         void AddActiveEvent(uint16 event_id) { m_ActiveEvents.insert(event_id); }
@@ -144,14 +140,14 @@ class GameEventMgr
         void SaveWorldEventStateToDB(uint16 event_id);
         bool hasCreatureQuestActiveEventExcept(uint32 quest_id, uint16 event_id);
         bool hasGameObjectQuestActiveEventExcept(uint32 quest_id, uint16 event_id);
-        bool hasCreatureActiveEventExcept(uint32 creature_guid, uint16 event_id);
-        bool hasGameObjectActiveEventExcept(uint32 go_guid, uint16 event_id);
+        bool hasCreatureActiveEventExcept(ObjectGuid::LowType creature_guid, uint16 event_id);
+        bool hasGameObjectActiveEventExcept(ObjectGuid::LowType go_guid, uint16 event_id);
 
-        typedef std::list<uint32> GuidList;
+        typedef std::list<ObjectGuid::LowType> GuidList;
         typedef std::list<uint32> IdList;
         typedef std::vector<GuidList> GameEventGuidMap;
         typedef std::vector<IdList> GameEventIdMap;
-        typedef std::pair<uint32, ModelEquip> ModelEquipPair;
+        typedef std::pair<ObjectGuid::LowType, ModelEquip> ModelEquipPair;
         typedef std::list<ModelEquipPair> ModelEquipList;
         typedef std::vector<ModelEquipList> GameEventModelEquipMap;
         typedef std::pair<uint32, uint32> QuestRelation;
@@ -160,7 +156,7 @@ class GameEventMgr
         typedef std::list<NPCVendorEntry> NPCVendorList;
         typedef std::vector<NPCVendorList> GameEventNPCVendorMap;
         typedef std::map<uint32 /*quest id*/, GameEventQuestToEventConditionNum> QuestIdToEventConditionMap;
-        typedef std::pair<uint32 /*guid*/, uint32 /*npcflag*/> GuidNPCFlagPair;
+        typedef std::pair<ObjectGuid::LowType /*guid*/, uint32 /*npcflag*/> GuidNPCFlagPair;
         typedef std::list<GuidNPCFlagPair> NPCFlagList;
         typedef std::vector<NPCFlagList> GameEventNPCFlagMap;
         typedef std::vector<uint32> GameEventBitmask;
@@ -176,7 +172,6 @@ class GameEventMgr
         QuestIdToEventConditionMap mQuestToEventConditions;
         GameEventNPCFlagMap mGameEventNPCFlags;
         ActiveEvents m_ActiveEvents;
-        std::unordered_map<uint32, uint16> _questToEventLinks;
         bool isSystemInit;
     public:
         GameEventGuidMap  mGameEventCreatureGuids;
@@ -185,8 +180,8 @@ class GameEventMgr
 
 #define sGameEventMgr GameEventMgr::instance()
 
-bool IsHolidayActive(HolidayIds id);
-bool IsEventActive(uint16 event_id);
+TC_GAME_API bool IsHolidayActive(HolidayIds id);
+TC_GAME_API bool IsEventActive(uint16 event_id);
 
 #endif
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2015 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2017 TrinityCore <http://www.trinitycore.org/>
  * Copyright (C) 2006-2009 ScriptDev2 <https://scriptdev2.svn.sourceforge.net/>
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -49,7 +49,7 @@ enum eEscortState
     STATE_ESCORT_PAUSED     = 0x004                         //will not proceed with waypoints before state is removed
 };
 
-struct npc_escortAI : public ScriptedAI
+struct TC_GAME_API npc_escortAI : public ScriptedAI
 {
     public:
         explicit npc_escortAI(Creature* creature);
@@ -66,10 +66,10 @@ struct npc_escortAI : public ScriptedAI
 
         void ReturnToLastPoint();
 
-        void EnterEvadeMode() override;
+        void EnterEvadeMode(EvadeReason /*why*/ = EVADE_REASON_OTHER) override;
 
-        void UpdateAI(uint32 diff) override;                   //the "internal" update, calls UpdateEscortAI()
-        virtual void UpdateEscortAI(uint32 const diff);     //used when it's needed to add code in update (abilities, scripted events, etc)
+        void UpdateAI(uint32 diff) override;        // the "internal" update, calls UpdateEscortAI()
+        virtual void UpdateEscortAI(uint32 diff);   // used when it's needed to add code in update (abilities, scripted events, etc)
 
         void MovementInform(uint32, uint32) override;
 
@@ -94,22 +94,22 @@ struct npc_escortAI : public ScriptedAI
         void SetEscortPaused(bool on);
 
         bool HasEscortState(uint32 escortState) { return (m_uiEscortState & escortState) != 0; }
-        virtual bool IsEscorted() override { return (m_uiEscortState & STATE_ESCORT_ESCORTING); }
+        virtual bool IsEscorted() const override { return (m_uiEscortState & STATE_ESCORT_ESCORTING); }
 
         void SetMaxPlayerDistance(float newMax) { MaxPlayerDistance = newMax; }
-        float GetMaxPlayerDistance() { return MaxPlayerDistance; }
+        float GetMaxPlayerDistance() const { return MaxPlayerDistance; }
 
         void SetDespawnAtEnd(bool despawn) { DespawnAtEnd = despawn; }
         void SetDespawnAtFar(bool despawn) { DespawnAtFar = despawn; }
-        bool GetAttack() { return m_bIsActiveAttacker; }//used in EnterEvadeMode override
+        bool GetAttack() const { return m_bIsActiveAttacker; }//used in EnterEvadeMode override
         void SetCanAttack(bool attack) { m_bIsActiveAttacker = attack; }
-        ObjectGuid GetEventStarterGUID() { return m_uiPlayerGUID; }
+        ObjectGuid GetEventStarterGUID() const { return m_uiPlayerGUID; }
 
     protected:
         Player* GetPlayerForEscort() { return ObjectAccessor::GetPlayer(*me, m_uiPlayerGUID); }
 
     private:
-        bool AssistPlayerInCombat(Unit* who);
+        bool AssistPlayerInCombatAgainst(Unit* who);
         bool IsPlayerOrGroupInRange();
         void FillPointMovementListForCreature();
 

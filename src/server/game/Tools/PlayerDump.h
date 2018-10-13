@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2015 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2017 TrinityCore <http://www.trinitycore.org/>
  * Copyright (C) 2005-2009 MaNGOS <http://getmangos.com/>
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -22,6 +22,7 @@
 #include <string>
 #include <map>
 #include <set>
+#include "ObjectGuid.h"
 
 enum DumpTableType
 {
@@ -61,37 +62,40 @@ enum DumpReturn
     DUMP_CHARACTER_DELETED
 };
 
-class PlayerDump
+class TC_GAME_API PlayerDump
 {
+    public:
+        typedef std::set<ObjectGuid::LowType> DumpGuidSet;
+        typedef std::map<ObjectGuid::LowType, ObjectGuid::LowType> DumpGuidMap;
+
     protected:
         PlayerDump() { }
 };
 
-class PlayerDumpWriter : public PlayerDump
+class TC_GAME_API PlayerDumpWriter : public PlayerDump
 {
     public:
         PlayerDumpWriter() { }
 
-        bool GetDump(uint32 guid, std::string& dump);
-        DumpReturn WriteDump(std::string const& file, uint32 guid);
+        bool GetDump(ObjectGuid::LowType guid, std::string& dump);
+        DumpReturn WriteDump(std::string const& file, ObjectGuid::LowType guid);
+
     private:
-        typedef std::set<uint32> GUIDs;
+        bool DumpTable(std::string& dump, ObjectGuid::LowType guid, char const* tableFrom, char const* tableTo, DumpTableType type);
+        std::string GenerateWhereStr(char const* field, DumpGuidSet const& guids, DumpGuidSet::const_iterator& itr);
+        std::string GenerateWhereStr(char const* field, ObjectGuid::LowType guid);
 
-        bool DumpTable(std::string& dump, uint32 guid, char const*tableFrom, char const*tableTo, DumpTableType type);
-        std::string GenerateWhereStr(char const* field, GUIDs const& guids, GUIDs::const_iterator& itr);
-        std::string GenerateWhereStr(char const* field, uint32 guid);
-
-        GUIDs pets;
-        GUIDs mails;
-        GUIDs items;
+        DumpGuidSet pets;
+        DumpGuidSet mails;
+        DumpGuidSet items;
 };
 
-class PlayerDumpReader : public PlayerDump
+class TC_GAME_API PlayerDumpReader : public PlayerDump
 {
     public:
         PlayerDumpReader() { }
 
-        DumpReturn LoadDump(std::string const& file, uint32 account, std::string name, uint32 guid);
+        DumpReturn LoadDump(std::string const& file, uint32 account, std::string name, ObjectGuid::LowType guid);
 };
 
 #endif

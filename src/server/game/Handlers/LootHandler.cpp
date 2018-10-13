@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2015 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2017 TrinityCore <http://www.trinitycore.org/>
  * Copyright (C) 2005-2009 MaNGOS <http://getmangos.com/>
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -22,12 +22,11 @@
 #include "Creature.h"
 #include "GameObject.h"
 #include "Group.h"
+#include "LootItemStorage.h"
 #include "LootMgr.h"
 #include "ObjectAccessor.h"
 #include "Object.h"
-#include "Opcodes.h"
 #include "Player.h"
-#include "World.h"
 #include "WorldPacket.h"
 #include "WorldSession.h"
 
@@ -112,7 +111,7 @@ void WorldSession::HandleLootMoneyOpcode(WorldPacket& /*recvData*/)
 
     switch (guid.GetHigh())
     {
-        case HIGHGUID_GAMEOBJECT:
+        case HighGuid::GameObject:
         {
             GameObject* go = GetPlayer()->GetMap()->GetGameObject(guid);
 
@@ -122,7 +121,7 @@ void WorldSession::HandleLootMoneyOpcode(WorldPacket& /*recvData*/)
 
             break;
         }
-        case HIGHGUID_CORPSE:                               // remove insignia ONLY in BG
+        case HighGuid::Corpse:                               // remove insignia ONLY in BG
         {
             Corpse* bones = ObjectAccessor::GetCorpse(*player, guid);
 
@@ -134,7 +133,7 @@ void WorldSession::HandleLootMoneyOpcode(WorldPacket& /*recvData*/)
 
             break;
         }
-        case HIGHGUID_ITEM:
+        case HighGuid::Item:
         {
             if (Item* item = player->GetItemByGuid(guid))
             {
@@ -143,8 +142,8 @@ void WorldSession::HandleLootMoneyOpcode(WorldPacket& /*recvData*/)
             }
             break;
         }
-        case HIGHGUID_UNIT:
-        case HIGHGUID_VEHICLE:
+        case HighGuid::Unit:
+        case HighGuid::Vehicle:
         {
             Creature* creature = player->GetMap()->GetCreature(guid);
             bool lootAllowed = creature && creature->IsAlive() == (player->getClass() == CLASS_ROGUE && creature->loot.loot_type == LOOT_PICKPOCKETING);
@@ -208,7 +207,7 @@ void WorldSession::HandleLootMoneyOpcode(WorldPacket& /*recvData*/)
 
         // Delete the money loot record from the DB
         if (loot->containerID > 0)
-            loot->DeleteLootMoneyFromContainerItemDB();
+            sLootItemStorage->RemoveStoredMoneyForContainer(loot->containerID);
 
         // Delete container if empty
         if (loot->isLooted() && guid.IsItem())
@@ -324,7 +323,7 @@ void WorldSession::DoLootRelease(ObjectGuid lguid)
         ItemTemplate const* proto = pItem->GetTemplate();
 
         // destroy only 5 items from stack in case prospecting and milling
-        if (proto->Flags & (ITEM_PROTO_FLAG_PROSPECTABLE | ITEM_PROTO_FLAG_MILLABLE))
+        if (proto->Flags & (ITEM_FLAG_IS_PROSPECTABLE | ITEM_FLAG_IS_MILLABLE))
         {
             pItem->m_lootGenerated = false;
             pItem->loot.clear();
@@ -340,7 +339,7 @@ void WorldSession::DoLootRelease(ObjectGuid lguid)
         else
         {
             // Only delete item if no loot or money (unlooted loot is saved to db) or if it isn't an openable item
-            if (pItem->loot.isLooted() || !(proto->Flags & ITEM_PROTO_FLAG_OPENABLE))
+            if (pItem->loot.isLooted() || !(proto->Flags & ITEM_FLAG_HAS_LOOT))
                 player->DestroyItem(pItem->GetBagSlot(), pItem->GetSlot(), true);
         }
         return;                                             // item can be looted only single player
@@ -372,13 +371,10 @@ void WorldSession::DoLootRelease(ObjectGuid lguid)
                 loot->roundRobinPlayer.Clear();
 
                 if (Group* group = player->GetGroup())
-                {
                     group->SendLooter(creature, NULL);
-
-                    // force update of dynamic flags, otherwise other group's players still not able to loot.
-                    creature->ForceValuesUpdateAtIndex(UNIT_DYNAMIC_FLAGS);
-                }
             }
+            // force dynflag update to update looter and lootable info
+            creature->ForceValuesUpdateAtIndex(UNIT_DYNAMIC_FLAGS);
         }
     }
 
@@ -399,7 +395,8 @@ void WorldSession::HandleLootMasterGiveOpcode(WorldPacket& recvData)
         return;
     }
 
-    Player* target = ObjectAccessor::FindPlayer(target_playerguid);
+    // player on other map
+    Player* target = ObjectAccessor::GetPlayer(*_player, target_playerguid);
     if (!target)
     {
         _player->SendLootError(lootguid, LOOT_ERROR_PLAYER_NOT_FOUND);
@@ -417,7 +414,7 @@ void WorldSession::HandleLootMasterGiveOpcode(WorldPacket& recvData)
     if (!_player->IsInRaidWith(target) || !_player->IsInMap(target))
     {
         _player->SendLootError(lootguid, LOOT_ERROR_MASTER_OTHER);
-        TC_LOG_INFO("loot", "MasterLootItem: Player %s tried to give an item to ineligible player %s !", GetPlayer()->GetName().c_str(), target->GetName().c_str());
+        TC_LOG_INFO("entities.player.cheat", "MasterLootItem: Player %s tried to give an item to ineligible player %s !", GetPlayer()->GetName().c_str(), target->GetName().c_str());
         return;
     }
 

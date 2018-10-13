@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2015 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2017 TrinityCore <http://www.trinitycore.org/>
  * Copyright (C) 2006-2009 ScriptDev2 <https://scriptdev2.svn.sourceforge.net/>
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -109,7 +109,7 @@ class boss_warchief_kargath_bladefist : public CreatureScript
             {
                 removeAdds();
                 _Reset();
-                me->SetSpeed(MOVE_RUN, 2);
+                me->SetSpeedRate(MOVE_RUN, 2);
                 me->SetWalk(false);
 
                 Initialize();
@@ -127,18 +127,18 @@ class boss_warchief_kargath_bladefist : public CreatureScript
                 Talk(SAY_AGGRO);
             }
 
-            void JustSummoned(Creature* summoned) override
+            void JustSummoned(Creature* summon) override
             {
-                switch (summoned->GetEntry())
+                switch (summon->GetEntry())
                 {
                     case NPC_HEARTHEN_GUARD:
                     case NPC_SHARPSHOOTER_GUARD:
                     case NPC_REAVER_GUARD:
-                        summoned->AI()->AttackStart(SelectTarget(SELECT_TARGET_RANDOM, 0));
-                        adds.push_back(summoned->GetGUID());
+                        summon->AI()->AttackStart(SelectTarget(SELECT_TARGET_RANDOM, 0));
+                        adds.push_back(summon->GetGUID());
                         break;
                     case NPC_SHATTERED_ASSASSIN:
-                        assassins.push_back(summoned->GetGUID());
+                        assassins.push_back(summon->GetGUID());
                         break;
                 }
             }
@@ -176,11 +176,7 @@ class boss_warchief_kargath_bladefist : public CreatureScript
                 {
                     Creature* creature = ObjectAccessor::GetCreature(*me, *itr);
                     if (creature && creature->IsAlive())
-                    {
-                        creature->GetMotionMaster()->Clear(true);
-                        me->DealDamage(creature, creature->GetHealth(), NULL, DIRECT_DAMAGE, SPELL_SCHOOL_MASK_NORMAL, NULL, false);
-                        creature->RemoveCorpse();
-                    }
+                        creature->DespawnOrUnsummon();
                 }
                 adds.clear();
 
@@ -188,11 +184,7 @@ class boss_warchief_kargath_bladefist : public CreatureScript
                 {
                     Creature* creature = ObjectAccessor::GetCreature(*me, *itr);
                     if (creature && creature->IsAlive())
-                    {
-                        creature->GetMotionMaster()->Clear(true);
-                        me->DealDamage(creature, creature->GetHealth(), NULL, DIRECT_DAMAGE, SPELL_SCHOOL_MASK_NORMAL, NULL, false);
-                        creature->RemoveCorpse();
-                    }
+                        creature->DespawnOrUnsummon();
                 }
                 assassins.clear();
             }
@@ -231,7 +223,7 @@ class boss_warchief_kargath_bladefist : public CreatureScript
                             {
                                 // stop bladedance
                                 InBlade = false;
-                                me->SetSpeed(MOVE_RUN, 2);
+                                me->SetSpeedRate(MOVE_RUN, 2);
                                 me->GetMotionMaster()->MoveChase(me->GetVictim());
                                 Blade_Dance_Timer = 30000;
                                 Wait_Timer = 0;
@@ -264,7 +256,7 @@ class boss_warchief_kargath_bladefist : public CreatureScript
                             Wait_Timer = 1;
                             InBlade = true;
                             Blade_Dance_Timer = 0;
-                            me->SetSpeed(MOVE_RUN, 4);
+                            me->SetSpeedRate(MOVE_RUN, 4);
                             return;
                         }
                         else

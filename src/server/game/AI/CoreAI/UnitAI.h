@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2015 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2017 TrinityCore <http://www.trinitycore.org/>
  * Copyright (C) 2005-2009 MaNGOS <http://getmangos.com/>
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -22,6 +22,7 @@
 #include "Define.h"
 #include "Unit.h"
 #include "Containers.h"
+#include "EventMap.h"
 #include <list>
 
 class Player;
@@ -39,7 +40,7 @@ enum SelectAggroTarget
 };
 
 // default predicate function to select target based on distance, player and/or aura criteria
-struct DefaultTargetSelector : public std::unary_function<Unit*, bool>
+struct TC_GAME_API DefaultTargetSelector : public std::unary_function<Unit*, bool>
 {
     const Unit* me;
     float m_dist;
@@ -89,7 +90,7 @@ struct DefaultTargetSelector : public std::unary_function<Unit*, bool>
 
 // Target selector for spell casts checking range, auras and attributes
 /// @todo Add more checks from Spell::CheckCast
-struct SpellTargetSelector : public std::unary_function<Unit*, bool>
+struct TC_GAME_API SpellTargetSelector : public std::unary_function<Unit*, bool>
 {
     public:
         SpellTargetSelector(Unit* caster, uint32 spellId);
@@ -103,18 +104,45 @@ struct SpellTargetSelector : public std::unary_function<Unit*, bool>
 // Very simple target selector, will just skip main target
 // NOTE: When passing to UnitAI::SelectTarget remember to use 0 as position for random selection
 //       because tank will not be in the temporary list
-struct NonTankTargetSelector : public std::unary_function<Unit*, bool>
+struct TC_GAME_API NonTankTargetSelector : public std::unary_function<Unit*, bool>
 {
     public:
-        NonTankTargetSelector(Creature* source, bool playerOnly = true) : _source(source), _playerOnly(playerOnly) { }
+        NonTankTargetSelector(Unit* source, bool playerOnly = true) : _source(source), _playerOnly(playerOnly) { }
         bool operator()(Unit const* target) const;
 
     private:
-        Creature const* _source;
+        Unit* _source;
         bool _playerOnly;
 };
 
-class UnitAI
+// Simple selector for units using mana
+struct TC_GAME_API PowerUsersSelector
+{
+    public:
+        PowerUsersSelector(Unit const* unit, Powers power, float dist, bool playerOnly) : _me(unit), _power(power), _dist(dist), _playerOnly(playerOnly) { }
+        bool operator()(Unit const* target) const;
+
+    private:
+        Unit const* _me;
+        Powers const _power;
+        float const _dist;
+        bool const _playerOnly;
+};
+
+struct TC_GAME_API FarthestTargetSelector
+{
+    public:
+        FarthestTargetSelector(Unit const* unit, float dist, bool playerOnly, bool inLos) : _me(unit), _dist(dist), _playerOnly(playerOnly), _inLos(inLos) {}
+        bool operator()(Unit const* target) const;
+
+    private:
+        const Unit* _me;
+        float _dist;
+        bool _playerOnly;
+        bool _inLos;
+};
+
+class TC_GAME_API UnitAI
 {
     protected:
         Unit* const me;
@@ -147,15 +175,29 @@ class UnitAI
         {
             ThreatContainer::StorageType const& threatlist = me->getThreatManager().getThreatList();
             if (position >= threatlist.size())
-                return NULL;
+                return nullptr;
 
             std::list<Unit*> targetList;
+            Unit* currentVictim = nullptr;
+            if (auto currentVictimReference = me->getThreatManager().getCurrentVictim())
+            {
+                currentVictim = currentVictimReference->getTarget();
+
+                // Current victim always goes first
+                if (currentVictim && predicate(currentVictim))
+                    targetList.push_back(currentVictim);
+            }
+
             for (ThreatContainer::StorageType::const_iterator itr = threatlist.begin(); itr != threatlist.end(); ++itr)
-                if (predicate((*itr)->getTarget()))
+            {
+                if (currentVictim != nullptr && (*itr)->getTarget() != currentVictim && predicate((*itr)->getTarget()))
                     targetList.push_back((*itr)->getTarget());
+                else if (currentVictim == nullptr && predicate((*itr)->getTarget()))
+                    targetList.push_back((*itr)->getTarget());
+            }
 
             if (position >= targetList.size())
-                return NULL;
+                return nullptr;
 
             if (targetType == SELECT_TARGET_NEAREST || targetType == SELECT_TARGET_FARTHEST)
                 targetList.sort(Trinity::ObjectDistanceOrderPred(me));
@@ -186,7 +228,7 @@ class UnitAI
                     break;
             }
 
-            return NULL;
+            return nullptr;
         }
 
         void SelectTargetList(std::list<Unit*>& targetList, uint32 num, SelectAggroTarget targetType, float dist = 0.0f, bool playerOnly = false, int32 aura = 0);
@@ -241,6 +283,7 @@ class UnitAI
         void DoAddAuraToAllHostilePlayers(uint32 spellid);
         void DoCast(uint32 spellId);
         void DoCast(Unit* victim, uint32 spellId, bool triggered = false);
+        void DoCastSelf(uint32 spellId, bool triggered = false) { DoCast(me, spellId, triggered); }
         void DoCastToAllHostilePlayers(uint32 spellid, bool triggered = false);
         void DoCastVictim(uint32 spellId, bool triggered = false);
         void DoCastAOE(uint32 spellId, bool triggered = false);
@@ -254,8 +297,8 @@ class UnitAI
         static void FillAISpellInfo();
 
         virtual void sGossipHello(Player* /*player*/) { }
-        virtual void sGossipSelect(Player* /*player*/, uint32 /*sender*/, uint32 /*action*/) { }
-        virtual void sGossipSelectCode(Player* /*player*/, uint32 /*sender*/, uint32 /*action*/, char const* /*code*/) { }
+        virtual void sGossipSelect(Player* /*player*/, uint32 /*menuId*/, uint32 /*gossipListId*/) { }
+        virtual void sGossipSelectCode(Player* /*player*/, uint32 /*menuId*/, uint32 /*gossipListId*/, char const* /*code*/) { }
         virtual void sQuestAccept(Player* /*player*/, Quest const* /*quest*/) { }
         virtual void sQuestSelect(Player* /*player*/, Quest const* /*quest*/) { }
         virtual void sQuestReward(Player* /*player*/, Quest const* /*quest*/, uint32 /*opt*/) { }
@@ -265,23 +308,6 @@ class UnitAI
     private:
         UnitAI(UnitAI const& right) = delete;
         UnitAI& operator=(UnitAI const& right) = delete;
-};
-
-class PlayerAI : public UnitAI
-{
-    protected:
-        Player* const me;
-    public:
-        explicit PlayerAI(Player* player) : UnitAI((Unit*)player), me(player) { }
-
-        void OnCharmed(bool apply) override;
-};
-
-class SimpleCharmedAI : public PlayerAI
-{
-    public:
-        void UpdateAI(uint32 diff) override;
-        SimpleCharmedAI(Player* player): PlayerAI(player) { }
 };
 
 #endif

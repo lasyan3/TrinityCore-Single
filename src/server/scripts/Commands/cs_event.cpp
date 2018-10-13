@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2015 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2017 TrinityCore <http://www.trinitycore.org/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -33,20 +33,18 @@ class event_commandscript : public CommandScript
 public:
     event_commandscript() : CommandScript("event_commandscript") { }
 
-    ChatCommand* GetCommands() const override
+    std::vector<ChatCommand> GetCommands() const override
     {
-        static ChatCommand eventCommandTable[] =
+        static std::vector<ChatCommand> eventCommandTable =
         {
-            { "activelist", rbac::RBAC_PERM_COMMAND_EVENT_ACTIVELIST, true, &HandleEventActiveListCommand, "", NULL },
-            { "start",      rbac::RBAC_PERM_COMMAND_EVENT_START,      true, &HandleEventStartCommand,      "", NULL },
-            { "stop",       rbac::RBAC_PERM_COMMAND_EVENT_STOP,       true, &HandleEventStopCommand,       "", NULL },
-            { "",           rbac::RBAC_PERM_COMMAND_EVENT,            true, &HandleEventInfoCommand,       "", NULL },
-            { NULL,         0,                                 false, NULL,                          "", NULL }
+            { "activelist", rbac::RBAC_PERM_COMMAND_EVENT_ACTIVELIST, true, &HandleEventActiveListCommand, "" },
+            { "start",      rbac::RBAC_PERM_COMMAND_EVENT_START,      true, &HandleEventStartCommand,      "" },
+            { "stop",       rbac::RBAC_PERM_COMMAND_EVENT_STOP,       true, &HandleEventStopCommand,       "" },
+            { "info",       rbac::RBAC_PERM_COMMAND_EVENT,            true, &HandleEventInfoCommand,       "" },
         };
-        static ChatCommand commandTable[] =
+        static std::vector<ChatCommand> commandTable =
         {
             { "event", rbac::RBAC_PERM_COMMAND_EVENT, false, NULL, "", eventCommandTable },
-            { NULL,    0,                       false, NULL, "", NULL }
         };
         return commandTable;
     }
@@ -90,7 +88,7 @@ public:
         if (!id)
             return false;
 
-        uint32 eventId = atoi(id);
+        uint32 eventId = atoul(id);
 
         GameEventMgr::GameEventDataMap const& events = sGameEventMgr->GetEventMap();
 
@@ -139,7 +137,7 @@ public:
         if (!id)
             return false;
 
-        int32 eventId = atoi(id);
+        uint32 eventId = atoul(id);
 
         GameEventMgr::GameEventDataMap const& events = sGameEventMgr->GetEventMap();
 
@@ -180,7 +178,7 @@ public:
         if (!id)
             return false;
 
-        int32 eventId = atoi(id);
+        uint32 eventId = atoul(id);
 
         GameEventMgr::GameEventDataMap const& events = sGameEventMgr->GetEventMap();
 

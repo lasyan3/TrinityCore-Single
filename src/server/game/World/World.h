@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2015 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2017 TrinityCore <http://www.trinitycore.org/>
  * Copyright (C) 2005-2009 MaNGOS <http://getmangos.com/>
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -28,7 +28,8 @@
 #include "Timer.h"
 #include "SharedDefines.h"
 #include "QueryResult.h"
-#include "Callback.h"
+#include "QueryCallbackProcessor.h"
+#include "Realm/Realm.h"
 
 #include <atomic>
 #include <map>
@@ -55,7 +56,8 @@ enum ServerMessageType
 enum ShutdownMask
 {
     SHUTDOWN_MASK_RESTART = 1,
-    SHUTDOWN_MASK_IDLE    = 2
+    SHUTDOWN_MASK_IDLE    = 2,
+    SHUTDOWN_MASK_FORCE   = 4
 };
 
 enum ShutdownExitCode
@@ -69,6 +71,7 @@ enum ShutdownExitCode
 enum WorldTimers
 {
     WUPDATE_AUCTIONS,
+    WUPDATE_AUCTIONS_PENDING,
     WUPDATE_WEATHERS,
     WUPDATE_UPTIME,
     WUPDATE_CORPSES,
@@ -79,6 +82,8 @@ enum WorldTimers
     WUPDATE_DELETECHARS,
     WUPDATE_AHBOT,
     WUPDATE_PINGDB,
+    WUPDATE_CHECK_FILECHANGES,
+    WUPDATE_WHO_LIST,
     WUPDATE_COUNT
 };
 
@@ -87,7 +92,6 @@ enum WorldBoolConfigs
 {
     CONFIG_DURABILITY_LOSS_IN_PVP = 0,
     CONFIG_ADDON_CHANNEL,
-    CONFIG_ALLOW_PLAYER_COMMANDS,
     CONFIG_CLEAN_CHARACTER_DB,
     CONFIG_GRID_UNLOAD,
     CONFIG_STATS_SAVE_ONLY_ON_LOGOUT,
@@ -110,9 +114,9 @@ enum WorldBoolConfigs
     CONFIG_WEATHER,
     CONFIG_ALWAYS_MAX_SKILL_FOR_LEVEL,
     CONFIG_QUEST_IGNORE_RAID,
+    CONFIG_CHAT_PARTY_RAID_WARNINGS,
     CONFIG_DETECT_POS_COLLISION,
     CONFIG_RESTRICTED_LFG_CHANNEL,
-    CONFIG_TALENTS_INSPECTING,
     CONFIG_CHAT_FAKE_MESSAGE_PREVENTING,
     CONFIG_DEATH_CORPSE_RECLAIM_DELAY_PVP,
     CONFIG_DEATH_CORPSE_RECLAIM_DELAY_PVE,
@@ -124,10 +128,10 @@ enum WorldBoolConfigs
     CONFIG_BATTLEGROUND_QUEUE_ANNOUNCER_ENABLE,
     CONFIG_BATTLEGROUND_QUEUE_ANNOUNCER_PLAYERONLY,
     CONFIG_BATTLEGROUND_STORE_STATISTICS_ENABLE,
+    CONFIG_BATTLEGROUND_TRACK_DESERTERS,
     CONFIG_BG_XP_FOR_KILL,
     CONFIG_ARENA_AUTO_DISTRIBUTE_POINTS,
     CONFIG_ARENA_QUEUE_ANNOUNCER_ENABLE,
-    CONFIG_ARENA_QUEUE_ANNOUNCER_PLAYERONLY,
     CONFIG_ARENA_SEASON_IN_PROGRESS,
     CONFIG_ARENA_LOG_EXTENDED_INFO,
     CONFIG_OFFHAND_CHECK_AT_SPELL_UNLEARN,
@@ -143,6 +147,7 @@ enum WorldBoolConfigs
     CONFIG_SHOW_BAN_IN_WORLD,
     CONFIG_AUTOBROADCAST,
     CONFIG_ALLOW_TICKETS,
+    CONFIG_DELETE_CHARACTER_TICKET_TRACE,
     CONFIG_DBC_ENFORCE_ITEM_ATTRIBUTES,
     CONFIG_PRESERVE_CUSTOM_CHANNELS,
     CONFIG_PDUMP_NO_PATHS,
@@ -164,9 +169,21 @@ enum WorldBoolConfigs
     CONFIG_CALCULATE_GAMEOBJECT_ZONE_AREA_DATA,
     CONFIG_LOOT_UNIQUE,
     CONFIG_HURT_IN_REAL_TIME,
+    CONFIG_RESET_DUEL_COOLDOWNS,
     CONFIG_FAST_FISHING,
     CONFIG_GAIN_HONOR_GUARD,
     CONFIG_GAIN_HONOR_ELITE,
+    CONFIG_RESET_DUEL_HEALTH_MANA,
+    CONFIG_BASEMAP_LOAD_GRIDS,
+    CONFIG_INSTANCEMAP_LOAD_GRIDS,
+    CONFIG_HOTSWAP_ENABLED,
+    CONFIG_HOTSWAP_RECOMPILER_ENABLED,
+    CONFIG_HOTSWAP_EARLY_TERMINATION_ENABLED,
+    CONFIG_HOTSWAP_BUILD_FILE_RECREATION_ENABLED,
+    CONFIG_HOTSWAP_INSTALL_ENABLED,
+    CONFIG_HOTSWAP_PREFIX_CORRECTION_ENABLED,
+    CONFIG_PREVENT_RENAME_CUSTOMIZATION,
+    CONFIG_CACHE_DATA_QUERIES,
     BOOL_CONFIG_VALUE_COUNT
 };
 
@@ -175,7 +192,6 @@ enum WorldFloatConfigs
     CONFIG_GROUP_XP_DISTANCE = 0,
     CONFIG_MAX_RECRUIT_A_FRIEND_DISTANCE,
     CONFIG_SIGHT_MONSTER,
-    CONFIG_SIGHT_GUARDER,
     CONFIG_LISTEN_RANGE_SAY,
     CONFIG_LISTEN_RANGE_TEXTEMOTE,
     CONFIG_LISTEN_RANGE_YELL,
@@ -191,6 +207,10 @@ enum WorldFloatConfigs
     CONFIG_ATTACKSPEED_PLAYER,
     CONFIG_ATTACKSPEED_ALL,
     CONFIG_RESPAWNSPEED,
+    CONFIG_ARENA_WIN_RATING_MODIFIER_1,
+    CONFIG_ARENA_WIN_RATING_MODIFIER_2,
+    CONFIG_ARENA_LOSE_RATING_MODIFIER,
+    CONFIG_ARENA_MATCHMAKER_RATING_MODIFIER,
     CONFIG_MINRATE_DROP_ITEM_UNCOMMON,
     CONFIG_MINRATE_DROP_ITEM_RARE,
     CONFIG_MINRATE_DROP_ITEM_EPIC,
@@ -223,13 +243,13 @@ enum WorldIntConfigs
     CONFIG_CHARACTER_CREATING_DISABLED_CLASSMASK,
     CONFIG_CHARACTERS_PER_ACCOUNT,
     CONFIG_CHARACTERS_PER_REALM,
-    CONFIG_HEROIC_CHARACTERS_PER_REALM,
-    CONFIG_CHARACTER_CREATING_MIN_LEVEL_FOR_HEROIC_CHARACTER,
+    CONFIG_DEATH_KNIGHTS_PER_REALM,
+    CONFIG_CHARACTER_CREATING_MIN_LEVEL_FOR_DEATH_KNIGHT,
     CONFIG_SKIP_CINEMATICS,
     CONFIG_MAX_PLAYER_LEVEL,
     CONFIG_MIN_DUALSPEC_LEVEL,
     CONFIG_START_PLAYER_LEVEL,
-    CONFIG_START_HEROIC_PLAYER_LEVEL,
+    CONFIG_START_DEATH_KNIGHT_PLAYER_LEVEL,
     CONFIG_START_PLAYER_MONEY,
     CONFIG_MAX_HONOR_POINTS,
     CONFIG_START_HONOR_POINTS,
@@ -239,6 +259,7 @@ enum WorldIntConfigs
     CONFIG_MAX_RECRUIT_A_FRIEND_BONUS_PLAYER_LEVEL_DIFFERENCE,
     CONFIG_INSTANCE_RESET_TIME_HOUR,
     CONFIG_INSTANCE_UNLOAD_DELAY,
+    CONFIG_DAILY_QUEST_RESET_TIME_HOUR,
     CONFIG_MAX_PRIMARY_TRADE_SKILL,
     CONFIG_MIN_PETITION_SIGNS,
     CONFIG_GM_LOGIN_STATE,
@@ -250,6 +271,7 @@ enum WorldIntConfigs
     CONFIG_GM_LEVEL_IN_GM_LIST,
     CONFIG_GM_LEVEL_IN_WHO_LIST,
     CONFIG_START_GM_LEVEL,
+    CONFIG_FORCE_SHUTDOWN_THRESHOLD,
     CONFIG_GROUP_VISIBILITY,
     CONFIG_MAIL_DELIVERY_DELAY,
     CONFIG_UPTIME_UPDATE,
@@ -277,7 +299,10 @@ enum WorldIntConfigs
     CONFIG_CHAT_STRICT_LINK_CHECKING_KICK,
     CONFIG_CHAT_CHANNEL_LEVEL_REQ,
     CONFIG_CHAT_WHISPER_LEVEL_REQ,
+    CONFIG_CHAT_EMOTE_LEVEL_REQ,
     CONFIG_CHAT_SAY_LEVEL_REQ,
+    CONFIG_CHAT_YELL_LEVEL_REQ,
+    CONFIG_PARTY_LEVEL_REQ,
     CONFIG_TRADE_LEVEL_REQ,
     CONFIG_TICKET_LEVEL_REQ,
     CONFIG_AUCTION_LEVEL_REQ,
@@ -293,6 +318,7 @@ enum WorldIntConfigs
     CONFIG_BATTLEGROUND_INVITATION_TYPE,
     CONFIG_BATTLEGROUND_PREMATURE_FINISH_TIMER,
     CONFIG_BATTLEGROUND_PREMADE_GROUP_WAIT_FOR_MATCH,
+    CONFIG_BATTLEGROUND_REPORT_AFK,
     CONFIG_ARENA_MAX_RATING_DIFFERENCE,
     CONFIG_ARENA_RATING_DISCARD_TIMER,
     CONFIG_ARENA_RATED_UPDATE_TIMER,
@@ -306,8 +332,6 @@ enum WorldIntConfigs
     CONFIG_PVP_TOKEN_MAP_TYPE,
     CONFIG_PVP_TOKEN_ID,
     CONFIG_PVP_TOKEN_COUNT,
-    CONFIG_INTERVAL_LOG_UPDATE,
-    CONFIG_MIN_LOG_UPDATE,
     CONFIG_ENABLE_SINFO_LOGIN,
     CONFIG_PLAYER_ALLOW_COMMANDS,
     CONFIG_NUMTHREADS,
@@ -322,7 +346,7 @@ enum WorldIntConfigs
     CONFIG_CHARDELETE_KEEP_DAYS,
     CONFIG_CHARDELETE_METHOD,
     CONFIG_CHARDELETE_MIN_LEVEL,
-    CONFIG_CHARDELETE_HEROIC_MIN_LEVEL,
+    CONFIG_CHARDELETE_DEATH_KNIGHT_MIN_LEVEL,
     CONFIG_AUTOBROADCAST_CENTER,
     CONFIG_AUTOBROADCAST_INTERVAL,
     CONFIG_MAX_RESULTS_LOOKUP_COMMANDS,
@@ -355,6 +379,7 @@ enum WorldIntConfigs
     CONFIG_BG_REWARD_LOSER_HONOR_LAST,
     CONFIG_BIRTHDAY_TIME,
     CONFIG_CREATURE_PICKPOCKET_REFILL,
+    CONFIG_CREATURE_STOP_FOR_PLAYER,
     CONFIG_AHBOT_UPDATE_INTERVAL,
     CONFIG_CHARTER_COST_GUILD,
     CONFIG_CHARTER_COST_ARENA_2v2,
@@ -362,6 +387,9 @@ enum WorldIntConfigs
     CONFIG_CHARTER_COST_ARENA_5v5,
     CONFIG_NO_GRAY_AGGRO_ABOVE,
     CONFIG_NO_GRAY_AGGRO_BELOW,
+    CONFIG_AUCTION_GETALL_DELAY,
+    CONFIG_AUCTION_SEARCH_DELAY,
+    CONFIG_TALENTS_INSPECTING,
     INT_CONFIG_VALUE_COUNT
 };
 
@@ -388,6 +416,7 @@ enum Rates
     RATE_DROP_ITEM_REFERENCED_AMOUNT,
     RATE_DROP_MONEY,
     RATE_XP_KILL,
+    RATE_XP_BG_KILL,
     RATE_XP_QUEST,
     RATE_XP_EXPLORE,
     RATE_REPAIRCOST,
@@ -419,6 +448,7 @@ enum Rates
     RATE_AUCTION_DEPOSIT,
     RATE_AUCTION_CUT,
     RATE_HONOR,
+    RATE_ARENA_POINTS,
     RATE_TALENT,
     RATE_CORPSE_DECAY_LOOTED,
     RATE_INSTANCE_RESET_TIME,
@@ -446,18 +476,6 @@ enum BillingPlanFlags
     SESSION_TIME_MIXTURE    = 0x20,
     SESSION_RESTRICTED      = 0x40,
     SESSION_ENABLE_CAIS     = 0x80
-};
-
-/// Type of server, this is values from second column of Cfg_Configs.dbc
-enum RealmType
-{
-    REALM_TYPE_NORMAL       = 0,
-    REALM_TYPE_PVP          = 1,
-    REALM_TYPE_NORMAL2      = 4,
-    REALM_TYPE_RP           = 6,
-    REALM_TYPE_RPPVP        = 8,
-    REALM_TYPE_FFA_PVP      = 16                            // custom, free for all pvp mode like arena PvP in all zones except rest activated places and sanctuaries
-                                                            // replaced by REALM_PVP in realm list
 };
 
 enum RealmZone
@@ -504,6 +522,7 @@ enum RealmZone
 
 enum WorldStates
 {
+    WS_ARENA_DISTRIBUTION_TIME  = 20001,                     // Next arena distribution time
     WS_WEEKLY_QUEST_RESET_TIME  = 20002,                     // Next weekly reset time
     WS_BG_DAILY_RESET_TIME      = 20003,                     // Next daily BG reset time
     WS_CLEANING_FLAGS           = 20004,                     // Cleaning Flags
@@ -537,24 +556,23 @@ private:
 
 typedef std::unordered_map<uint32, WorldSession*> SessionMap;
 
-struct CharacterNameData
+struct CharacterInfo
 {
-    std::string m_name;
-    uint8 m_class;
-    uint8 m_race;
-    uint8 m_gender;
-    uint8 m_level;
+    std::string Name;
+    uint32 AccountId;
+    uint8 Class;
+    uint8 Race;
+    uint8 Sex;
+    uint8 Level;
+    ObjectGuid::LowType GuildId;
+    uint32 ArenaTeamId[3];
 };
 
 /// The World
-class World
+class TC_GAME_API World
 {
     public:
-        static World* instance()
-        {
-            static World instance;
-            return &instance;
-        }
+        static World* instance();
 
         static std::atomic<uint32> m_worldLoopCounter;
 
@@ -612,11 +630,6 @@ class World
         /// Allow/Disallow object movements
         void SetAllowMovement(bool allow) { m_allowMovement = allow; }
 
-        /// Set a new Message of the Day
-        void SetMotd(std::string const& motd);
-        /// Get the current Message of the Day
-        const char* GetMotd() const;
-
         /// Set the string for new characters (first login)
         void SetNewCharString(std::string const& str) { m_newCharString = str; }
         /// Get the string for new characters (first login)
@@ -626,16 +639,6 @@ class World
 
         /// Get the path where data (dbc, maps) are stored on disk
         std::string const& GetDataPath() const { return m_dataPath; }
-
-        /// When server started?
-        time_t const& GetStartTime() const { return m_startTime; }
-        /// What time is it?
-        time_t const& GetGameTime() const { return m_gameTime; }
-        /// Uptime (in secs)
-        uint32 GetUptime() const { return uint32(m_gameTime - m_startTime); }
-        /// Update time
-        uint32 GetUpdateTime() const { return m_updateTime; }
-        void SetRecordDiffInterval(int32 t) { if (t >= 0) m_int_configs[CONFIG_INTERVAL_LOG_UPDATE] = (uint32)t; }
 
         /// Next daily quests and random bg reset time
         time_t GetNextDailyQuestsResetTime() const { return m_NextDailyQuestReset; }
@@ -665,7 +668,7 @@ class World
         bool IsShuttingDown() const { return m_ShutdownTimer > 0; }
         uint32 GetShutDownTimeLeft() const { return m_ShutdownTimer; }
         void ShutdownServ(uint32 time, uint32 options, uint8 exitcode, const std::string& reason = std::string());
-        void ShutdownCancel();
+        uint32 ShutdownCancel();
         void ShutdownMsg(bool show = false, Player* player = NULL, const std::string& reason = std::string());
         static uint8 GetExitCode() { return m_ExitCode; }
         static void StopNow(uint8 exitcode) { m_stopEvent = true; m_ExitCode = exitcode; }
@@ -756,19 +759,9 @@ class World
         void LoadDBVersion();
         char const* GetDBVersion() const { return m_DBVersion.c_str(); }
 
-        void ResetTimeDiffRecord();
-        void RecordTimeDiff(std::string const& text);
-
         void LoadAutobroadcasts();
 
         void UpdateAreaDependentAuras();
-
-        CharacterNameData const* GetCharacterNameData(ObjectGuid guid) const;
-        void AddCharacterNameData(ObjectGuid guid, std::string const& name, uint8 gender, uint8 race, uint8 playerClass, uint8 level);
-        void UpdateCharacterNameData(ObjectGuid guid, std::string const& name, uint8 gender = GENDER_NONE, uint8 race = RACE_NONE);
-        void UpdateCharacterNameDataLevel(ObjectGuid guid, uint8 level);
-        void DeleteCharacterNameData(ObjectGuid guid) { _characterNameDataMap.erase(guid); }
-        bool HasCharacterNameData(ObjectGuid guid) { return _characterNameDataMap.find(guid) != _characterNameDataMap.end(); }
 
         uint32 GetCleaningFlags() const { return m_CleaningFlags; }
         void   SetCleaningFlags(uint32 flags) { m_CleaningFlags = flags; }
@@ -776,12 +769,15 @@ class World
 
         void ReloadRBAC();
 
+        void RemoveOldCorpses();
+
     protected:
         void _UpdateGameTime();
+
         // callback for UpdateRealmCharacters
         void _UpdateRealmCharCount(PreparedQueryResult resultCharCount);
 
-        void InitDailyQuestResetTime();
+        void InitDailyQuestResetTime(bool loading = true);
         void InitWeeklyQuestResetTime();
         void InitMonthlyQuestResetTime();
         void InitRandomBGResetTime();
@@ -804,14 +800,9 @@ class World
 
         bool m_isClosed;
 
-        time_t m_startTime;
-        time_t m_gameTime;
         IntervalTimer m_timers[WUPDATE_COUNT];
         time_t mail_timer;
         time_t mail_timer_expires;
-        uint32 m_updateTime, m_updateTimeSum;
-        uint32 m_updateTimeCount;
-        uint32 m_currentTime;
 
         SessionMap m_sessions;
         typedef std::unordered_map<uint32, time_t> DisconnectMap;
@@ -835,7 +826,6 @@ class World
         uint32 m_availableDbcLocaleMask;                       // by loaded DBC
         void DetectDBCLang();
         bool m_allowMovement;
-        std::string m_motd;
         std::string m_dataPath;
 
         // for max speed access
@@ -873,15 +863,13 @@ class World
         typedef std::map<uint8, uint8> AutobroadcastsWeightMap;
         AutobroadcastsWeightMap m_AutobroadcastsWeights;
 
-        std::map<ObjectGuid, CharacterNameData> _characterNameDataMap;
-        void LoadCharacterNameData();
-
         void ProcessQueryCallbacks();
-        std::deque<std::future<PreparedQueryResult>> m_realmCharCallbacks;
+        QueryCallbackProcessor _queryProcessor;
 };
 
-extern uint32 realmID;
+TC_GAME_API extern Realm realm;
 
 #define sWorld World::instance()
+
 #endif
 /// @}

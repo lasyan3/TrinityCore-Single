@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2015 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2017 TrinityCore <http://www.trinitycore.org/>
  * Copyright (C) 2005-2009 MaNGOS <http://getmangos.com/>
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -20,7 +20,6 @@
 #include "ByteBuffer.h"
 #include "WorldPacket.h"
 #include "UpdateData.h"
-#include "Log.h"
 #include "Opcodes.h"
 #include "World.h"
 #include "zlib.h"

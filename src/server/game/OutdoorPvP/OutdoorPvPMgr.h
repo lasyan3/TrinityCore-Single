@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2015 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2017 TrinityCore <http://www.trinitycore.org/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -35,18 +35,14 @@ struct OutdoorPvPData
 };
 
 // class to handle player enter / leave / areatrigger / GO use events
-class OutdoorPvPMgr
+class TC_GAME_API OutdoorPvPMgr
 {
     private:
         OutdoorPvPMgr();
         ~OutdoorPvPMgr() { };
 
     public:
-        static OutdoorPvPMgr* instance()
-        {
-            static OutdoorPvPMgr instance;
-            return &instance;
-        }
+        static OutdoorPvPMgr* instance();
 
         // create outdoor pvp events
         void InitOutdoorPvP();
@@ -70,7 +66,7 @@ class OutdoorPvPMgr
         bool HandleCustomSpell(Player* player, uint32 spellId, GameObject* go);
 
         // handle custom go if registered
-        bool HandleOpenGo(Player* player, ObjectGuid guid);
+        bool HandleOpenGo(Player* player, GameObject* go);
 
         ZoneScript* GetZoneScript(uint32 zoneId);
 
@@ -78,7 +74,7 @@ class OutdoorPvPMgr
 
         void Update(uint32 diff);
 
-        void HandleGossipOption(Player* player, ObjectGuid guid, uint32 gossipid);
+        void HandleGossipOption(Player* player, Creature* creature, uint32 gossipid);
 
         bool CanTalkTo(Player* player, Creature* creature, GossipMenuItems const& gso);
 

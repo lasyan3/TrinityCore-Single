@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2015 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2017 TrinityCore <http://www.trinitycore.org/>
  * Copyright (C) 2006-2009 ScriptDev2 <https://scriptdev2.svn.sourceforge.net/>
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -41,7 +41,7 @@ EndContentData */
 ######*/
 
 //possible creatures to be spawned
-uint32 const possibleSpawns[32] = {17322, 17661, 17496, 17522, 17340, 17352, 17333, 17524, 17654, 17348, 17339, 17345, 17359, 17353, 17336, 17550, 17330, 17701, 17321, 17680, 17325, 17320, 17683, 17342, 17715, 17334, 17341, 17338, 17337, 17346, 17344, 17327};
+uint32 const possibleSpawns[31] = {17322, 17661, 17496, 17522, 17340, 17352, 17333, 17524, 17654, 17348, 17339, 17345, 17359, 17353, 17336, 17550, 17330, 17701, 17321, 17325, 17320, 17683, 17342, 17715, 17334, 17341, 17338, 17337, 17346, 17344, 17327};
 
 enum WebbedCreature
 {
@@ -74,6 +74,7 @@ public:
                 case 0:
                     if (Player* player = killer->ToPlayer())
                         player->KilledMonsterCredit(NPC_EXPEDITION_RESEARCHER);
+                    spawnCreatureID = NPC_EXPEDITION_RESEARCHER;
                     break;
                 case 1:
                 case 2:
@@ -81,8 +82,7 @@ public:
                     break;
             }
 
-            if (spawnCreatureID)
-                me->SummonCreature(spawnCreatureID, 0.0f, 0.0f, 0.0f, me->GetOrientation(), TEMPSUMMON_TIMED_DESPAWN_OUT_OF_COMBAT, 60000);
+            me->SummonCreature(spawnCreatureID, 0.0f, 0.0f, 0.0f, me->GetOrientation(), TEMPSUMMON_TIMED_DESPAWN_OUT_OF_COMBAT, 60000);
         }
     };
 
@@ -240,11 +240,6 @@ class npc_sironas : public CreatureScript
 public:
     npc_sironas() : CreatureScript("npc_sironas") { }
 
-    CreatureAI* GetAI(Creature* creature) const
-    {
-        return new npc_sironasAI(creature);
-    }
-
     struct npc_sironasAI : public ScriptedAI
     {
         npc_sironasAI(Creature* creature) : ScriptedAI(creature) { }
@@ -272,7 +267,7 @@ public:
 
                 if (killer->GetGUID() == legoso->GetGUID() ||
                     (group && group->IsMember(killer->GetGUID())) ||
-                    killer->GetGUIDLow() == legoso->AI()->GetData(DATA_EVENT_STARTER_GUID))
+                    killer->GetGUID().GetCounter() == legoso->AI()->GetData(DATA_EVENT_STARTER_GUID))
                     legoso->AI()->DoAction(ACTION_LEGOSO_SIRONAS_KILLED);
             }
         }
@@ -343,6 +338,11 @@ public:
         GuidList _beamGuidList;
         EventMap _events;
     };
+
+    CreatureAI* GetAI(Creature* creature) const override
+    {
+        return new npc_sironasAI(creature);
+    }
 };
 
 /*######
@@ -353,11 +353,6 @@ class npc_demolitionist_legoso : public CreatureScript
 {
 public:
     npc_demolitionist_legoso() : CreatureScript("npc_demolitionist_legoso") { }
-
-    CreatureAI* GetAI(Creature* creature) const
-    {
-        return new npc_demolitionist_legosoAI(creature);
-    }
 
     struct npc_demolitionist_legosoAI : public npc_escortAI
     {
@@ -370,7 +365,7 @@ public:
         {
             if (quest->GetQuestId() == QUEST_ENDING_THEIR_WORLD)
             {
-                SetData(DATA_EVENT_STARTER_GUID, player->GetGUIDLow());
+                SetData(DATA_EVENT_STARTER_GUID, player->GetGUID().GetCounter());
                 Start(true, true, player->GetGUID(), quest);
             }
         }
@@ -513,7 +508,7 @@ public:
                             _explosivesGuids.clear();
                             for (uint8 i = 0; i != MAX_EXPLOSIVES; ++i)
                             {
-                                if (GameObject* explosive = me->SummonGameObject(GO_DRAENEI_EXPLOSIVES_1, ExplosivesPos[0][i].m_positionX, ExplosivesPos[0][i].m_positionY, ExplosivesPos[0][i].m_positionZ, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0))
+                                if (GameObject* explosive = me->SummonGameObject(GO_DRAENEI_EXPLOSIVES_1, ExplosivesPos[0][i], G3D::Quat(), 0))
                                     _explosivesGuids.push_back(explosive->GetGUID());
                             }
                             me->HandleEmoteCommand(EMOTE_ONESHOT_NONE); // reset anim state
@@ -541,7 +536,7 @@ public:
                         case PHASE_PLANT_FIRST_DETONATE: // first explosives detonate finish
                             for (GuidList::iterator itr = _explosivesGuids.begin(); itr != _explosivesGuids.end(); ++itr)
                             {
-                                if (GameObject* explosive = sObjectAccessor->GetGameObject(*me, *itr))
+                                if (GameObject* explosive = ObjectAccessor::GetGameObject(*me, *itr))
                                     me->RemoveGameObject(explosive, true);
                             }
                             _explosivesGuids.clear();
@@ -609,7 +604,7 @@ public:
                             _explosivesGuids.clear();
                             for (uint8 i = 0; i != MAX_EXPLOSIVES; ++i)
                             {
-                                if (GameObject* explosive = me->SummonGameObject(GO_DRAENEI_EXPLOSIVES_2, ExplosivesPos[1][i].m_positionX, ExplosivesPos[1][i].m_positionY, ExplosivesPos[1][i].m_positionZ, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0))
+                                if (GameObject* explosive = me->SummonGameObject(GO_DRAENEI_EXPLOSIVES_2, ExplosivesPos[1][i], G3D::Quat(), 0))
                                     _explosivesGuids.push_back(explosive->GetGUID());
                             }
                             Talk(SAY_LEGOSO_15);
@@ -638,7 +633,7 @@ public:
                         case PHASE_PLANT_SECOND_DETONATE: // second explosives detonate finish
                             for (GuidList::iterator itr = _explosivesGuids.begin(); itr != _explosivesGuids.end(); ++itr)
                             {
-                                if (GameObject* explosive = sObjectAccessor->GetGameObject(*me, *itr))
+                                if (GameObject* explosive = ObjectAccessor::GetGameObject(*me, *itr))
                                     me->RemoveGameObject(explosive, true);
                             }
                             _explosivesGuids.clear();
@@ -808,10 +803,15 @@ public:
     private:
         int8 _phase;
         uint32 _moveTimer;
-        uint32 _eventStarterGuidLow;
+        ObjectGuid::LowType _eventStarterGuidLow;
         GuidList _explosivesGuids;
         EventMap _events;
     };
+
+    CreatureAI* GetAI(Creature* creature) const override
+    {
+        return new npc_demolitionist_legosoAI(creature);
+    }
 };
 
 void AddSC_bloodmyst_isle()

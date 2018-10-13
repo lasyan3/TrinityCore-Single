@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2015 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2017 TrinityCore <http://www.trinitycore.org/>
  * Copyright (C) 2006-2009 ScriptDev2 <https://scriptdev2.svn.sourceforge.net/>
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -148,7 +148,12 @@ struct emerald_dragonAI : public WorldBossAI
             return;
 
         while (uint32 eventId = events.ExecuteEvent())
+        {
             ExecuteEvent(eventId);
+
+            if (me->HasUnitState(UNIT_STATE_CASTING))
+                return;
+        }
 
         if (Unit* target = SelectTarget(SELECT_TARGET_TOPAGGRO, 0, -50.0f, true))
             DoCast(target, SPELL_SUMMON_PLAYER);
@@ -205,7 +210,7 @@ class npc_dream_fog : public CreatureScript
                     }
                     // Seeping fog movement is slow enough for a player to be able to walk backwards and still outpace it
                     me->SetWalk(true);
-                    me->SetSpeed(MOVE_WALK, 0.75f);
+                    me->SetSpeedRate(MOVE_WALK, 0.75f);
                 }
                 else
                     _roamTimer -= diff;

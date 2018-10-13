@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2015 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2017 TrinityCore <http://www.trinitycore.org/>
  * Copyright (C) 2005-2009 MaNGOS <http://www.mangosproject.org/>
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -31,19 +31,19 @@ struct PoolTemplateData
 
 struct PoolObject
 {
-    uint32  guid;
+    ObjectGuid::LowType  guid;
     float   chance;
-    PoolObject(uint32 _guid, float _chance) : guid(_guid), chance(std::fabs(_chance)) { }
+    PoolObject(ObjectGuid::LowType _guid, float _chance) : guid(_guid), chance(std::fabs(_chance)) { }
 };
 
 class Pool                                                  // for Pool of Pool case
 {
 };
 
-typedef std::set<uint32> ActivePoolObjects;
+typedef std::set<ObjectGuid::LowType> ActivePoolObjects;
 typedef std::map<uint32, uint32> ActivePoolPools;
 
-class ActivePoolData
+class TC_GAME_API ActivePoolData
 {
     public:
         template<typename T>
@@ -66,7 +66,7 @@ class ActivePoolData
 };
 
 template <class T>
-class PoolGroup
+class TC_GAME_API PoolGroup
 {
     typedef std::vector<PoolObject> PoolObjectList;
     public:
@@ -77,8 +77,8 @@ class PoolGroup
         void AddEntry(PoolObject& poolitem, uint32 maxentries);
         bool CheckPool() const;
         PoolObject* RollOne(ActivePoolData& spawns, uint32 triggerFrom);
-        void DespawnObject(ActivePoolData& spawns, uint32 guid=0);
-        void Despawn1Object(uint32 guid);
+        void DespawnObject(ActivePoolData& spawns, ObjectGuid::LowType guid=0);
+        void Despawn1Object(ObjectGuid::LowType guid);
         void SpawnObject(ActivePoolData& spawns, uint32 limit, uint32 triggerFrom);
 
         void Spawn1Object(PoolObject* obj);
@@ -101,18 +101,14 @@ typedef std::multimap<uint32, uint32> PooledQuestRelation;
 typedef std::pair<PooledQuestRelation::const_iterator, PooledQuestRelation::const_iterator> PooledQuestRelationBounds;
 typedef std::pair<PooledQuestRelation::iterator, PooledQuestRelation::iterator> PooledQuestRelationBoundsNC;
 
-class PoolMgr
+class TC_GAME_API PoolMgr
 {
     private:
         PoolMgr();
         ~PoolMgr() { };
 
     public:
-        static PoolMgr* instance()
-        {
-            static PoolMgr instance;
-            return &instance;
-        }
+        static PoolMgr* instance();
 
         void LoadFromDB();
         void LoadQuestPools();

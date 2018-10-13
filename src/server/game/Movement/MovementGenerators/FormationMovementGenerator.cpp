@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2017 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2018 TrinityCore <https://www.trinitycore.org/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -15,11 +15,11 @@
  * with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include "FormationMovementGenerator.h"
 #include "Creature.h"
 #include "CreatureAI.h"
 #include "MoveSplineInit.h"
 #include "MoveSpline.h"
-#include "FormationMovementGenerator.h"
 
 void FormationMovementGenerator::DoInitialize(Creature* owner)
 {
@@ -35,7 +35,7 @@ void FormationMovementGenerator::DoInitialize(Creature* owner)
     owner->AddUnitState(UNIT_STATE_ROAMING_MOVE);
 
     Movement::MoveSplineInit init(owner);
-    init.MoveTo(_destination);
+    init.MoveTo(_destination.GetPositionX(), _destination.GetPositionY(), _destination.GetPositionZ());
     if (_orientation)
         init.SetFacing(_destination.GetOrientation());
 
@@ -81,7 +81,7 @@ bool FormationMovementGenerator::DoUpdate(Creature* owner, uint32 /*diff*/)
         owner->AddUnitState(UNIT_STATE_ROAMING_MOVE);
 
         Movement::MoveSplineInit init(owner);
-        init.MoveTo(_destination);
+        init.MoveTo(_destination.GetPositionX(), _destination.GetPositionY(), _destination.GetPositionZ());
         if (_orientation)
             init.SetFacing(_destination.GetOrientation());
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2017 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2018 TrinityCore <https://www.trinitycore.org/>
  * Copyright (C) 2006-2009 ScriptDev2 <https://scriptdev2.svn.sourceforge.net/>
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -17,14 +17,12 @@
  */
 
 #include "ScriptMgr.h"
+#include "Creature.h"
+#include "GameObject.h"
 #include "InstanceScript.h"
-#include "Player.h"
+#include "Map.h"
 #include "nexus.h"
-
-enum Factions
-{
-    FACTION_HOSTILE_FOR_ALL                       = 16
-};
+#include "Player.h"
 
 class instance_nexus : public InstanceMapScript
 {
@@ -59,31 +57,31 @@ class instance_nexus : public InstanceMapScript
                     // Alliance npcs are spawned by default, if you are alliance, you will fight against horde npcs.
                     case NPC_ALLIANCE_BERSERKER:
                         if (ServerAllowsTwoSideGroups())
-                            creature->setFaction(FACTION_HOSTILE_FOR_ALL);
+                            creature->SetFaction(FACTION_MONSTER_2);
                         if (_teamInInstance == ALLIANCE)
                             creature->UpdateEntry(NPC_HORDE_BERSERKER);
                         break;
                     case NPC_ALLIANCE_RANGER:
                         if (ServerAllowsTwoSideGroups())
-                            creature->setFaction(FACTION_HOSTILE_FOR_ALL);
+                            creature->SetFaction(FACTION_MONSTER_2);
                         if (_teamInInstance == ALLIANCE)
                             creature->UpdateEntry(NPC_HORDE_RANGER);
                         break;
                     case NPC_ALLIANCE_CLERIC:
                         if (ServerAllowsTwoSideGroups())
-                            creature->setFaction(FACTION_HOSTILE_FOR_ALL);
+                            creature->SetFaction(FACTION_MONSTER_2);
                         if (_teamInInstance == ALLIANCE)
                             creature->UpdateEntry(NPC_HORDE_CLERIC);
                         break;
                     case NPC_ALLIANCE_COMMANDER:
                         if (ServerAllowsTwoSideGroups())
-                            creature->setFaction(FACTION_HOSTILE_FOR_ALL);
+                            creature->SetFaction(FACTION_MONSTER_2);
                         if (_teamInInstance == ALLIANCE)
                             creature->UpdateEntry(NPC_HORDE_COMMANDER);
                         break;
                     case NPC_COMMANDER_STOUTBEARD:
                         if (ServerAllowsTwoSideGroups())
-                            creature->setFaction(FACTION_HOSTILE_FOR_ALL);
+                            creature->SetFaction(FACTION_MONSTER_2);
                         if (_teamInInstance == ALLIANCE)
                             creature->UpdateEntry(NPC_COMMANDER_KOLURG);
                         break;
@@ -96,17 +94,17 @@ class instance_nexus : public InstanceMapScript
             {
                 switch (go->GetEntry())
                 {
-                    case GO_ANOMALUS_CONTAINMET_SPHERE:
+                    case GO_ANOMALUS_CONTAINMENT_SPHERE:
                         AnomalusContainmentSphere = go->GetGUID();
                         if (GetBossState(DATA_ANOMALUS) == DONE)
                             go->RemoveFlag(GAMEOBJECT_FLAGS, GO_FLAG_NOT_SELECTABLE);
                         break;
-                    case GO_ORMOROKS_CONTAINMET_SPHERE:
+                    case GO_ORMOROKS_CONTAINMENT_SPHERE:
                         OrmoroksContainmentSphere = go->GetGUID();
                         if (GetBossState(DATA_ORMOROK) == DONE)
                             go->RemoveFlag(GAMEOBJECT_FLAGS, GO_FLAG_NOT_SELECTABLE);
                         break;
-                    case GO_TELESTRAS_CONTAINMET_SPHERE:
+                    case GO_TELESTRAS_CONTAINMENT_SPHERE:
                         TelestrasContainmentSphere = go->GetGUID();
                         if (GetBossState(DATA_MAGUS_TELESTRA) == DONE)
                             go->RemoveFlag(GAMEOBJECT_FLAGS, GO_FLAG_NOT_SELECTABLE);
@@ -159,11 +157,11 @@ class instance_nexus : public InstanceMapScript
                         return AnomalusGUID;
                     case DATA_KERISTRASZA:
                         return KeristraszaGUID;
-                    case ANOMALUS_CONTAINMET_SPHERE:
+                    case ANOMALUS_CONTAINMENT_SPHERE:
                         return AnomalusContainmentSphere;
-                    case ORMOROKS_CONTAINMET_SPHERE:
+                    case ORMOROKS_CONTAINMENT_SPHERE:
                         return OrmoroksContainmentSphere;
-                    case TELESTRAS_CONTAINMET_SPHERE:
+                    case TELESTRAS_CONTAINMENT_SPHERE:
                         return TelestrasContainmentSphere;
                     default:
                         break;

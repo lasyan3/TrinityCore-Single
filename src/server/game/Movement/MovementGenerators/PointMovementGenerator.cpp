@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2017 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2018 TrinityCore <https://www.trinitycore.org/>
  * Copyright (C) 2005-2009 MaNGOS <http://getmangos.com/>
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -16,14 +16,13 @@
  * with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include "PointMovementGenerator.h"
 #include "CreatureAI.h"
 #include "Creature.h"
-#include "CreatureGroups.h"
 #include "Player.h"
 #include "MoveSplineInit.h"
 #include "MoveSpline.h"
 #include "World.h"
-#include "PointMovementGenerator.h"
 
 //----- Point Movement Generator
 
@@ -48,15 +47,18 @@ void PointMovementGenerator<T>::DoInitialize(T* owner)
     owner->AddUnitState(UNIT_STATE_ROAMING_MOVE);
 
     Movement::MoveSplineInit init(owner);
-    init.MoveTo(_destination, _generatePath);
+    init.MoveTo(_x, _y, _z , _generatePath);
     if (_speed > 0.0f)
         init.SetVelocity(_speed);
+
+    if (_finalOrient)
+        init.SetFacing(*_finalOrient);
+
     init.Launch();
 
     // Call for creature group update
     if (Creature* creature = owner->ToCreature())
-        if (creature->GetFormation() && creature->GetFormation()->getLeader() == creature)
-            creature->GetFormation()->LeaderMoveTo(Position(_destination), _movementId);
+        creature->SignalFormationMovement(Position(_x, _y, _z), _movementId);
 }
 
 template<class T>
@@ -83,15 +85,14 @@ bool PointMovementGenerator<T>::DoUpdate(T* owner, uint32 /*diff*/)
         owner->AddUnitState(UNIT_STATE_ROAMING_MOVE);
 
         Movement::MoveSplineInit init(owner);
-        init.MoveTo(_destination, _generatePath);
+        init.MoveTo(_x, _y, _z, _generatePath);
         if (_speed > 0.0f) // Default value for point motion type is 0.0, if 0.0 spline will use GetSpeed on unit
             init.SetVelocity(_speed);
         init.Launch();
 
         // Call for creature group update
         if (Creature* creature = owner->ToCreature())
-            if (creature->GetFormation() && creature->GetFormation()->getLeader() == creature)
-                creature->GetFormation()->LeaderMoveTo(Position(_destination), _movementId);
+            creature->SignalFormationMovement(Position(_x, _y, _z), _movementId);
     }
 
     return !owner->movespline->Finalized();

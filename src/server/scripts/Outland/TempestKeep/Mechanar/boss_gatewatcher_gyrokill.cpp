@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2017 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2018 TrinityCore <https://www.trinitycore.org/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -23,8 +23,8 @@ SDCategory: Tempest Keep, The Mechanar
 EndScriptData */
 
 #include "ScriptMgr.h"
-#include "ScriptedCreature.h"
 #include "mechanar.h"
+#include "ScriptedCreature.h"
 
 enum Say
 {
@@ -65,9 +65,9 @@ class boss_gatewatcher_gyrokill : public CreatureScript
                 Talk(SAY_DEATH);
             }
 
-            void EnterCombat(Unit* /*who*/) override
+            void JustEngagedWith(Unit* /*who*/) override
             {
-                _EnterCombat();
+                _JustEngagedWith();
                 events.ScheduleEvent(EVENT_STREAM_OF_MACHINE_FLUID, 10000);
                 events.ScheduleEvent(EVENT_SAW_BLADE, 20000);
                 events.ScheduleEvent(EVENT_SHADOW_POWER, 25000);
@@ -120,7 +120,7 @@ class boss_gatewatcher_gyrokill : public CreatureScript
 
         CreatureAI* GetAI(Creature* creature) const override
         {
-            return new boss_gatewatcher_gyrokillAI(creature);
+            return GetMechanarAI<boss_gatewatcher_gyrokillAI>(creature);
         }
 };
 

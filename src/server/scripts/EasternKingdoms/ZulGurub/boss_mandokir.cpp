@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2017 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2018 TrinityCore <https://www.trinitycore.org/>
  * Copyright (C) 2006-2009 ScriptDev2 <https://scriptdev2.svn.sourceforge.net/>
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -24,10 +24,13 @@ SDCategory: Zul'Gurub
 EndScriptData */
 
 #include "ScriptMgr.h"
+#include "InstanceScript.h"
+#include "MotionMaster.h"
+#include "ObjectAccessor.h"
 #include "ScriptedCreature.h"
-#include "Spell.h"
 #include "SpellAuras.h"
 #include "SpellScript.h"
+#include "TemporarySummon.h"
 #include "zulgurub.h"
 
 enum Says
@@ -56,15 +59,14 @@ enum Spells
 
 enum Events
 {
-    EVENT_CHECK_SPEAKER       = 1,
-    EVENT_CHECK_START         = 2,
-    EVENT_STARTED             = 3,
-    EVENT_OVERPOWER           = 4,
-    EVENT_MORTAL_STRIKE       = 5,
-    EVENT_WHIRLWIND           = 6,
-    EVENT_CHECK_OHGAN         = 7,
-    EVENT_WATCH_PLAYER        = 8,
-    EVENT_CHARGE_PLAYER       = 9
+    EVENT_CHECK_SPEAKER = 1,
+    EVENT_CHECK_START,
+    EVENT_STARTED,
+    EVENT_OVERPOWER,
+    EVENT_MORTAL_STRIKE,
+    EVENT_WHIRLWIND,
+    EVENT_WATCH_PLAYER,
+    EVENT_CHARGE_PLAYER
 };
 
 enum Misc
@@ -128,7 +130,7 @@ class boss_mandokir : public CreatureScript
                 {
                     _Reset();
                     Initialize();
-                    me->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_PC | UNIT_FLAG_IMMUNE_TO_NPC);
+                    me->SetImmuneToAll(true);
                     events.ScheduleEvent(EVENT_CHECK_START, 1000);
                     if (Creature* speaker = ObjectAccessor::GetCreature(*me, instance->GetGuidData(NPC_VILEBRANCH_SPEAKER)))
                         if (!speaker->IsAlive())
@@ -150,16 +152,15 @@ class boss_mandokir : public CreatureScript
 
             void JustReachedHome() override
             {
-                me->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_PC | UNIT_FLAG_IMMUNE_TO_NPC);
+                me->SetImmuneToAll(false);
             }
 
-            void EnterCombat(Unit* /*who*/) override
+            void JustEngagedWith(Unit* /*who*/) override
             {
-                _EnterCombat();
+                _JustEngagedWith();
                 events.ScheduleEvent(EVENT_OVERPOWER, urand(7000, 9000));
                 events.ScheduleEvent(EVENT_MORTAL_STRIKE, urand(12000, 18000));
                 events.ScheduleEvent(EVENT_WHIRLWIND, urand(24000, 30000));
-                events.ScheduleEvent(EVENT_CHECK_OHGAN, 1000);
                 events.ScheduleEvent(EVENT_WATCH_PLAYER, urand(13000, 15000));
                 events.ScheduleEvent(EVENT_CHARGE_PLAYER, urand(33000, 38000));
                 me->SetHomePosition(me->GetPositionX(), me->GetPositionY(), me->GetPositionZ(), me->GetOrientation());
@@ -189,6 +190,15 @@ class boss_mandokir : public CreatureScript
                             jindo->AI()->Talk(SAY_GRATS_JINDO);
                     DoCast(me, SPELL_LEVEL_UP, true);
                     killCount = 0;
+                }
+            }
+
+            void SummonedCreatureDies(Creature* summon, Unit* /*killer*/) override
+            {
+                if (summon->GetEntry() == NPC_OHGAN)
+                {
+                    DoCast(me, SPELL_FRENZY);
+                    Talk(SAY_OHGAN_DEAD);
                 }
             }
 
@@ -228,7 +238,7 @@ class boss_mandokir : public CreatureScript
                                         events.ScheduleEvent(EVENT_CHECK_START, 1000);
                                     break;
                                 case EVENT_STARTED:
-                                    me->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_PC | UNIT_FLAG_IMMUNE_TO_NPC);
+                                    me->SetImmuneToAll(false);
                                     me->GetMotionMaster()->MovePath(PATH_MANDOKIR, false);
                                     break;
                                 default:
@@ -258,15 +268,6 @@ class boss_mandokir : public CreatureScript
                         case EVENT_WHIRLWIND:
                             DoCast(me, SPELL_WHIRLWIND);
                             events.ScheduleEvent(EVENT_WHIRLWIND, urand(22000, 26000));
-                            break;
-                        case EVENT_CHECK_OHGAN:
-                            if (instance->GetBossState(DATA_OHGAN) == DONE)
-                            {
-                                DoCast(me, SPELL_FRENZY);
-                                Talk(SAY_OHGAN_DEAD);
-                            }
-                            else
-                                events.ScheduleEvent(EVENT_CHECK_OHGAN, 1000);
                             break;
                         case EVENT_WATCH_PLAYER:
                             if (Unit* player = SelectTarget(SELECT_TARGET_RANDOM, 0, 100, true))
@@ -331,12 +332,7 @@ class npc_ohgan : public CreatureScript
                 Initialize();
             }
 
-            void EnterCombat(Unit* /*who*/) override { }
-
-            void JustDied(Unit* /*killer*/) override
-            {
-                instance->SetBossState(DATA_OHGAN, DONE);
-            }
+            void JustEngagedWith(Unit* /*who*/) override { }
 
             void UpdateAI(uint32 diff) override
             {
@@ -393,7 +389,7 @@ class npc_vilebranch_speaker : public CreatureScript
                 Initialize();
             }
 
-            void EnterCombat(Unit* /*who*/) override { }
+            void JustEngagedWith(Unit* /*who*/) override { }
 
             void JustDied(Unit* /*killer*/) override
             {
@@ -429,7 +425,7 @@ class npc_vilebranch_speaker : public CreatureScript
 
         CreatureAI* GetAI(Creature* creature) const override
         {
-            return GetInstanceAI<npc_vilebranch_speakerAI>(creature);
+            return GetZulGurubAI<npc_vilebranch_speakerAI>(creature);
         }
 };
 

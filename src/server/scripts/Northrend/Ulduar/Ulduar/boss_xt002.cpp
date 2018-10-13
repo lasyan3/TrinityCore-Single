@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2017 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2018 TrinityCore <https://www.trinitycore.org/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -22,15 +22,18 @@
 */
 
 #include "ScriptMgr.h"
-#include "ScriptedCreature.h"
-#include "SpellScript.h"
-#include "SpellAuraEffects.h"
-#include "ulduar.h"
-#include "Vehicle.h"
-#include "Player.h"
-#include "WorldPacket.h"
+#include "InstanceScript.h"
+#include "MotionMaster.h"
+#include "ObjectAccessor.h"
 #include "Opcodes.h"
 #include "PassiveAI.h"
+#include "Player.h"
+#include "ScriptedCreature.h"
+#include "SpellAuraEffects.h"
+#include "SpellScript.h"
+#include "ulduar.h"
+#include "Vehicle.h"
+#include "WorldPacket.h"
 
 enum Spells
 {
@@ -210,10 +213,10 @@ class boss_xt002 : public CreatureScript
                 _DespawnAtEvade();
             }
 
-            void EnterCombat(Unit* /*who*/) override
+            void JustEngagedWith(Unit* /*who*/) override
             {
                 Talk(SAY_AGGRO);
-                _EnterCombat();
+                _JustEngagedWith();
 
                 events.ScheduleEvent(EVENT_ENRAGE, TIMER_ENRAGE);
                 events.ScheduleEvent(EVENT_GRAVITY_BOMB, TIMER_GRAVITY_BOMB);
@@ -696,7 +699,7 @@ class npc_boombot : public CreatureScript
                     data << uint32(SPELL_BOOM);
                     me->SendMessageToSet(&data, false);
 
-                    me->DealDamage(me, me->GetHealth(), nullptr, NODAMAGE, SPELL_SCHOOL_MASK_NORMAL, nullptr, false);
+                    me->KillSelf();
 
                     damage = 0;
 
@@ -736,7 +739,7 @@ class npc_life_spark : public CreatureScript
 
         CreatureAI* GetAI(Creature* creature) const override
         {
-            return new npc_life_sparkAI(creature);
+            return GetUlduarAI<npc_life_sparkAI>(creature);
         }
 
         struct npc_life_sparkAI : public ScriptedAI
@@ -749,7 +752,7 @@ class npc_life_spark : public CreatureScript
                 _scheduler.CancelAll();
             }
 
-            void EnterCombat(Unit* /*who*/) override
+            void JustEngagedWith(Unit* /*who*/) override
             {
                 DoCastSelf(SPELL_STATIC_CHARGED);
                 _scheduler.Schedule(Seconds(12), [this](TaskContext spellShock)
@@ -807,7 +810,7 @@ public:
 
     CreatureAI* GetAI(Creature* creature) const override
     {
-        return new npc_xt_void_zoneAI(creature);
+        return GetUlduarAI<npc_xt_void_zoneAI>(creature);
     }
 
 };
@@ -823,9 +826,7 @@ class spell_xt002_searing_light_spawn_life_spark : public SpellScriptLoader
 
             bool Validate(SpellInfo const* /*spell*/) override
             {
-                if (!sSpellMgr->GetSpellInfo(SPELL_SUMMON_LIFE_SPARK))
-                    return false;
-                return true;
+                return ValidateSpellInfo({ SPELL_SUMMON_LIFE_SPARK });
             }
 
             void OnRemove(AuraEffect const* aurEff, AuraEffectHandleModes /*mode*/)
@@ -859,9 +860,7 @@ class spell_xt002_gravity_bomb_aura : public SpellScriptLoader
 
             bool Validate(SpellInfo const* /*spell*/) override
             {
-                if (!sSpellMgr->GetSpellInfo(SPELL_SUMMON_VOID_ZONE))
-                    return false;
-                return true;
+                return ValidateSpellInfo({ SPELL_SUMMON_VOID_ZONE });
             }
 
             void OnRemove(AuraEffect const* aurEff, AuraEffectHandleModes /*mode*/)
@@ -943,19 +942,7 @@ class spell_xt002_heart_overload_periodic : public SpellScriptLoader
 
             bool Validate(SpellInfo const* /*spell*/) override
             {
-                if (!sSpellMgr->GetSpellInfo(SPELL_ENERGY_ORB))
-                    return false;
-
-                if (!sSpellMgr->GetSpellInfo(SPELL_RECHARGE_BOOMBOT))
-                    return false;
-
-                if (!sSpellMgr->GetSpellInfo(SPELL_RECHARGE_PUMMELER))
-                    return false;
-
-                if (!sSpellMgr->GetSpellInfo(SPELL_RECHARGE_SCRAPBOT))
-                    return false;
-
-                return true;
+                return ValidateSpellInfo({ SPELL_ENERGY_ORB, SPELL_RECHARGE_BOOMBOT, SPELL_RECHARGE_PUMMELER, SPELL_RECHARGE_SCRAPBOT });
             }
 
             void HandleScript(SpellEffIndex /*effIndex*/)
@@ -977,7 +964,7 @@ class spell_xt002_heart_overload_periodic : public SpellScriptLoader
                             {
                                 uint8 a = urand(0, 4);
                                 uint32 spellId = spells[a];
-                                toyPile->CastSpell(toyPile, spellId, true, nullptr, nullptr, instance->GetGuidData(BOSS_XT002));
+                                toyPile->CastSpell(toyPile, spellId, instance->GetGuidData(BOSS_XT002));
                             }
                         }
                     }
@@ -1074,9 +1061,7 @@ class spell_xt002_321_boombot_aura : public SpellScriptLoader
 
             bool Validate(SpellInfo const* /*spellInfo*/) override
             {
-                if (!sSpellMgr->GetSpellInfo(SPELL_ACHIEVEMENT_CREDIT_NERF_SCRAPBOTS))
-                    return false;
-                return true;
+                return ValidateSpellInfo({ SPELL_ACHIEVEMENT_CREDIT_NERF_SCRAPBOTS });
             }
 
             bool CheckProc(ProcEventInfo& eventInfo)

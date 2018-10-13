@@ -29,7 +29,6 @@
 #include "SpellMgr.h"
 #include "SpellHistory.h"
 #include "Unit.h"
-#include "CinematicMgr.h"
 #include "TradeData.h"
 #include "ObjectMgr.h"
 

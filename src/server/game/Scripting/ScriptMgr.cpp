@@ -782,13 +782,6 @@ bool ScriptMgr::OnItemRemove(Player* player, Item* item)
     return tmpscript->OnRemove(player, item);
 }
 
-    ASSERT(player);
-    ASSERT(item);
-
-    GET_SCRIPT(ItemScript, item->GetScriptId(), tmpscript);
-    tmpscript->OnGossipSelectCode(player, item, sender, action, code);
-}
-
 void ScriptMgr::OnGossipSelect(Player* player, Item* item, uint32 sender, uint32 action)
 {
     ASSERT(player);

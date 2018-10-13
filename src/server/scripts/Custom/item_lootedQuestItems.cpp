@@ -1,6 +1,13 @@
+#include "Define.h"
+#include "ScriptMgr.h"
+#include "SharedDefines.h"
+#include "Unit.h"
 #include "MapManager.h"
+#include "Player.h"
+#include "GossipDef.h"
+#include "ScriptedGossip.h"
 
-class item_lootedQuestItems : public ItemScript
+class item_lootedQuestItems : public UnitScript
 {
 	struct StrItemList
 	{
@@ -22,7 +29,7 @@ class item_lootedQuestItems : public ItemScript
 	};
 	typedef std::unordered_map<uint32, struct StrQuestInfo> GossipItemMap;
 public:
-	item_lootedQuestItems() : ItemScript("item_lootedQuestItems") {}
+	item_lootedQuestItems() : UnitScript("item_lootedQuestItems") {}
 	GossipItemMap m_entries;
 	uint8 m_displayMode;
 
@@ -201,8 +208,8 @@ private:
 					Map* map = sMapMgr->CreateBaseMap(_map_id);
 					if (map)
 					{
-						AreaTableEntry const* area = GetAreaEntryByAreaID(map->GetAreaId(_pos_x, _pos_y, _pos_z));
-						AreaTableEntry const* zone = GetAreaEntryByAreaID(map->GetZoneId(_pos_x, _pos_y, _pos_z));
+						AreaTableEntry const* area = sAreaTableStore.LookupEntry(map->GetAreaId(_pos_x, _pos_y, _pos_z));
+						AreaTableEntry const* zone = sAreaTableStore.LookupEntry(map->GetZoneId(_pos_x, _pos_y, _pos_z));
 						if (area) area_name = area->area_name[sObjectMgr->GetDBCLocaleIndex()];
 						if (zone) {
 							if (!area || area && stricmp(zone->area_name[sObjectMgr->GetDBCLocaleIndex()], area->area_name[sObjectMgr->GetDBCLocaleIndex()]) != 0)

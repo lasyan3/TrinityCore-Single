@@ -16975,7 +16975,7 @@ bool Player::HasPvPForcingQuest() const
 
 bool Player::CanDropQuestItem(uint32 itemid) // LASYAN: return true if at least one quest can be done by the player
 {
-    if (!sWorld->getBoolConfig(CONFIG_DROP_QUEST_ITEMS)) return false;
+	if (!sWorld->getBoolConfig(CONFIG_DROP_QUEST_ITEMS)) return false;
 
     TC_LOG_DEBUG("lasyan3.dropquestitems", "START CanDropQuestItem for item %d [%s]", itemid, sObjectMgr->GetItemTemplate(itemid)->Name1.c_str());
     ObjectMgr::QuestMap _allQuests = GetAvailableQuestsForItem(itemid);
@@ -17006,13 +17006,12 @@ bool Player::CanDropQuestItem(uint32 itemid) // LASYAN: return true if at least 
                 uint32 itemCountNeeded = qInfo->RequiredItemCount[i];
 
                 // Get first available quest of chain
-                while (qInfo->prevQuests.size() > 0)
+				for (uint32 prevId : qInfo->DependentPreviousQuests)
                 {
-                    Quest::PrevQuests::const_iterator iter = qInfo->prevQuests.begin();
-                    Quest const * qTemp = sObjectMgr->GetQuestTemplate(*iter);
+					Quest const* qTemp = sObjectMgr->GetQuestTemplate(prevId);
                     if (qTemp == NULL)
                         break;
-                    if (GetQuestStatus(*iter) == QUEST_STATUS_REWARDED)
+                    if (GetQuestStatus(prevId) == QUEST_STATUS_REWARDED)
                         break;
                     qInfo = qTemp;
                 }

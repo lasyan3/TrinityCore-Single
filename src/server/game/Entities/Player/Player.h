@@ -32,7 +32,6 @@
 #include "TradeData.h"
 #include "CinematicMgr.h"
 #include "ObjectMgr.h"
-#include "CinematicMgr.h"
 
 #include <limits>
 #include <string>

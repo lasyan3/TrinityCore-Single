@@ -150,16 +150,15 @@ private:
 				}
 
 				// Get first available quest of chain
-				while (qInfo->prevQuests.size() > 0)
+				for (uint32 prevId : qInfo->DependentPreviousQuests)
 				{
-					Quest::PrevQuests::const_iterator iter = qInfo->prevQuests.begin();
-					Quest const * qTemp = sObjectMgr->GetQuestTemplate(*iter);
+					Quest const* qTemp = sObjectMgr->GetQuestTemplate(prevId);
 					if (qTemp == NULL)
 						break;
 					//TC_LOG_INFO("lasyan3", " |- Quest %s, status = %d", qTemp->GetTitle().c_str(), pPlayer->GetQuestStatus(qTemp->GetQuestId()));
 					/*if (pPlayer->GetQuestStatus(*iter) == QUEST_STATUS_COMPLETE)
 					break;*/
-					if (pPlayer->GetQuestStatus(*iter) == QUEST_STATUS_REWARDED)
+					if (pPlayer->GetQuestStatus(prevId) == QUEST_STATUS_REWARDED)
 						break;
 					qInfo = qTemp;
 				}

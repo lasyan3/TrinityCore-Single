@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2017 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2018 TrinityCore <https://www.trinitycore.org/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -17,6 +17,7 @@
 
 #include "ScriptMgr.h"
 #include "ScriptedCreature.h"
+#include "TemporarySummon.h"
 #include "zulgurub.h"
 
 enum Says
@@ -95,9 +96,9 @@ class boss_jeklik : public CreatureScript
                 Talk(SAY_DEATH);
             }
 
-            void EnterCombat(Unit* /*who*/) override
+            void JustEngagedWith(Unit* /*who*/) override
             {
-                _EnterCombat();
+                _JustEngagedWith();
                 Talk(SAY_AGGRO);
                 events.SetPhase(PHASE_ONE);
 
@@ -116,7 +117,7 @@ class boss_jeklik : public CreatureScript
                 {
                     me->RemoveAurasDueToSpell(SPELL_BAT_FORM);
                     me->SetCanFly(false);
-                    DoResetThreat();
+                    ResetThreatList();
                     events.SetPhase(PHASE_TWO);
                     events.ScheduleEvent(EVENT_SHADOW_WORD_PAIN, 6000, 0, PHASE_TWO);
                     events.ScheduleEvent(EVENT_MIND_FLAY, 11000, 0, PHASE_TWO);
@@ -233,7 +234,7 @@ class npc_batrider : public CreatureScript
                 me->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE);
             }
 
-            void EnterCombat(Unit* /*who*/) override { }
+            void JustEngagedWith(Unit* /*who*/) override { }
 
             void UpdateAI(uint32 diff) override
             {
@@ -257,7 +258,7 @@ class npc_batrider : public CreatureScript
 
         CreatureAI* GetAI(Creature* creature) const override
         {
-            return new npc_batriderAI(creature);
+            return GetZulGurubAI<npc_batriderAI>(creature);
         }
 };
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2017 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2018 TrinityCore <https://www.trinitycore.org/>
  * Copyright (C) 2006-2009 ScriptDev2 <https://scriptdev2.svn.sourceforge.net/>
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -17,17 +17,17 @@
  */
 
 #include "ScriptMgr.h"
-#include "ScriptedCreature.h"
-#include "SpellScript.h"
-#include "SpellAuraEffects.h"
-#include "trial_of_the_crusader.h"
-#include "Player.h"
 #include "GridNotifiers.h"
-
-enum Yells
-{
-    SAY_KILL_PLAYER     = 6
-};
+#include "InstanceScript.h"
+#include "Map.h"
+#include "MotionMaster.h"
+#include "ObjectAccessor.h"
+#include "Player.h"
+#include "ScriptedCreature.h"
+#include "SpellAuraEffects.h"
+#include "SpellScript.h"
+#include "TemporarySummon.h"
+#include "trial_of_the_crusader.h"
 
 enum AIs
 {
@@ -205,7 +205,7 @@ enum Events
     EVENT_REGROWTH                  = 3,
     EVENT_REJUVENATION              = 4,
     EVENT_TRANQUILITY               = 5,
-    EVENT_HEAL_BARKSKIN                  = 6,
+    EVENT_HEAL_BARKSKIN             = 6,
     EVENT_THORNS                    = 7,
     EVENT_NATURE_GRASP              = 8,
 
@@ -339,17 +339,42 @@ enum Events
     EVENT_SPELL_LOCK                = 2
 };
 
+Position const FactionChampionLoc[] =
+{
+    { 514.231f, 105.569f, 418.234f, 0 },               //  0 - Horde Initial Pos 0
+    { 508.334f, 115.377f, 418.234f, 0 },               //  1 - Horde Initial Pos 1
+    { 506.454f, 126.291f, 418.234f, 0 },               //  2 - Horde Initial Pos 2
+    { 506.243f, 106.596f, 421.592f, 0 },               //  3 - Horde Initial Pos 3
+    { 499.885f, 117.717f, 421.557f, 0 },               //  4 - Horde Initial Pos 4
+
+    { 613.127f, 100.443f, 419.74f, 0 },                //  5 - Ally Initial Pos 0
+    { 621.126f, 128.042f, 418.231f, 0 },               //  6 - Ally Initial Pos 1
+    { 618.829f, 113.606f, 418.232f, 0 },               //  7 - Ally Initial Pos 2
+    { 625.845f, 112.914f, 421.575f, 0 },               //  8 - Ally Initial Pos 3
+    { 615.566f, 109.653f, 418.234f, 0 },               //  9 - Ally Initial Pos 4
+
+    { 535.469f, 113.012f, 394.66f, 0 },                // 10 - Horde Final Pos 0
+    { 526.417f, 137.465f, 394.749f, 0 },               // 11 - Horde Final Pos 1
+    { 528.108f, 111.057f, 395.289f, 0 },               // 12 - Horde Final Pos 2
+    { 519.92f, 134.285f, 395.289f, 0 },                // 13 - Horde Final Pos 3
+    { 533.648f, 119.148f, 394.646f, 0 },               // 14 - Horde Final Pos 4
+    { 531.399f, 125.63f, 394.708f, 0 },                // 15 - Horde Final Pos 5
+    { 528.958f, 131.47f, 394.73f, 0 },                 // 16 - Horde Final Pos 6
+    { 526.309f, 116.667f, 394.833f, 0 },               // 17 - Horde Final Pos 7
+    { 524.238f, 122.411f, 394.819f, 0 },               // 18 - Horde Final Pos 8
+    { 521.901f, 128.488f, 394.832f, 0 }                // 19 - Horde Final Pos 9
+};
+
 class boss_toc_champion_controller : public CreatureScript
 {
     public:
         boss_toc_champion_controller() : CreatureScript("boss_toc_champion_controller") { }
 
-        struct boss_toc_champion_controllerAI : public ScriptedAI
+        struct boss_toc_champion_controllerAI : public BossAI
         {
-            boss_toc_champion_controllerAI(Creature* creature) : ScriptedAI(creature), _summons(me)
+            boss_toc_champion_controllerAI(Creature* creature) : BossAI(creature, DATA_FACTION_CRUSADERS)
             {
                 Initialize();
-                _instance = creature->GetInstanceScript();
             }
 
             void Initialize()
@@ -364,6 +389,8 @@ class boss_toc_champion_controller : public CreatureScript
             {
                 Initialize();
             }
+
+            void JustSummoned(Creature* /*summon*/) override { }
 
             std::vector<uint32> SelectChampions(Team playerTeam)
             {
@@ -384,7 +411,7 @@ class boss_toc_champion_controller : public CreatureScript
                 vOtherEntries.push_back(playerTeam == ALLIANCE ? NPC_HORDE_WARRIOR : NPC_ALLIANCE_WARRIOR);
 
                 uint8 healersSubtracted = 2;
-                if (_instance->instance->GetSpawnMode() == RAID_DIFFICULTY_25MAN_NORMAL || _instance->instance->GetSpawnMode() == RAID_DIFFICULTY_25MAN_HEROIC)
+                if (instance->instance->GetSpawnMode() == RAID_DIFFICULTY_25MAN_NORMAL || instance->instance->GetSpawnMode() == RAID_DIFFICULTY_25MAN_HEROIC)
                     healersSubtracted = 1;
                 for (uint8 i = 0; i < healersSubtracted; ++i)
                 {
@@ -421,7 +448,7 @@ class boss_toc_champion_controller : public CreatureScript
                     vHealersEntries.erase(vHealersEntries.begin() + pos);
                 }
 
-                if (_instance->instance->GetSpawnMode() == RAID_DIFFICULTY_10MAN_NORMAL || _instance->instance->GetSpawnMode() == RAID_DIFFICULTY_10MAN_HEROIC)
+                if (instance->instance->GetSpawnMode() == RAID_DIFFICULTY_10MAN_NORMAL || instance->instance->GetSpawnMode() == RAID_DIFFICULTY_10MAN_HEROIC)
                     for (uint8 i = 0; i < 4; ++i)
                         vOtherEntries.erase(vOtherEntries.begin() + urand(0, vOtherEntries.size() - 1));
 
@@ -455,9 +482,10 @@ class boss_toc_champion_controller : public CreatureScript
                     uint8 pos = urand(0, vChampionJumpTarget.size()-1);
                     if (Creature* champion = me->SummonCreature(vChampionEntries[i], vChampionJumpOrigin[urand(0, vChampionJumpOrigin.size()-1)], TEMPSUMMON_MANUAL_DESPAWN))
                     {
-                        _summons.Summon(champion);
+                        summons.Summon(champion);
                         champion->SetReactState(REACT_PASSIVE);
-                        champion->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NON_ATTACKABLE | UNIT_FLAG_IMMUNE_TO_PC);
+                        champion->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NON_ATTACKABLE);
+                        champion->SetImmuneToPC(false);
                         if (playerTeam == ALLIANCE)
                         {
                             champion->SetHomePosition(vChampionJumpTarget[pos].GetPositionX(), vChampionJumpTarget[pos].GetPositionY(), vChampionJumpTarget[pos].GetPositionZ(), 0);
@@ -483,12 +511,13 @@ class boss_toc_champion_controller : public CreatureScript
                         SummonChampions((Team)uiData);
                         break;
                     case 1:
-                        for (SummonList::iterator i = _summons.begin(); i != _summons.end(); ++i)
+                        for (SummonList::iterator i = summons.begin(); i != summons.end(); ++i)
                         {
                             if (Creature* summon = ObjectAccessor::GetCreature(*me, *i))
                             {
                                 summon->SetReactState(REACT_AGGRESSIVE);
-                                summon->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NON_ATTACKABLE | UNIT_FLAG_IMMUNE_TO_PC);
+                                summon->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NON_ATTACKABLE);
+                                summon->SetImmuneToPC(false);
                             }
                         }
                         break;
@@ -497,10 +526,10 @@ class boss_toc_champion_controller : public CreatureScript
                         {
                             case FAIL:
                                 _championsFailed++;
-                                if (_championsFailed + _championsKilled >= _summons.size())
+                                if (_championsFailed + _championsKilled >= summons.size())
                                 {
-                                    _instance->SetBossState(BOSS_CRUSADERS, FAIL);
-                                    _summons.DespawnAll();
+                                    instance->SetBossState(DATA_FACTION_CRUSADERS, FAIL);
+                                    summons.DespawnAll();
                                     me->DespawnOrUnsummon();
                                 }
                                 break;
@@ -511,21 +540,21 @@ class boss_toc_champion_controller : public CreatureScript
                                     _championsFailed = 0;
                                     _championsKilled = 0;
                                     _inProgress = true;
-                                    _summons.DoZoneInCombat();
-                                    _instance->SetBossState(BOSS_CRUSADERS, IN_PROGRESS);
+                                    summons.DoZoneInCombat();
+                                    instance->SetBossState(DATA_FACTION_CRUSADERS, IN_PROGRESS);
                                 }
                                 break;
                             case DONE:
+                            {
                                 _championsKilled++;
-                                if (_championsKilled == 1)
-                                    _instance->SetBossState(BOSS_CRUSADERS, SPECIAL);
-                                else if (_championsKilled >= _summons.size())
+                                if (_championsKilled >= summons.size())
                                 {
-                                    _instance->SetBossState(BOSS_CRUSADERS, DONE);
-                                    _summons.DespawnAll();
+                                    instance->SetBossState(DATA_FACTION_CRUSADERS, DONE);
+                                    summons.DespawnAll();
                                     me->DespawnOrUnsummon();
                                 }
                                 break;
+                            }
                             default:
                                 break;
                         }
@@ -535,8 +564,6 @@ class boss_toc_champion_controller : public CreatureScript
                 }
             }
             private:
-                InstanceScript* _instance;
-                SummonList _summons;
                 uint32 _championsNotStarted;
                 uint32 _championsFailed;
                 uint32 _championsKilled;
@@ -545,19 +572,21 @@ class boss_toc_champion_controller : public CreatureScript
 
         CreatureAI* GetAI(Creature* creature) const override
         {
-            return GetInstanceAI<boss_toc_champion_controllerAI>(creature);
+            return GetTrialOfTheCrusaderAI<boss_toc_champion_controllerAI>(creature);
         }
 };
 
 struct boss_faction_championsAI : public BossAI
 {
-    boss_faction_championsAI(Creature* creature, uint32 aitype) : BossAI(creature, BOSS_CRUSADERS)
+    boss_faction_championsAI(Creature* creature, uint32 aitype) : BossAI(creature, DATA_FACTION_CHAMPIONS), _teamInstance(0)
     {
         _aiType = aitype;
+        SetBoundary(instance->GetBossBoundary(DATA_FACTION_CRUSADERS));
     }
 
     void Reset() override
     {
+        _teamInstance = instance->GetData(DATA_TEAM);
         _events.ScheduleEvent(EVENT_THREAT, 5*IN_MILLISECONDS);
         if (IsHeroic() && (_aiType != AI_PET))
             _events.ScheduleEvent(EVENT_REMOVE_CC, 5*IN_MILLISECONDS);
@@ -565,7 +594,7 @@ struct boss_faction_championsAI : public BossAI
 
     void JustReachedHome() override
     {
-        if (Creature* pChampionController = ObjectAccessor::GetCreature((*me), instance->GetGuidData(NPC_CHAMPIONS_CONTROLLER)))
+        if (Creature* pChampionController = instance->GetCreature(DATA_FACTION_CRUSADERS))
             pChampionController->AI()->SetData(2, FAIL);
         me->DespawnOrUnsummon();
     }
@@ -580,20 +609,9 @@ struct boss_faction_championsAI : public BossAI
 
     void UpdateThreat()
     {
-        std::list<HostileReference*> const& tList = me->getThreatManager().getThreatList();
-        for (std::list<HostileReference*>::const_iterator itr = tList.begin(); itr != tList.end(); ++itr)
-        {
-            Unit* unit = ObjectAccessor::GetUnit(*me, (*itr)->getUnitGuid());
-            if (unit && me->getThreatManager().getThreat(unit))
-            {
-                if (unit->GetTypeId() == TYPEID_PLAYER)
-                {
-                    float threat = CalculateThreat(me->GetDistance2d(unit), (float)unit->GetArmor(), unit->GetHealth());
-                    me->getThreatManager().modifyThreatPercent(unit, -100);
-                    me->AddThreat(unit, 1000000.0f * threat);
-                }
-            }
-        }
+        for (ThreatReference* ref : me->GetThreatManager().GetModifiableThreatList())
+            if (Player* victim = ref->GetVictim()->ToPlayer())
+                ref->SetThreat(1000000.0f * CalculateThreat(me->GetDistance2d(victim), victim->GetArmor(), victim->GetHealth()));
     }
 
     void UpdatePower()
@@ -615,15 +633,17 @@ struct boss_faction_championsAI : public BossAI
     void JustDied(Unit* /*killer*/) override
     {
         if (_aiType != AI_PET)
-            if (Creature* pChampionController = ObjectAccessor::GetCreature((*me), instance->GetGuidData(NPC_CHAMPIONS_CONTROLLER)))
+            if (Creature* pChampionController = instance->GetCreature(DATA_FACTION_CRUSADERS))
                 pChampionController->AI()->SetData(2, DONE);
     }
 
-    void EnterCombat(Unit* /*who*/) override
+    void JustEngagedWith(Unit* /*who*/) override
     {
         DoCast(me, SPELL_ANTI_AOE, true);
-        _EnterCombat();
-        if (Creature* pChampionController = ObjectAccessor::GetCreature((*me), instance->GetGuidData(NPC_CHAMPIONS_CONTROLLER)))
+        me->SetCombatPulseDelay(5);
+        me->setActive(true);
+        DoZoneInCombat();
+        if (Creature* pChampionController = instance->GetCreature(DATA_FACTION_CRUSADERS))
             pChampionController->AI()->SetData(2, IN_PROGRESS);
     }
 
@@ -631,22 +651,13 @@ struct boss_faction_championsAI : public BossAI
     {
         if (who->GetTypeId() == TYPEID_PLAYER)
         {
-            Map::PlayerList const &players = me->GetMap()->GetPlayers();
-            uint32 TeamInInstance = 0;
-
-            if (!players.isEmpty())
-                if (Player* player = players.begin()->GetSource())
-                    TeamInInstance = player->GetTeam();
-
-            if (TeamInInstance == ALLIANCE)
+            if (_teamInstance == ALLIANCE)
             {
-                if (Creature* varian = ObjectAccessor::GetCreature(*me, instance->GetGuidData(NPC_VARIAN)))
-                    varian->AI()->Talk(SAY_KILL_PLAYER);
+                if (Creature* varian = instance->GetCreature(DATA_VARIAN))
+                    varian->AI()->DoAction(ACTION_SAY_KILLED_PLAYER);
             }
-            else
-                if (Creature* garrosh = ObjectAccessor::GetCreature(*me, instance->GetGuidData(NPC_GARROSH)))
-                    garrosh->AI()->Talk(SAY_KILL_PLAYER);
-
+            else if (Creature* garrosh = instance->GetCreature(DATA_GARROSH))
+                garrosh->AI()->DoAction(ACTION_SAY_KILLED_PLAYER);
         }
     }
 
@@ -655,35 +666,26 @@ struct boss_faction_championsAI : public BossAI
         std::list<Creature*> lst = DoFindFriendlyMissingBuff(40.0f, spell);
         std::list<Creature*>::const_iterator itr = lst.begin();
         if (lst.empty())
-            return NULL;
+            return nullptr;
         advance(itr, rand32() % lst.size());
         return (*itr);
     }
 
     Unit* SelectEnemyCaster(bool /*casting*/)
     {
-        std::list<HostileReference*> const& tList = me->getThreatManager().getThreatList();
-        std::list<HostileReference*>::const_iterator iter;
-        for (iter = tList.begin(); iter!=tList.end(); ++iter)
-        {
-            Unit* target = ObjectAccessor::GetUnit(*me, (*iter)->getUnitGuid());
-            if (target && target->getPowerType() == POWER_MANA)
-                return target;
-        }
-        return NULL;
+        for (auto const& pair : me->GetCombatManager().GetPvECombatRefs())
+            if (Player* player = pair.second->GetOther(me)->ToPlayer())
+                if (player->getPowerType() == POWER_MANA)
+                    return player;
+        return nullptr;
     }
 
     uint32 EnemiesInRange(float distance)
     {
-        std::list<HostileReference*> const& tList = me->getThreatManager().getThreatList();
-        std::list<HostileReference*>::const_iterator iter;
         uint32 count = 0;
-        for (iter = tList.begin(); iter != tList.end(); ++iter)
-        {
-            Unit* target = ObjectAccessor::GetUnit(*me, (*iter)->getUnitGuid());
-                if (target && me->GetDistance2d(target) < distance)
-                    ++count;
-        }
+        for (ThreatReference const* ref : me->GetThreatManager().GetUnsortedThreatList())
+            if (me->GetDistance2d(ref->GetVictim()) < distance)
+                ++count;
         return count;
     }
 
@@ -694,9 +696,7 @@ struct boss_faction_championsAI : public BossAI
 
         if (me->Attack(who, true))
         {
-            me->AddThreat(who, 10.0f);
-            me->SetInCombatWith(who);
-            who->SetInCombatWith(me);
+            AddThreat(who, 10.0f);
 
             if (_aiType == AI_MELEE || _aiType == AI_PET)
                 DoStartMovement(who);
@@ -739,6 +739,7 @@ struct boss_faction_championsAI : public BossAI
 
     private:
         uint32 _aiType;
+        uint32 _teamInstance;
         // make sure that every bosses separate events dont mix with these _events
         EventMap _events;
 };
@@ -835,7 +836,7 @@ class npc_toc_druid : public CreatureScript
 
         CreatureAI* GetAI(Creature* creature) const override
         {
-            return GetInstanceAI<npc_toc_druidAI>(creature);
+            return GetTrialOfTheCrusaderAI<npc_toc_druidAI>(creature);
         }
 };
 
@@ -892,7 +893,7 @@ class npc_toc_shaman : public CreatureScript
                             events.ScheduleEvent(EVENT_SPIRIT_CLEANSE, urand(15*IN_MILLISECONDS, 35*IN_MILLISECONDS));
                             return;
                         case EVENT_HEAL_BLOODLUST_HEROISM:
-                            if (me->getFaction()) // alliance = 1
+                            if (me->GetFaction()) // alliance = 1
                             {
                                 if (!me->HasAura(AURA_EXHAUSTION))
                                     DoCastAOE(SPELL_HEROISM);
@@ -928,7 +929,7 @@ class npc_toc_shaman : public CreatureScript
 
         CreatureAI* GetAI(Creature* creature) const override
         {
-            return GetInstanceAI<npc_toc_shamanAI>(creature);
+            return GetTrialOfTheCrusaderAI<npc_toc_shamanAI>(creature);
         }
 };
 
@@ -1032,7 +1033,7 @@ class npc_toc_paladin : public CreatureScript
 
         CreatureAI* GetAI(Creature* creature) const override
         {
-            return GetInstanceAI<npc_toc_paladinAI>(creature);
+            return GetTrialOfTheCrusaderAI<npc_toc_paladinAI>(creature);
         }
 };
 
@@ -1117,7 +1118,7 @@ class npc_toc_priest : public CreatureScript
 
         CreatureAI* GetAI(Creature* creature) const override
         {
-            return GetInstanceAI<npc_toc_priestAI>(creature);
+            return GetTrialOfTheCrusaderAI<npc_toc_priestAI>(creature);
         }
 };
 
@@ -1215,7 +1216,7 @@ class npc_toc_shadow_priest : public CreatureScript
 
         CreatureAI* GetAI(Creature* creature) const override
         {
-            return GetInstanceAI<npc_toc_shadow_priestAI>(creature);
+            return GetTrialOfTheCrusaderAI<npc_toc_shadow_priestAI>(creature);
         }
 };
 
@@ -1241,9 +1242,9 @@ class npc_toc_warlock : public CreatureScript
                 SetEquipmentSlots(false, 49992, EQUIP_NO_CHANGE, EQUIP_NO_CHANGE);
             }
 
-            void EnterCombat(Unit* who) override
+            void JustEngagedWith(Unit* who) override
             {
-                boss_faction_championsAI::EnterCombat(who);
+                boss_faction_championsAI::JustEngagedWith(who);
                 DoCast(SPELL_SUMMON_FELHUNTER);
             }
 
@@ -1306,7 +1307,7 @@ class npc_toc_warlock : public CreatureScript
 
         CreatureAI* GetAI(Creature* creature) const override
         {
-            return GetInstanceAI<npc_toc_warlockAI>(creature);
+            return GetTrialOfTheCrusaderAI<npc_toc_warlockAI>(creature);
         }
 };
 
@@ -1400,7 +1401,7 @@ class npc_toc_mage : public CreatureScript
 
         CreatureAI* GetAI(Creature* creature) const override
         {
-            return GetInstanceAI<npc_toc_mageAI>(creature);
+            return GetTrialOfTheCrusaderAI<npc_toc_mageAI>(creature);
         }
 };
 
@@ -1427,9 +1428,9 @@ class npc_toc_hunter : public CreatureScript
                 SetEquipmentSlots(false, 47156, EQUIP_NO_CHANGE, 48711);
             }
 
-            void EnterCombat(Unit* who) override
+            void JustEngagedWith(Unit* who) override
             {
-                boss_faction_championsAI::EnterCombat(who);
+                boss_faction_championsAI::JustEngagedWith(who);
                 DoCast(SPELL_CALL_PET);
             }
 
@@ -1502,7 +1503,7 @@ class npc_toc_hunter : public CreatureScript
 
         CreatureAI* GetAI(Creature* creature) const override
         {
-            return GetInstanceAI<npc_toc_hunterAI>(creature);
+            return GetTrialOfTheCrusaderAI<npc_toc_hunterAI>(creature);
         }
 };
 
@@ -1594,7 +1595,7 @@ class npc_toc_boomkin : public CreatureScript
 
         CreatureAI* GetAI(Creature* creature) const override
         {
-            return GetInstanceAI<npc_toc_boomkinAI>(creature);
+            return GetTrialOfTheCrusaderAI<npc_toc_boomkinAI>(creature);
         }
 };
 
@@ -1698,7 +1699,7 @@ class npc_toc_warrior : public CreatureScript
 
         CreatureAI* GetAI(Creature* creature) const override
         {
-            return GetInstanceAI<npc_toc_warriorAI>(creature);
+            return GetTrialOfTheCrusaderAI<npc_toc_warriorAI>(creature);
         }
 };
 
@@ -1794,7 +1795,7 @@ class npc_toc_dk : public CreatureScript
 
         CreatureAI* GetAI(Creature* creature) const override
         {
-            return GetInstanceAI<npc_toc_dkAI>(creature);
+            return GetTrialOfTheCrusaderAI<npc_toc_dkAI>(creature);
         }
 };
 
@@ -1899,7 +1900,7 @@ class npc_toc_rogue : public CreatureScript
 
         CreatureAI* GetAI(Creature* creature) const override
         {
-            return GetInstanceAI<npc_toc_rogueAI>(creature);
+            return GetTrialOfTheCrusaderAI<npc_toc_rogueAI>(creature);
         }
 };
 
@@ -2000,7 +2001,7 @@ class npc_toc_enh_shaman : public CreatureScript
                             events.ScheduleEvent(EVENT_STORMSTRIKE, urand(8*IN_MILLISECONDS, 10*IN_MILLISECONDS));
                             return;
                         case EVENT_DPS_BLOODLUST_HEROISM:
-                            if (me->getFaction()) //Am i alliance?
+                            if (me->GetFaction()) //Am i alliance?
                             {
                                 if (!me->HasAura(AURA_EXHAUSTION))
                                     DoCastAOE(SPELL_HEROISM);
@@ -2033,7 +2034,7 @@ class npc_toc_enh_shaman : public CreatureScript
 
         CreatureAI* GetAI(Creature* creature) const override
         {
-            return GetInstanceAI<npc_toc_enh_shamanAI>(creature);
+            return GetTrialOfTheCrusaderAI<npc_toc_enh_shamanAI>(creature);
         }
 };
 
@@ -2060,9 +2061,9 @@ class npc_toc_retro_paladin : public CreatureScript
                 SetEquipmentSlots(false, 47519, EQUIP_NO_CHANGE, EQUIP_NO_CHANGE);
             }
 
-            void EnterCombat(Unit* who) override
+            void JustEngagedWith(Unit* who) override
             {
-                boss_faction_championsAI::EnterCombat(who);
+                boss_faction_championsAI::JustEngagedWith(who);
                 DoCast(SPELL_SEAL_OF_COMMAND);
             }
 
@@ -2139,7 +2140,7 @@ class npc_toc_retro_paladin : public CreatureScript
 
         CreatureAI* GetAI(Creature* creature) const override
         {
-            return GetInstanceAI<npc_toc_retro_paladinAI>(creature);
+            return GetTrialOfTheCrusaderAI<npc_toc_retro_paladinAI>(creature);
         }
 };
 
@@ -2191,7 +2192,7 @@ class npc_toc_pet_warlock : public CreatureScript
 
         CreatureAI* GetAI(Creature* creature) const override
         {
-            return GetInstanceAI<npc_toc_pet_warlockAI>(creature);
+            return GetTrialOfTheCrusaderAI<npc_toc_pet_warlockAI>(creature);
         }
 };
 
@@ -2239,7 +2240,7 @@ class npc_toc_pet_hunter : public CreatureScript
 
         CreatureAI* GetAI(Creature* creature) const override
         {
-            return GetInstanceAI<npc_toc_pet_hunterAI>(creature);
+            return GetTrialOfTheCrusaderAI<npc_toc_pet_hunterAI>(creature);
         }
 };
 
@@ -2254,15 +2255,13 @@ class spell_faction_champion_warl_unstable_affliction : public SpellScriptLoader
 
             bool Validate(SpellInfo const* /*spell*/) override
             {
-                if (!sSpellMgr->GetSpellInfo(SPELL_UNSTABLE_AFFLICTION_DISPEL))
-                    return false;
-                return true;
+                return ValidateSpellInfo({ SPELL_UNSTABLE_AFFLICTION_DISPEL });
             }
 
             void HandleDispel(DispelInfo* dispelInfo)
             {
                 if (Unit* caster = GetCaster())
-                    caster->CastSpell(dispelInfo->GetDispeller(), SPELL_UNSTABLE_AFFLICTION_DISPEL, true, NULL, GetEffect(EFFECT_0));
+                    caster->CastSpell(dispelInfo->GetDispeller(), SPELL_UNSTABLE_AFFLICTION_DISPEL, GetEffect(EFFECT_0));
             }
 
             void Register() override
@@ -2288,9 +2287,7 @@ class spell_faction_champion_death_grip : public SpellScriptLoader
 
             bool Validate(SpellInfo const* /*spell*/) override
             {
-                if (!sSpellMgr->GetSpellInfo(SPELL_DEATH_GRIP_PULL))
-                    return false;
-                return true;
+                return ValidateSpellInfo({ SPELL_DEATH_GRIP_PULL });
             }
 
             void HandleDummy(SpellEffIndex /*effIndex*/)
@@ -2326,9 +2323,7 @@ class spell_toc_bloodlust : public SpellScriptLoader
 
             bool Validate(SpellInfo const* /*spellInfo*/) override
             {
-                if (!sSpellMgr->GetSpellInfo(AURA_SATED))
-                    return false;
-                return true;
+                return ValidateSpellInfo({ AURA_SATED });
             }
 
             void RemoveInvalidTargets(std::list<WorldObject*>& targets)
@@ -2367,9 +2362,7 @@ class spell_toc_heroism : public SpellScriptLoader
 
             bool Validate(SpellInfo const* /*spellInfo*/) override
             {
-                if (!sSpellMgr->GetSpellInfo(AURA_EXHAUSTION))
-                    return false;
-                return true;
+                return ValidateSpellInfo({ AURA_EXHAUSTION });
             }
 
             void RemoveInvalidTargets(std::list<WorldObject*>& targets)

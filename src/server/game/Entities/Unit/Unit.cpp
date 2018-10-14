@@ -5995,6 +5995,15 @@ void Unit::CombatStop(bool includingCast, bool mutualPvP)
         m_combatManager.EndAllPvECombat();
         m_combatManager.SuppressPvPCombat();
     }
+    // LASYAN3 : Re-mount after combat
+    if (Player *player = ToPlayer())
+    {
+        if (player->m_mountCanceled && player->m_mountSpell > 0)
+        {
+            player->CastSpell(player, player->m_mountSpell, true);
+            TC_LOG_DEBUG("lasyan3.automount", "AutoMount casted from Unit::Update");
+        }
+    }
 }
 
 void Unit::CombatStopWithPets(bool includingCast)

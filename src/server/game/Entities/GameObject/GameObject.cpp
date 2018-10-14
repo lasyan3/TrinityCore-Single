@@ -1799,6 +1799,7 @@ void GameObject::Use(Unit* user)
             }
 
             user->RemoveAurasByType(SPELL_AURA_MOUNTED);
+			TC_LOG_DEBUG("lasyan3.automount", "Mounted aura canceled from GameObject::Use");
             spellId = info->spellcaster.spellId;
 
             AddUse();

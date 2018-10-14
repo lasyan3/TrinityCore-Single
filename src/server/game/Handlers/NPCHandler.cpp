@@ -453,8 +453,10 @@ void WorldSession::HandleListStabledPetsOpcode(WorldPacket& recvData)
         GetPlayer()->RemoveAurasByType(SPELL_AURA_FEIGN_DEATH);
 
     // remove mounts this fix bug where getting pet from stable while mounted deletes pet.
-    if (GetPlayer()->IsMounted())
-        GetPlayer()->RemoveAurasByType(SPELL_AURA_MOUNTED);
+	if (GetPlayer()->IsMounted()){
+		GetPlayer()->RemoveAurasByType(SPELL_AURA_MOUNTED);
+		TC_LOG_DEBUG("lasyan3.automount", "Mounted aura canceled from WorldSession::HandleListStabledPetsOpcode");
+	}
 
     SendStablePet(npcGUID);
 }

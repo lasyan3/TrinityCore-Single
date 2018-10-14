@@ -2138,6 +2138,10 @@ class TC_GAME_API Player : public Unit, public GridObject<Player>
         std::string GetMapAreaAndZoneString() const;
         std::string GetCoordsMapAreaAndZoneString() const;
 
+        // LASYAN3: AutoMount
+        uint32 m_mountSpell;
+        bool m_mountCanceled;
+
     protected:
         // Gamemaster whisper whitelist
         GuidList WhisperList;

@@ -4059,5 +4059,27 @@ Custom.RespawnSpeed = 1.0
 
 Custom.AutoCompleteQuestDelay = 180
 
+#     Custom.LootOnlyForPlayer
+#         Set it to 1 to enable only certain item to be looted:
+#			- only equipment the player can be wear will be looted
+#			- only recipes for a profession the player has will be looted
+#			- only recipes the player does not already know will be looted
+#     Default : 0 (all items are looted)
+#
+
+Custom.LootOnlyForPlayer = 1
+
+#     Custom.MinimumRate.Drop.Item
+#         Set it to a number to set the minimum drop rates for items of the corresponding quality
+#		  If set to 0, the default drop rate will be applied.
+#     Default : 0 (default drop rate)
+#
+
+Custom.MinimumRate.Drop.Item.Uncommon = 0
+Custom.MinimumRate.Drop.Item.Rare = 0
+Custom.MinimumRate.Drop.Item.Epic = 0
+Custom.MinimumRate.Drop.Item.Legendary = 0
+Custom.MinimumRate.Drop.Item.Artifact = 0
+
 #
 ###################################################################################################################

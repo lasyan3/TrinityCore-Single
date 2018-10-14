@@ -14592,9 +14592,9 @@ void Player::SendPreparedQuest(ObjectGuid guid)
 
                 if ((quest->IsAutoComplete() && quest->IsRepeatable() && !quest->IsDailyOrWeekly()) || quest->HasFlag(QUEST_FLAGS_AUTOCOMPLETE))
                     PlayerTalkClass->SendQuestGiverRequestItems(quest, guid, CanCompleteRepeatableQuest(quest), true);
-                else
-                    PlayerTalkClass->SendQuestGiverQuestDetails(quest, guid, true);
-            }
+				else
+							PlayerTalkClass->SendQuestGiverQuestDetails(quest, guid, true);
+					}
         }
     }
     // multiple entries
@@ -16015,7 +16015,7 @@ QuestGiverStatus Player::GetQuestDialogStatus(Object* questgiver)
                 if (SatisfyQuestLevel(quest, false))
                 {
                     if (getLevel() <= (GetQuestLevel(quest) + sWorld->getIntConfig(CONFIG_QUEST_LOW_LEVEL_HIDE_DIFF)))
-                    {
+					{
                         if (quest->IsDaily())
                             result2 = DIALOG_STATUS_AVAILABLE_REP;
                         else
@@ -16642,6 +16642,9 @@ bool Player::HasQuestForItem(uint32 itemid, uint32 excludeQuestId /* 0 */, bool 
                         return true;
                 }
             }
+            // LASYAN3: This part for SourceItem
+            if (qinfo->GetSrcItemId() == itemid)
+                return true;
         }
     }
     return false;
@@ -16893,6 +16896,173 @@ void Player::AutoQuestCompleteDisplayQuestGiver(uint32 p_questId)
 	m_lastQuestCompleted = sObjectMgr->GetQuestTemplate(p_questId);
 	PrepareGossipMenu(_sum, _sum->GetCreatureTemplate()->GossipMenuId, true);
 	SendPreparedGossip(_sum);
+}
+
+bool Player::CanDropQuestItem(uint32 itemid) // LASYAN: return true if at least one quest can be done by the player
+{
+	if (!sWorld->getBoolConfig(CONFIG_DROP_QUEST_ITEMS)) return false;
+
+    TC_LOG_DEBUG("lasyan3.dropquestitems", "START CanDropQuestItem for item %d [%s]", itemid, sObjectMgr->GetItemTemplate(itemid)->Name1.c_str());
+    ObjectMgr::QuestMap _allQuests = GetAvailableQuestsForItem(itemid);
+    for (ObjectMgr::QuestMap::const_iterator iter = _allQuests.begin(); iter != _allQuests.end(); ++iter)
+    {
+        uint32 questid = iter->first;
+        Quest const* qInfo = iter->second;
+        TC_LOG_DEBUG("lasyan3.dropquestitems", " |- Item has quest %d [%s]", questid, qInfo->GetTitle().c_str());
+
+		if (Trinity::XP::GetColorCode(getLevel(), GetQuestLevel(qInfo)) == XP_GRAY)
+        {
+            TC_LOG_DEBUG("lasyan3.dropquestitems", " |- Player's level is too low!");
+            continue;
+        }
+		if (Trinity::XP::GetColorCode(getLevel(), GetQuestLevel(qInfo)) == XP_RED)
+        {
+            TC_LOG_DEBUG("lasyan3.dropquestitems", " |- Player's level is too high!");
+            continue;
+        }
+
+        for (uint8 i = 0; i < QUEST_ITEM_OBJECTIVES_COUNT; i++)
+        {
+            if (qInfo->RequiredItemId[i] != itemid)
+                continue;
+
+            if (qInfo->RequiredItemCount[i] != 0 && GetItemCount(itemid, false) < qInfo->RequiredItemCount[i])
+            {
+                uint32 itemCountNeeded = qInfo->RequiredItemCount[i];
+
+                // Get first available quest of chain
+				for (uint32 prevId : qInfo->DependentPreviousQuests)
+                {
+					Quest const* qTemp = sObjectMgr->GetQuestTemplate(prevId);
+                    if (qTemp == NULL)
+                        break;
+                    if (GetQuestStatus(prevId) == QUEST_STATUS_REWARDED)
+                        break;
+                    qInfo = qTemp;
+                }
+
+                /*IdQuestItemAdded = itemid;
+                ItemTemplate const * it = sObjectMgr->GetItemTemplate(itemid);
+                std::ostringstream msg;
+                msg << it->Name1 << " (" << (GetItemCount(itemid, false) + 1) << "/" << itemCountNeeded << ") ";*/
+                /*if (giver_name.size() > 0)
+                {
+                msg << "\r\n" << giver_name;
+                if (area_name.size() > 0) msg << " " << area_name;
+                if (zone_name.size() > 0) msg << " (" << zone_name << ")";
+                }*/
+                //MsgQuestItemAdded = msg.str();
+                TC_LOG_DEBUG("lasyan3.dropquestitems", "END CanDropQuestItem Item can be dropped for the quest --> TRUE");
+                return true;
+            }
+            else
+            {
+                TC_LOG_DEBUG("lasyan3.dropquestitems", " |- Item already at max");
+                continue;
+            }
+        }
+    }
+    TC_LOG_DEBUG("lasyan3.dropquestitems", "END CanDropQuestItem No quest is satisfying --> FALSE");
+    return false;
+}
+
+ObjectMgr::QuestMap Player::GetAvailableQuestsForItem(uint32 itemid)
+{
+    ItemTemplate const * it = sObjectMgr->GetItemTemplate(itemid);
+    TC_LOG_DEBUG("lasyan3.dropquestitems", "START GetAvailableQuestsForItem for item %d [%s]", itemid, it->Name1.c_str());
+
+    ObjectMgr::QuestMap _allQuests;
+    std::ostringstream sql;
+    sql << "SELECT id FROM quest_template WHERE RequiredItemId1 = " << itemid
+        << " OR RequiredItemId2 = " << itemid
+        << " OR RequiredItemId3 = " << itemid
+        << " OR RequiredItemId4 = " << itemid
+        << " OR RequiredItemId5 = " << itemid
+        << " OR RequiredItemId6 = " << itemid;
+    QueryResult result = WorldDatabase.Query(sql.str().c_str());
+    if (!result || result->GetRowCount() == 0)
+    {
+        TC_LOG_DEBUG("lasyan3.dropquestitems", " |- No quest found for item --> FALSE");
+        return _allQuests;
+    }
+
+    do
+    {
+        Field* fields = result->Fetch();
+        uint32 questid = fields[0].GetUInt32();
+        TC_LOG_DEBUG("lasyan3.dropquestitems", " |- Do quest %d [%s]", questid, sObjectMgr->GetQuestTemplate(questid)->GetTitle().c_str());
+
+        QuestStatus status = GetQuestStatus(questid);
+        if (status != QUEST_STATUS_NONE)
+        {
+            TC_LOG_DEBUG("lasyan3.dropquestitems", " |- Quest has status %d", status);
+            continue;
+        }
+
+        Quest const* qInfo = sObjectMgr->GetQuestTemplate(questid);
+
+        if (!qInfo->HasSpecialFlag(QUEST_SPECIAL_FLAGS_DELIVER))
+        {
+            TC_LOG_DEBUG("lasyan3.dropquestitems", " |- Quest has not special flag QUEST_SPECIAL_FLAGS_DELIVER");
+            continue;
+        }
+
+        if (qInfo->IsSeasonal())
+        {
+            TC_LOG_DEBUG("lasyan3.dropquestitems", " |- Quest is seasonal");
+            continue;
+        }
+
+        if (qInfo->IsDailyOrWeekly())
+        {
+            TC_LOG_DEBUG("lasyan3.dropquestitems", " |- Quest is daily or weekly");
+            continue;
+        }
+
+        if (!DisableMgr::IsDisabledFor(DISABLE_TYPE_QUEST, qInfo->GetQuestId(), this) && SatisfyQuestClass(qInfo, false) && SatisfyQuestRace(qInfo, false) &&
+            SatisfyQuestSkill(qInfo, false) && SatisfyQuestExclusiveGroup(qInfo, false) && SatisfyQuestReputation(qInfo, false) &&
+            /*SatisfyQuestPreviousQuest(qInfo, false) && SatisfyQuestNextChain(qInfo, false) &&
+            SatisfyQuestPrevChain(qInfo, false) &&*/ SatisfyQuestDay(qInfo, false) && SatisfyQuestWeek(qInfo, false) &&
+            SatisfyQuestMonth(qInfo, false) && SatisfyQuestSeasonal(qInfo, false))
+        {
+            /*if ((getLevel() + sWorld->getIntConfig(CONFIG_QUEST_HIGH_LEVEL_HIDE_DIFF)) < qInfo->GetMinLevel())
+            {
+            TC_LOG_DEBUG("lasyan3", " |- Player's level is too low!");
+            continue;
+            }
+            if (getLevel() > (GetQuestLevel(qInfo) + sWorld->getIntConfig(CONFIG_QUEST_LOW_LEVEL_HIDE_DIFF)))
+            {
+            TC_LOG_DEBUG("lasyan3", " |- Player's level is too high!");
+            continue;
+            }*/
+        }
+        else
+        {
+			/*if (DisableMgr::IsDisabledFor(DISABLE_TYPE_QUEST, qInfo->GetQuestId(), this))
+			if (!SatisfyQuestClass(qInfo, false))
+			if (!SatisfyQuestRace(qInfo, false))
+			if (!SatisfyQuestSkill(qInfo, false))
+			if (!SatisfyQuestExclusiveGroup(qInfo, false))
+			if (!SatisfyQuestReputation(qInfo, false))
+			if (!SatisfyQuestDay(qInfo, false))
+			if (!SatisfyQuestWeek(qInfo, false))
+			if (!SatisfyQuestMonth(qInfo, false))
+			if (!SatisfyQuestSeasonal(qInfo, false))*/
+				TC_LOG_DEBUG("lasyan3.dropquestitems", " |- Player doesn't satisfy quest");
+            continue;
+        }
+
+        if (!qInfo->IsRepeatable() && getRewardedQuests().find(questid) != getRewardedQuests().end())
+        {
+            TC_LOG_DEBUG("lasyan3.dropquestitems", " |- Quest already rewarded");
+            continue; // not allow re-complete quest
+        }
+
+        _allQuests[questid] = const_cast<Quest*>(qInfo);
+        TC_LOG_DEBUG("lasyan3.dropquestitems", " |- Quest is VALIDATED", status);
+    } while (result->NextRow());
+    TC_LOG_DEBUG("lasyan3.dropquestitems", "END GetAvailableQuestsForItem");
+    return _allQuests;
 }
 
 /*********************************************************/
@@ -24739,6 +24909,14 @@ void Player::StoreLootItem(uint8 lootSlot, Loot* loot)
         if (loot->containerID > 0)
             sLootItemStorage->RemoveStoredLootItemForContainer(loot->containerID, item->itemid, item->count);
 
+        // LASYAN3 : AlwaysDropQuestItems
+		if (CanDropQuestItem(item->itemid))
+        {
+			std::ostringstream msg;
+			ItemTemplate const * it = sObjectMgr->GetItemTemplate(item->itemid);
+			msg << it->Name1 << " (" << (GetItemCount(item->itemid, false) + 1) /*<< "/" << itemCountNeeded*/ << ") ";
+			GetSession()->SendNotification(msg.str().c_str());
+        }
     }
     else
         SendEquipError(msg, nullptr, nullptr, item->itemid);

@@ -31,6 +31,7 @@
 #include "PlayerTaxi.h"
 #include "QuestDef.h"
 #include <queue>
+#include "ObjectMgr.h"
 
 struct AccessRequirement;
 struct AchievementEntry;
@@ -1287,6 +1288,10 @@ class TC_GAME_API Player : public Unit, public GridObject<Player>
         void RemoveTimedQuest(uint32 questId) { m_timedquests.erase(questId); }
 
         bool HasPvPForcingQuest() const;
+
+        // LASYAN3: AlwaysDropQuestItems
+		bool CanDropQuestItem(uint32 itemid);
+        ObjectMgr::QuestMap GetAvailableQuestsForItem(uint32 itemid);
 
         /*********************************************************/
         /***                   LOAD SYSTEM                     ***/

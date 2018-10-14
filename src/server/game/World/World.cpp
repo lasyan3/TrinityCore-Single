@@ -1242,6 +1242,7 @@ void World::LoadConfigSettings(bool reload)
     m_visibility_notify_periodInBGArenas = sConfigMgr->GetIntDefault("Visibility.Notify.Period.InBGArenas",    DEFAULT_VISIBILITY_NOTIFY_PERIOD);
 
     m_int_configs[CONFIG_QUEST_AUTOCOMPLETE_DELAY] = sConfigMgr->GetIntDefault("Custom.AutoCompleteQuestDelay", 0);
+    m_bool_configs[CONFIG_DROP_QUEST_ITEMS] = sConfigMgr->GetBoolDefault("Custom.AlwaysDropQuestItems", false);
     m_bool_configs[CONFIG_LOOT_ONLY_FOR_PLAYER] = sConfigMgr->GetBoolDefault("Custom.LootOnlyForPlayer", false);
     m_bool_configs[CONFIG_LOOT_UNIQUE] = sConfigMgr->GetBoolDefault("Custom.LootUnique", false);
     m_float_configs[CONFIG_MINRATE_DROP_ITEM_UNCOMMON] = sConfigMgr->GetFloatDefault("Custom.MinimumRate.Drop.Item.Uncommon", 1);

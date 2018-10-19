@@ -4066,6 +4066,8 @@ Custom.LootOnlyForPlayer = 1
 #     Default : 0 (default drop rate)
 #
 
+Custom.MinimumRate.Drop.Item.Poor = 0
+Custom.MinimumRate.Drop.Item.Normal = 0
 Custom.MinimumRate.Drop.Item.Uncommon = 0
 Custom.MinimumRate.Drop.Item.Rare = 0
 Custom.MinimumRate.Drop.Item.Epic = 0

@@ -152,6 +152,11 @@ void ThreatReference::ClearThreat(bool sendRemove)
     if (cWho->HasUnitTypeMask(UNIT_MASK_MINION | UNIT_MASK_GUARDIAN) && !cWho->GetOwnerGUID().IsCreature())
         return false;
 
+    //npcbot - npcbots and their pets cannot have threatlist
+    if (cWho->GetBotAI())
+        return false;
+    //end npcbot
+
     return true;
 }
 

@@ -1246,10 +1246,12 @@ void World::LoadConfigSettings(bool reload)
     m_bool_configs[CONFIG_SMARTQUESTS_KILL] = sConfigMgr->GetBoolDefault("Custom.SmartQuests.Kill", false);
     m_bool_configs[CONFIG_LOOT_ONLY_FOR_PLAYER] = sConfigMgr->GetBoolDefault("Custom.LootOnlyForPlayer", false);
     m_bool_configs[CONFIG_LOOT_UNIQUE] = sConfigMgr->GetBoolDefault("Custom.LootUnique", false);
-    m_float_configs[CONFIG_MINRATE_DROP_ITEM_UNCOMMON] = sConfigMgr->GetFloatDefault("Custom.MinimumRate.Drop.Item.Uncommon", 1);
-    m_float_configs[CONFIG_MINRATE_DROP_ITEM_EPIC] = sConfigMgr->GetFloatDefault("Custom.MinimumRate.Drop.Item.Epic", 1);
-    m_float_configs[CONFIG_MINRATE_DROP_ITEM_LEGEND] = sConfigMgr->GetFloatDefault("Custom.MinimumRate.Drop.Item.Legendary", 1);
-    m_float_configs[CONFIG_MINRATE_DROP_ITEM_ART] = sConfigMgr->GetFloatDefault("Custom.MinimumRate.Drop.Item.Artifact", 1);
+    m_float_configs[CONFIG_MINRATE_DROP_ITEM_POOR] = sConfigMgr->GetFloatDefault("Custom.MinimumRate.Drop.Item.Poor", 0);
+    m_float_configs[CONFIG_MINRATE_DROP_ITEM_NORMAL] = sConfigMgr->GetFloatDefault("Custom.MinimumRate.Drop.Item.Normal", 0);
+    m_float_configs[CONFIG_MINRATE_DROP_ITEM_UNCOMMON] = sConfigMgr->GetFloatDefault("Custom.MinimumRate.Drop.Item.Uncommon", 0);
+    m_float_configs[CONFIG_MINRATE_DROP_ITEM_EPIC] = sConfigMgr->GetFloatDefault("Custom.MinimumRate.Drop.Item.Epic", 0);
+    m_float_configs[CONFIG_MINRATE_DROP_ITEM_LEGEND] = sConfigMgr->GetFloatDefault("Custom.MinimumRate.Drop.Item.Legendary", 0);
+    m_float_configs[CONFIG_MINRATE_DROP_ITEM_ART] = sConfigMgr->GetFloatDefault("Custom.MinimumRate.Drop.Item.Artifact", 0);
     m_float_configs[CONFIG_SPEED_GAME] = sConfigMgr->GetFloatDefault("Custom.SpeedGame", 1.0f);
     m_bool_configs[CONFIG_HURT_IN_REAL_TIME] = sConfigMgr->GetBoolDefault("Custom.HurtInRealTime", false);
     m_float_configs[CONFIG_ATTACKSPEED_PLAYER] = sConfigMgr->GetFloatDefault("Custom.AttackSpeedForPlayer", 1.0f);

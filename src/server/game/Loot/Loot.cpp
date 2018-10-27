@@ -176,6 +176,7 @@ bool LootItem::AllowedForPlayer(Player const* player) const
         TC_LOG_INFO("lasyan3", "%s is only for the Horde!", pProto->Name1.c_str());
         return false;
     }
+    if ((pProto->Flags2 & ITEM_FLAG2_FACTION_ALLIANCE) && player->GetTeam() != ALLIANCE)
     {
         TC_LOG_INFO("lasyan3", "%s is only for the Alliance!", pProto->Name1.c_str());
         return false;
@@ -390,7 +391,7 @@ NotNormalLootItemList* Loot::FillQuestLoot(Player* player)
     {
         LootItem &item = quest_items[i];
 
-        if (!item.is_looted && (item.AllowedForPlayer(player) || (item.follow_loot_rules && player->GetGroup() && ((player->GetGroup()->GetLootMethod() == MASTER_LOOT && player->GetGroup()->GetMasterLooterGuid() == player->GetGUID()) || player->GetGroup()->GetLootMethod() != MASTER_LOOT))))
+        if (!item.is_looted && (item.AllowedForPlayer(player) || (item.follow_loot_rules && player->GetGroup() && ((player->GetGroup()->GetLootMethod() == MASTER_LOOT && player->GetGroup()->GetMasterLooterGuid() == player->GetGUID()) || player->GetGroup()->GetLootMethod() != MASTER_LOOT)) || player->CanDropQuestItem(item.itemid) > 0))
         {
             ql->push_back(NotNormalLootItem(i));
 
@@ -707,7 +708,7 @@ ByteBuffer& operator<<(ByteBuffer& b, LootView const& lv)
             // blocked rolled items and quest items, and !ffa items
             for (uint8 i = 0; i < l.items.size(); ++i)
             {
-                if (!l.items[i].is_looted && !l.items[i].freeforall && l.items[i].conditions.empty() && l.items[i].AllowedForPlayer(lv.viewer))
+                if (!l.items[i].is_looted && !l.items[i].freeforall && l.items[i].conditions.empty() && (l.items[i].AllowedForPlayer(lv.viewer) || lv.viewer->CanDropQuestItem(l.items[i].itemid) > 0))
                 {
                     uint8 slot_type;
 
@@ -762,7 +763,7 @@ ByteBuffer& operator<<(ByteBuffer& b, LootView const& lv)
         {
             for (uint8 i = 0; i < l.items.size(); ++i)
             {
-                if (!l.items[i].is_looted && !l.items[i].freeforall && l.items[i].conditions.empty() && l.items[i].AllowedForPlayer(lv.viewer))
+                if (!l.items[i].is_looted && !l.items[i].freeforall && l.items[i].conditions.empty() && (l.items[i].AllowedForPlayer(lv.viewer) || lv.viewer->CanDropQuestItem(l.items[i].itemid) > 0))
                 {
                     if (!l.roundRobinPlayer.IsEmpty() && lv.viewer->GetGUID() != l.roundRobinPlayer)
                         // item shall not be displayed.
@@ -781,7 +782,7 @@ ByteBuffer& operator<<(ByteBuffer& b, LootView const& lv)
             uint8 slot_type = lv.permission == OWNER_PERMISSION ? LOOT_SLOT_TYPE_OWNER : LOOT_SLOT_TYPE_ALLOW_LOOT;
             for (uint8 i = 0; i < l.items.size(); ++i)
             {
-                if (!l.items[i].is_looted && !l.items[i].freeforall && l.items[i].conditions.empty() && l.items[i].AllowedForPlayer(lv.viewer))
+                if (!l.items[i].is_looted && !l.items[i].freeforall && l.items[i].conditions.empty() && (l.items[i].AllowedForPlayer(lv.viewer) || lv.viewer->CanDropQuestItem(l.items[i].itemid) > 0))
                 {
                     b << uint8(i) << l.items[i];
                     b << uint8(slot_type);

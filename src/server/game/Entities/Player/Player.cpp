@@ -12037,6 +12037,38 @@ Item* Player::StoreNewItem(ItemPosCountVec const& dest, uint32 item, bool update
             stmt->setString(1, ss.str());
             CharacterDatabase.Execute(stmt);
         }
+        if (CanDropQuestItem(item) > 0) {
+            LocaleConstant loc = GetSession()->GetSessionDbLocaleIndex();
+            ItemLocale const * il = sObjectMgr->GetItemLocale(item);
+            std::string locName;
+            ObjectMgr::GetLocaleString(il->Name, loc, locName);
+            std::ostringstream msg;
+            msg << locName << " (" << GetItemCount(item, true) << "/" << m_deliverCheck[item] << ") ";
+            if (GetItemCount(item, true) == m_deliverCheck[item]) {
+                ObjectMgr::QuestMap _allQuests = GetAvailableQuestsForItem(item);
+                ObjectMgr::QuestMap::const_iterator iter = _allQuests.begin();
+                //uint32 questid = iter->first;
+                Quest const* qInfo = iter->second;
+                if (qInfo) {
+                    std::string giver_name, area_name, zone_name;
+                    GetQuestInformations(qInfo, giver_name, area_name, zone_name);
+                    if (area_name.size() > 0)
+                    {
+                        std::ostringstream msg2;
+                        //msg2 << "\r\n" << giver_name;
+                        msg2 << locName << ": " << " " << area_name;
+                        if (zone_name.size() > 0) msg2 << " (" << zone_name << ")";
+                        ChatHandler(GetSession()).SendSysMessage(msg2.str().c_str());
+                    }
+                }
+            }
+            GetSession()->SendNotification("|cff00bbbb%s", msg.str().c_str());
+            if (GetItemCount(item, true) >= m_deliverCheck[item]) {
+                m_deliverCheck[item] = -1;
+                //m_mustBuildValuesUpdate = true;
+                UpdateForQuestWorldObjects();
+            }
+        }
     }
     return pItem;
 }
@@ -12867,6 +12899,7 @@ void Player::DestroyItemCount(Item* pItem, uint32 &count, bool update)
     if (!pItem)
         return;
 
+    uint32 entry = pItem->GetEntry();
     TC_LOG_DEBUG("entities.player.items", "Player::DestroyItemCount: Player '%s' (%s), Item (%s, Entry: %u), Count: %u",
         GetName().c_str(), GetGUID().ToString().c_str(), pItem->GetGUID().ToString().c_str(), pItem->GetEntry(), count);
 
@@ -12884,6 +12917,12 @@ void Player::DestroyItemCount(Item* pItem, uint32 &count, bool update)
         if (IsInWorld() && update)
             pItem->SendUpdateToPlayer(this);
         pItem->SetState(ITEM_CHANGED, this);
+    }
+
+    if (m_deliverCheck[entry] < 0) {
+        //TC_LOG_DEBUG("lasyan3.smartquests.deliver", "Destroy-1");
+        m_deliverCheck[entry] = 0;
+        UpdateForQuestWorldObjects();
     }
 }
 
@@ -15070,8 +15109,16 @@ void Player::AddQuest(Quest const* quest, Object* questGiver)
 
     if (quest->HasSpecialFlag(QUEST_SPECIAL_FLAGS_KILL | QUEST_SPECIAL_FLAGS_CAST | QUEST_SPECIAL_FLAGS_SPEAKTO))
     {
-        for (uint8 i = 0; i < QUEST_OBJECTIVES_COUNT; ++i)
-            questStatusData.CreatureOrGOCount[i] = 0;
+        for (uint8 i = 0; i < QUEST_OBJECTIVES_COUNT; ++i) {
+            PlayerKillCountMap::const_iterator itr = m_goKilledCount.find(quest->RequiredNpcOrGo[i]);
+            if (itr != m_goKilledCount.end()) {
+                questStatusData.CreatureOrGOCount[i] = m_goKilledCount[quest->RequiredNpcOrGo[i]];
+                //SetQuestSlotCounter(log_slot, i, m_goKilledCount[quest->RequiredNpcOrGo[i]]);
+            }
+            else {
+                questStatusData.CreatureOrGOCount[i] = 0;
+            }
+        }
     }
 
     if (quest->HasSpecialFlag(QUEST_SPECIAL_FLAGS_PLAYER_KILL))
@@ -15111,6 +15158,12 @@ void Player::AddQuest(Quest const* quest, Object* questGiver)
     }
 
     SetQuestSlot(log_slot, quest_id, qtime);
+    for (uint8 i = 0; i < QUEST_OBJECTIVES_COUNT; ++i) {
+        if (questStatusData.CreatureOrGOCount[i] > 0) {
+            TC_LOG_DEBUG("lasyan3.smartquests.kill", "SetQuestSlotCounter(%d, %d, %d)", log_slot, i, questStatusData.CreatureOrGOCount[i]);
+            SetQuestSlotCounter(log_slot, i, questStatusData.CreatureOrGOCount[i]);
+        }
+    }
 
     m_QuestStatusSave[quest_id] = QUEST_DEFAULT_SAVE_TYPE;
 
@@ -16399,6 +16452,15 @@ void Player::KilledMonsterCredit(uint32 entry, ObjectGuid guid /*= ObjectGuid::E
     StartTimedAchievement(ACHIEVEMENT_TIMED_TYPE_CREATURE, real_entry);   // MUST BE CALLED FIRST
     UpdateAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_KILL_CREATURE, real_entry, addkillcount, killed);
 
+    PlayerKillCountMap::const_iterator itr = m_goKilledCount.find(real_entry);
+    if (itr == m_goKilledCount.end()) {
+        m_goKilledCount[real_entry] = 1;
+    }
+    else {
+        m_goKilledCount[real_entry] = m_goKilledCount[real_entry] + 1;
+    }
+    CanKillQuestGo(real_entry);
+
     for (uint8 i = 0; i < MAX_QUEST_LOG_SIZE; ++i)
     {
         uint32 questid = GetQuestSlotQuestId(i);
@@ -16999,42 +17061,59 @@ void Player::AutoQuestCompleteDisplayQuestGiver(uint32 p_questId)
 	SendPreparedGossip(_sum);
 }
 
-bool Player::CanDropQuestItem(uint32 itemid) // LASYAN: return true if at least one quest can be done by the player
+int32 Player::CanDropQuestItem(uint32 itemid) // LASYAN: return true if at least one quest can be done by the player
 {
-	if (!sWorld->getBoolConfig(CONFIG_DROP_QUEST_ITEMS)) return false;
+    if (!sWorld->getBoolConfig(CONFIG_SMARTQUESTS_DELIVER)) return 0;
 
-    TC_LOG_DEBUG("lasyan3.dropquestitems", "START CanDropQuestItem for item %d [%s]", itemid, sObjectMgr->GetItemTemplate(itemid)->Name1.c_str());
+    //TC_LOG_DEBUG("lasyan3.smartquests.deliver", "START CanDropQuestItem for item %d [%s]", itemid, sObjectMgr->GetItemTemplate(itemid)->Name1.c_str());
+    //TC_LOG_INFO("lasyan3.smartquests.deliver", "GetItemCount(itemid, true)=%d", GetItemCount(itemid, true));
+
+    if (m_deliverCheck[itemid] != 0) {
+        //TC_LOG_INFO("lasyan3.smartquests.deliver", "CanDropQuestItem SKIP for item %d [%s]", itemid, sObjectMgr->GetItemTemplate(itemid)->Name1.c_str());
+        return m_deliverCheck[itemid];
+    }
+    /*if (m_deliverCheck[itemid] < 0) {
+        //TC_LOG_INFO("lasyan3.smartquests.deliver", "CanDropQuestItem DONE for item %d [%s]", itemid, sObjectMgr->GetItemTemplate(itemid)->Name1.c_str());
+        return m_deliverCheck[itemid];
+    }
+
+    m_deliverCheck[itemid] = 0;*/
+
+    LocaleConstant loc = GetSession()->GetSessionDbLocaleIndex();
+    ItemLocale const * il = sObjectMgr->GetItemLocale(itemid);
+    std::string itemLocName;
+    ObjectMgr::GetLocaleString(il->Name, loc, itemLocName);
+    TC_LOG_DEBUG("lasyan3.smartquests.deliver", "START CanDropQuestItem for item %d [%s]", itemid, itemLocName);
+
+    ItemTemplate const *it = sObjectMgr->GetItemTemplate(itemid);
+    if (it == nullptr) return 0;
+    if (it->Class != ITEM_CLASS_QUEST) {
+        TC_LOG_DEBUG("lasyan3.smartquests.deliver", "Item %s is not for a quest!", itemLocName);
+        return 0;
+    }
+
+
     ObjectMgr::QuestMap _allQuests = GetAvailableQuestsForItem(itemid);
     for (ObjectMgr::QuestMap::const_iterator iter = _allQuests.begin(); iter != _allQuests.end(); ++iter)
     {
         uint32 questid = iter->first;
         Quest const* qInfo = iter->second;
-        TC_LOG_DEBUG("lasyan3.dropquestitems", " |- Item has quest %d [%s]", questid, qInfo->GetTitle().c_str());
-
-		if (Trinity::XP::GetColorCode(getLevel(), GetQuestLevel(qInfo)) == XP_GRAY)
-        {
-            TC_LOG_DEBUG("lasyan3.dropquestitems", " |- Player's level is too low!");
-            continue;
-        }
-		if (Trinity::XP::GetColorCode(getLevel(), GetQuestLevel(qInfo)) == XP_RED)
-        {
-            TC_LOG_DEBUG("lasyan3.dropquestitems", " |- Player's level is too high!");
-            continue;
-        }
+        //TC_LOG_DEBUG("lasyan3.smartquests.deliver", " |- Item has quest %d [%s]", questid, qInfo->GetTitle().c_str());
 
         for (uint8 i = 0; i < QUEST_ITEM_OBJECTIVES_COUNT; i++)
         {
             if (qInfo->RequiredItemId[i] != itemid)
                 continue;
-
-            if (qInfo->RequiredItemCount[i] != 0 && GetItemCount(itemid, false) < qInfo->RequiredItemCount[i])
+            if (qInfo->RequiredItemCount[i] == 0) continue;
+            if (GetItemCount(itemid, true) < qInfo->RequiredItemCount[i])
             {
                 uint32 itemCountNeeded = qInfo->RequiredItemCount[i];
 
                 // Get first available quest of chain
-				for (uint32 prevId : qInfo->DependentPreviousQuests)
+                for (uint32 prevId : qInfo->DependentPreviousQuests)
                 {
-					Quest const* qTemp = sObjectMgr->GetQuestTemplate(prevId);
+                    // checked in startup
+                    Quest const* qTemp = sObjectMgr->GetQuestTemplate(prevId);
                     if (qTemp == NULL)
                         break;
                     if (GetQuestStatus(prevId) == QUEST_STATUS_REWARDED)
@@ -17042,35 +17121,26 @@ bool Player::CanDropQuestItem(uint32 itemid) // LASYAN: return true if at least 
                     qInfo = qTemp;
                 }
 
-                /*IdQuestItemAdded = itemid;
-                ItemTemplate const * it = sObjectMgr->GetItemTemplate(itemid);
-                std::ostringstream msg;
-                msg << it->Name1 << " (" << (GetItemCount(itemid, false) + 1) << "/" << itemCountNeeded << ") ";*/
-                /*if (giver_name.size() > 0)
-                {
-                msg << "\r\n" << giver_name;
-                if (area_name.size() > 0) msg << " " << area_name;
-                if (zone_name.size() > 0) msg << " (" << zone_name << ")";
-                }*/
-                //MsgQuestItemAdded = msg.str();
-                TC_LOG_DEBUG("lasyan3.dropquestitems", "END CanDropQuestItem Item can be dropped for the quest --> TRUE");
-                return true;
+                m_deliverCheck[itemid] = itemCountNeeded;
+                TC_LOG_DEBUG("lasyan3.smartquests.deliver", "CanDropQuestItem TRUE for item %d [%s]", itemid, itemLocName);
+                return m_deliverCheck[itemid];
             }
             else
             {
-                TC_LOG_DEBUG("lasyan3.dropquestitems", " |- Item already at max");
+                //TC_LOG_DEBUG("lasyan3.smartquests.deliver", " |- Item already at max");
                 continue;
             }
         }
     }
-    TC_LOG_DEBUG("lasyan3.dropquestitems", "END CanDropQuestItem No quest is satisfying --> FALSE");
-    return false;
+    //m_deliverCheck[itemid] = -1; // all those quests have item already at max
+    TC_LOG_INFO("lasyan3.smartquests.deliver", "CanDropQuestItem FALSE for item %d [%s]", itemid, itemLocName);
+    return 0;
 }
 
 ObjectMgr::QuestMap Player::GetAvailableQuestsForItem(uint32 itemid)
 {
-    ItemTemplate const * it = sObjectMgr->GetItemTemplate(itemid);
-    TC_LOG_DEBUG("lasyan3.dropquestitems", "START GetAvailableQuestsForItem for item %d [%s]", itemid, it->Name1.c_str());
+    //ItemTemplate const * it = sObjectMgr->GetItemTemplate(itemid);
+    //TC_LOG_DEBUG("lasyan3.smartquests.deliver", "START GetAvailableQuestsForItem for item %d [%s]", itemid, it->Name1.c_str());
 
     ObjectMgr::QuestMap _allQuests;
     std::ostringstream sql;
@@ -17083,20 +17153,26 @@ ObjectMgr::QuestMap Player::GetAvailableQuestsForItem(uint32 itemid)
     QueryResult result = WorldDatabase.Query(sql.str().c_str());
     if (!result || result->GetRowCount() == 0)
     {
-        TC_LOG_DEBUG("lasyan3.dropquestitems", " |- No quest found for item --> FALSE");
+        //TC_LOG_DEBUG("lasyan3.smartquests.deliver", " |- No quest found --> FALSE");
+        m_deliverCheck[itemid] = -1;
         return _allQuests;
     }
 
+    bool _neverDo = true;
     do
     {
         Field* fields = result->Fetch();
         uint32 questid = fields[0].GetUInt32();
-        TC_LOG_DEBUG("lasyan3.dropquestitems", " |- Do quest %d [%s]", questid, sObjectMgr->GetQuestTemplate(questid)->GetTitle().c_str());
+        LocaleConstant loc = GetSession()->GetSessionDbLocaleIndex();
+        QuestLocale const * ql = sObjectMgr->GetQuestLocale(questid);
+        std::string questLocName;
+        ObjectMgr::GetLocaleString(ql->Title, loc, questLocName);
+        TC_LOG_DEBUG("lasyan3.smartquests.deliver", " |- Do quest %d [%s]", questid, questLocName);
 
         QuestStatus status = GetQuestStatus(questid);
         if (status != QUEST_STATUS_NONE)
         {
-            TC_LOG_DEBUG("lasyan3.dropquestitems", " |- Quest has status %d", status);
+            TC_LOG_DEBUG("lasyan3.smartquests.deliver", "     |- Quest has status %d", status);
             continue;
         }
 
@@ -17104,67 +17180,452 @@ ObjectMgr::QuestMap Player::GetAvailableQuestsForItem(uint32 itemid)
 
         if (!qInfo->HasSpecialFlag(QUEST_SPECIAL_FLAGS_DELIVER))
         {
-            TC_LOG_DEBUG("lasyan3.dropquestitems", " |- Quest has not special flag QUEST_SPECIAL_FLAGS_DELIVER");
+            TC_LOG_DEBUG("lasyan3.smartquests.deliver", "     |- Quest has not special flag QUEST_SPECIAL_FLAGS_DELIVER");
             continue;
         }
 
         if (qInfo->IsSeasonal())
         {
-            TC_LOG_DEBUG("lasyan3.dropquestitems", " |- Quest is seasonal");
+            TC_LOG_DEBUG("lasyan3.smartquests.deliver", "     |- Quest is seasonal");
             continue;
         }
 
         if (qInfo->IsDailyOrWeekly())
         {
-            TC_LOG_DEBUG("lasyan3.dropquestitems", " |- Quest is daily or weekly");
+            TC_LOG_DEBUG("lasyan3.smartquests.deliver", "     |- Quest is daily or weekly");
             continue;
         }
 
-        if (!DisableMgr::IsDisabledFor(DISABLE_TYPE_QUEST, qInfo->GetQuestId(), this) && SatisfyQuestClass(qInfo, false) && SatisfyQuestRace(qInfo, false) &&
+        if (/*CanTakeQuest(qInfo)*/ !DisableMgr::IsDisabledFor(DISABLE_TYPE_QUEST, qInfo->GetQuestId(), this)
+            && SatisfyQuestStatus(qInfo, false) && SatisfyQuestExclusiveGroup(qInfo, false)
+            && SatisfyQuestClass(qInfo, false) && SatisfyQuestRace(qInfo, false) && SatisfyQuestLevel(qInfo, false)
+            && SatisfyQuestSkill(qInfo, false) && SatisfyQuestReputation(qInfo, false)
+            /*&& SatisfyQuestDependentQuests(qInfo, false)*/ && SatisfyQuestTimed(qInfo, false)
+            && SatisfyQuestDay(qInfo, false) && SatisfyQuestWeek(qInfo, false)
+            && SatisfyQuestMonth(qInfo, false) && SatisfyQuestSeasonal(qInfo, false)
+            && this->SatisfyQuestConditions(qInfo, false)/*&&
+            DisableMgr::IsDisabledFor(DISABLE_TYPE_QUEST, qInfo->GetQuestId(), this) && SatisfyQuestClass(qInfo, false) && SatisfyQuestRace(qInfo, false) &&
             SatisfyQuestSkill(qInfo, false) && SatisfyQuestExclusiveGroup(qInfo, false) && SatisfyQuestReputation(qInfo, false) &&
-            /*SatisfyQuestPreviousQuest(qInfo, false) && SatisfyQuestNextChain(qInfo, false) &&
-            SatisfyQuestPrevChain(qInfo, false) &&*/ SatisfyQuestDay(qInfo, false) && SatisfyQuestWeek(qInfo, false) &&
-            SatisfyQuestMonth(qInfo, false) && SatisfyQuestSeasonal(qInfo, false))
+            //SatisfyQuestPreviousQuest(qInfo, false) && SatisfyQuestNextChain(qInfo, false) &&
+            SatisfyQuestPrevChain(qInfo, false) && SatisfyQuestDay(qInfo, false) && SatisfyQuestWeek(qInfo, false) &&
+            SatisfyQuestMonth(qInfo, false) && SatisfyQuestSeasonal(qInfo, false)*/)
         {
-            /*if ((getLevel() + sWorld->getIntConfig(CONFIG_QUEST_HIGH_LEVEL_HIDE_DIFF)) < qInfo->GetMinLevel())
-            {
-            TC_LOG_DEBUG("lasyan3", " |- Player's level is too low!");
-            continue;
-            }
-            if (getLevel() > (GetQuestLevel(qInfo) + sWorld->getIntConfig(CONFIG_QUEST_LOW_LEVEL_HIDE_DIFF)))
-            {
-            TC_LOG_DEBUG("lasyan3", " |- Player's level is too high!");
-            continue;
-            }*/
         }
         else
         {
-			/*if (DisableMgr::IsDisabledFor(DISABLE_TYPE_QUEST, qInfo->GetQuestId(), this))
-			if (!SatisfyQuestClass(qInfo, false))
-			if (!SatisfyQuestRace(qInfo, false))
-			if (!SatisfyQuestSkill(qInfo, false))
-			if (!SatisfyQuestExclusiveGroup(qInfo, false))
-			if (!SatisfyQuestReputation(qInfo, false))
-			if (!SatisfyQuestDay(qInfo, false))
-			if (!SatisfyQuestWeek(qInfo, false))
-			if (!SatisfyQuestMonth(qInfo, false))
-			if (!SatisfyQuestSeasonal(qInfo, false))*/
-				TC_LOG_DEBUG("lasyan3.dropquestitems", " |- Player doesn't satisfy quest");
+            if (DisableMgr::IsDisabledFor(DISABLE_TYPE_QUEST, qInfo->GetQuestId(), this))
+            {
+                TC_LOG_DEBUG("lasyan3.smartquests.deliver", "     |- Quest is disabled");
+            }
+            if (!SatisfyQuestStatus(qInfo, false))
+            {
+                TC_LOG_DEBUG("lasyan3.smartquests.deliver", "     |- SatisfyQuestStatus");
+            }
+            if (!SatisfyQuestExclusiveGroup(qInfo, false))
+            {
+                TC_LOG_DEBUG("lasyan3.smartquests.deliver", "     |- SatisfyQuestExclusiveGroup");
+            }
+            if (!SatisfyQuestClass(qInfo, false))
+            {
+                TC_LOG_DEBUG("lasyan3.smartquests.deliver", "     |- SatisfyQuestClass");
+            }
+            if (!SatisfyQuestRace(qInfo, false))
+            {
+                TC_LOG_DEBUG("lasyan3.smartquests.deliver", "     |- SatisfyQuestRace");
+            }
+            if (!SatisfyQuestLevel(qInfo, false))
+            {
+                _neverDo = false;
+                TC_LOG_DEBUG("lasyan3.smartquests.deliver", "     |- SatisfyQuestLevel");
+            }
+            if (!SatisfyQuestSkill(qInfo, false))
+            {
+                _neverDo = false;
+                TC_LOG_DEBUG("lasyan3.smartquests.deliver", "     |- SatisfyQuestSkill");
+            }
+            if (!SatisfyQuestReputation(qInfo, false))
+            {
+                _neverDo = false;
+                TC_LOG_DEBUG("lasyan3.smartquests.deliver", "     |- SatisfyQuestReputation");
+            }
+            if (!SatisfyQuestTimed(qInfo, false))
+            {
+                _neverDo = false;
+                TC_LOG_DEBUG("lasyan3.smartquests.deliver", "     |- SatisfyQuestTimed");
+            }
+            if (!SatisfyQuestDay(qInfo, false))
+            {
+                TC_LOG_DEBUG("lasyan3.smartquests.deliver", "     |- SatisfyQuestDay");
+            }
+            if (!SatisfyQuestWeek(qInfo, false))
+            {
+                TC_LOG_DEBUG("lasyan3.smartquests.deliver", "     |- SatisfyQuestWeek");
+            }
+            if (!SatisfyQuestMonth(qInfo, false))
+            {
+                TC_LOG_DEBUG("lasyan3.smartquests.deliver", "     |- SatisfyQuestMonth");
+            }
+            if (!SatisfyQuestSeasonal(qInfo, false))
+            {
+                TC_LOG_DEBUG("lasyan3.smartquests.deliver", "     |- SatisfyQuestSeasonal");
+            }
+            if (!SatisfyQuestConditions(qInfo, false))
+            {
+                _neverDo = false;
+                TC_LOG_DEBUG("lasyan3.smartquests.deliver", "     |- SatisfyQuestConditions");
+            }
             continue;
         }
 
         if (!qInfo->IsRepeatable() && getRewardedQuests().find(questid) != getRewardedQuests().end())
         {
-            TC_LOG_DEBUG("lasyan3.dropquestitems", " |- Quest already rewarded");
+            TC_LOG_DEBUG("lasyan3.smartquests.deliver", "     |- Quest already rewarded");
+            continue; // not allow re-complete quest
+        }
+
+        // Ignore quests given by creature or gameobject in a different zone
+        std::ostringstream sql;
+        sql << "SELECT ct.name, c.map, c.position_x, c.position_y, c.position_z FROM creature c"
+            << " INNER JOIN creature_queststarter s ON s.id = c.id"
+            << " INNER JOIN creature_template ct ON ct.entry = c.id"
+            << " WHERE s.quest = %d";
+        QueryResult result = WorldDatabase.PQuery(sql.str().c_str(), qInfo->GetQuestId());
+        if (!result || result->GetRowCount() == 0)
+        {
+            std::ostringstream sql2;
+            sql2 << "SELECT gt.name, g.map, g.position_x, g.position_y, g.position_z FROM gameobject g"
+                << " INNER JOIN gameobject_queststarter s ON s.id = g.id"
+                << " INNER JOIN gameobject_template gt ON gt.entry = g.id"
+                << " WHERE s.quest = " << qInfo->GetQuestId();
+            result = WorldDatabase.Query(sql2.str().c_str());
+        }
+        if (!result || result->GetRowCount() == 0)
+        {
+            TC_LOG_DEBUG("lasyan3.smartquests.deliver", "     |- No starters found!");
+            continue;
+        }
+        uint32 _map_id = (*result)[1].GetUInt32();
+        float _pos_x = (*result)[2].GetFloat();
+        float _pos_y = (*result)[3].GetFloat();
+        float _pos_z = (*result)[4].GetFloat();
+
+        Map* map = sMapMgr->CreateBaseMap(_map_id);
+        if (!map) {
+            TC_LOG_DEBUG("lasyan3.smartquests.deliver", "     |- No map found!");
+            continue;
+        }
+        uint32 zoneid, areaid;
+        GetZoneAndAreaId(zoneid, areaid);
+        if (zoneid != map->GetZoneId(_pos_x, _pos_y, _pos_z)) {
+            AreaTableEntry const* zone = sAreaTableStore.LookupEntry(map->GetZoneId(_pos_x, _pos_y, _pos_z));
+            TC_LOG_DEBUG("lasyan3.smartquests.deliver", "     |- Quest is in a different zone %s!", zone->area_name[sObjectMgr->GetDBCLocaleIndex()]);
+            continue;
+        }
+
+        _allQuests[questid] = const_cast<Quest*>(qInfo);
+        _neverDo = false;
+        TC_LOG_DEBUG("lasyan3.smartquests.deliver", "     |- Quest is VALIDATED");
+    } while (result->NextRow());
+
+    if (_neverDo) {
+        m_deliverCheck[itemid] = -1;
+        TC_LOG_DEBUG("lasyan3.smartquests.deliver", "     |- NEVER check this item again!");
+    }
+
+    //TC_LOG_DEBUG("lasyan3.smartquests.deliver", "END GetAvailableQuestsForItem");
+    return _allQuests;
+}
+
+int32 Player::CanKillQuestGo(uint32 goid) // LASYAN: return true if at least one quest can be done by the player
+{
+    if (!sWorld->getBoolConfig(CONFIG_SMARTQUESTS_KILL)) return 0;
+
+    TC_LOG_DEBUG("lasyan3.smartquests.kill", "START CanDropQuestKill for go %d [%s]", goid, sObjectMgr->GetCreatureTemplate(goid)->Name.c_str());
+    ObjectMgr::QuestMap _allQuests = GetAvailableQuestsForKill(goid);
+    for (ObjectMgr::QuestMap::const_iterator iter = _allQuests.begin(); iter != _allQuests.end(); ++iter)
+    {
+        uint32 questid = iter->first;
+        Quest const* qInfo = iter->second;
+        TC_LOG_DEBUG("lasyan3.smartquests.kill", " |- Go has quest %d [%s]", questid, qInfo->GetTitle().c_str());
+
+        if ((getLevel() + sWorld->getIntConfig(CONFIG_QUEST_HIGH_LEVEL_HIDE_DIFF)) < qInfo->GetMinLevel())
+        {
+            TC_LOG_DEBUG("lasyan3.smartquests.kill", " |- Player's level is too low!");
+            continue;
+        }
+        if (getLevel() > (GetQuestLevel(qInfo) + sWorld->getIntConfig(CONFIG_QUEST_LOW_LEVEL_HIDE_DIFF)))
+        {
+            TC_LOG_DEBUG("lasyan3.smartquests.kill", " |- Player's level is too high!");
+            continue;
+        }
+
+        for (uint8 i = 0; i < QUEST_ITEM_OBJECTIVES_COUNT; i++)
+        {
+            if (qInfo->RequiredNpcOrGo[i] != goid)
+                continue;
+
+            if (qInfo->RequiredNpcOrGoCount[i] != 0 && m_goKilledCount[goid] <= qInfo->RequiredNpcOrGoCount[i])
+            {
+                uint32 goCountNeeded = qInfo->RequiredNpcOrGoCount[i];
+
+                // Get first available quest of chain
+                for (uint32 prevId : qInfo->DependentPreviousQuests)
+                {
+                    // checked in startup
+                    Quest const* qTemp = sObjectMgr->GetQuestTemplate(prevId);
+                    if (qTemp == NULL)
+                        break;
+                    if (GetQuestStatus(prevId) == QUEST_STATUS_REWARDED)
+                        break;
+                    qInfo = qTemp;
+                }
+
+                LocaleConstant loc = GetSession()->GetSessionDbLocaleIndex();
+                CreatureLocale const * cl = sObjectMgr->GetCreatureLocale(goid);
+                std::string locName;
+                ObjectMgr::GetLocaleString(cl->Name, loc, locName);
+                std::ostringstream msg;
+                msg << locName << " (" << m_goKilledCount[goid] << "/" << goCountNeeded << ") ";
+                if (m_goKilledCount[goid] == goCountNeeded) {
+                    std::string giver_name, area_name, zone_name;
+                    GetQuestInformations(qInfo, giver_name, area_name, zone_name);
+                    if (giver_name.size() > 0)
+                    {
+                        std::ostringstream msg2;
+                        msg2 << locName << ": ";
+                        if (area_name.size() > 0) msg2 << " " << area_name;
+                        if (zone_name.size() > 0) msg2 << " (" << zone_name << ")";
+                        ChatHandler(GetSession()).SendSysMessage(msg2.str().c_str());
+                    }
+                }
+                GetSession()->SendNotification("|cff00bbbb%s", msg.str().c_str());
+                TC_LOG_DEBUG("lasyan3.smartquests.kill", "END CanKillQuestGo Go can be killed for the quest --> TRUE");
+                return 1;
+            }
+            else
+            {
+                TC_LOG_DEBUG("lasyan3.smartquests.kill", " |- Killed count already done");
+                continue;
+            }
+        }
+    }
+    TC_LOG_DEBUG("lasyan3.smartquests.kill", "END CanKillQuestGo No quest is satisfying --> FALSE");
+    return 0;
+}
+
+ObjectMgr::QuestMap Player::GetAvailableQuestsForKill(uint32 goid)
+{
+    CreatureTemplate const * ct = sObjectMgr->GetCreatureTemplate(goid);
+    TC_LOG_DEBUG("lasyan3.smartquests.kill", "START GetAvailableQuestsForKill for go %d [%s]", goid, ct->Name.c_str());
+
+    ObjectMgr::QuestMap _allQuests;
+    std::ostringstream sql;
+    sql << "SELECT id FROM quest_template WHERE RequiredNpcOrGo1 = " << goid
+        << " OR RequiredNpcOrGo2 = " << goid
+        << " OR RequiredNpcOrGo3 = " << goid
+        << " OR RequiredNpcOrGo4 = " << goid;
+    QueryResult result = WorldDatabase.Query(sql.str().c_str());
+    if (!result || result->GetRowCount() == 0)
+    {
+        TC_LOG_DEBUG("lasyan3.smartquests.kill", " |- No quest found for go --> FALSE");
+        return _allQuests;
+    }
+
+    do
+    {
+        Field* fields = result->Fetch();
+        uint32 questid = fields[0].GetUInt32();
+        TC_LOG_DEBUG("lasyan3.smartquests.kill", " |- Do quest %d [%s]", questid, sObjectMgr->GetQuestTemplate(questid)->GetTitle().c_str());
+
+        QuestStatus status = GetQuestStatus(questid);
+        if (status != QUEST_STATUS_NONE)
+        {
+            TC_LOG_DEBUG("lasyan3.smartquests.kill", " |- Quest has status %d", status);
+            continue;
+        }
+
+        Quest const* qInfo = sObjectMgr->GetQuestTemplate(questid);
+
+        if (!qInfo->HasSpecialFlag(QUEST_SPECIAL_FLAGS_KILL))
+        {
+            TC_LOG_DEBUG("lasyan3.smartquests.kill", " |- Quest has not special flag QUEST_SPECIAL_FLAGS_KILL");
+            continue;
+        }
+
+        if (qInfo->IsSeasonal())
+        {
+            TC_LOG_DEBUG("lasyan.smartquests.kill", " |- Quest is seasonal");
+            continue;
+        }
+
+        if (qInfo->IsDailyOrWeekly())
+        {
+            TC_LOG_DEBUG("lasyan.smartquests.kill", " |- Quest is daily or weekly");
+            continue;
+        }
+
+        if (/*CanTakeQuest(qInfo)*/ !DisableMgr::IsDisabledFor(DISABLE_TYPE_QUEST, qInfo->GetQuestId(), this)
+            && SatisfyQuestStatus(qInfo, false) && SatisfyQuestExclusiveGroup(qInfo, false)
+            && SatisfyQuestClass(qInfo, false) && SatisfyQuestRace(qInfo, false) && SatisfyQuestLevel(qInfo, false)
+            && SatisfyQuestSkill(qInfo, false) && SatisfyQuestReputation(qInfo, false)
+            /*&& SatisfyQuestDependentQuests(qInfo, false)*/ && SatisfyQuestTimed(qInfo, false)
+            && SatisfyQuestDay(qInfo, false) && SatisfyQuestWeek(qInfo, false)
+            && SatisfyQuestMonth(qInfo, false) && SatisfyQuestSeasonal(qInfo, false)
+            && SatisfyQuestConditions(qInfo, false)/*&&
+            DisableMgr::IsDisabledFor(DISABLE_TYPE_QUEST, qInfo->GetQuestId(), this) && SatisfyQuestClass(qInfo, false) && SatisfyQuestRace(qInfo, false) &&
+            SatisfyQuestSkill(qInfo, false) && SatisfyQuestExclusiveGroup(qInfo, false) && SatisfyQuestReputation(qInfo, false) &&
+            //SatisfyQuestPreviousQuest(qInfo, false) && SatisfyQuestNextChain(qInfo, false) &&
+            SatisfyQuestPrevChain(qInfo, false) && SatisfyQuestDay(qInfo, false) && SatisfyQuestWeek(qInfo, false) &&
+            SatisfyQuestMonth(qInfo, false) && SatisfyQuestSeasonal(qInfo, false)*/)
+        {
+        }
+        else
+        {
+            if (DisableMgr::IsDisabledFor(DISABLE_TYPE_QUEST, qInfo->GetQuestId(), this))
+            {
+                TC_LOG_DEBUG("lasyan3.smartquests.kill", " |- Quest is disabled");
+            }
+            if (!SatisfyQuestStatus(qInfo, false))
+            {
+                TC_LOG_DEBUG("lasyan3.smartquests.kill", " |- SatisfyQuestStatus");
+            }
+            if (!SatisfyQuestExclusiveGroup(qInfo, false))
+            {
+                TC_LOG_DEBUG("lasyan3.smartquests.kill", " |- SatisfyQuestExclusiveGroup");
+            }
+            if (!SatisfyQuestClass(qInfo, false))
+            {
+                TC_LOG_DEBUG("lasyan3.smartquests.kill", " |- SatisfyQuestClass");
+            }
+            if (!SatisfyQuestRace(qInfo, false))
+            {
+                TC_LOG_DEBUG("lasyan3.smartquests.kill", " |- SatisfyQuestRace");
+            }
+            if (!SatisfyQuestLevel(qInfo, false))
+            {
+                TC_LOG_DEBUG("lasyan3.smartquests.kill", " |- SatisfyQuestLevel");
+            }
+            if (!SatisfyQuestSkill(qInfo, false))
+            {
+                TC_LOG_DEBUG("lasyan3.smartquests.kill", " |- SatisfyQuestSkill");
+            }
+            if (!SatisfyQuestReputation(qInfo, false))
+            {
+                TC_LOG_DEBUG("lasyan3.smartquests.kill", " |- SatisfyQuestReputation");
+            }
+            if (!SatisfyQuestTimed(qInfo, false))
+            {
+                TC_LOG_DEBUG("lasyan3.smartquests.kill", " |- SatisfyQuestTimed");
+            }
+            if (!SatisfyQuestDay(qInfo, false))
+            {
+                TC_LOG_DEBUG("lasyan3.smartquests.kill", " |- SatisfyQuestDay");
+            }
+            if (!SatisfyQuestWeek(qInfo, false))
+            {
+                TC_LOG_DEBUG("lasyan3.smartquests.kill", " |- SatisfyQuestWeek");
+            }
+            if (!SatisfyQuestMonth(qInfo, false))
+            {
+                TC_LOG_DEBUG("lasyan3.smartquests.kill", " |- SatisfyQuestMonth");
+            }
+            if (!SatisfyQuestSeasonal(qInfo, false))
+            {
+                TC_LOG_DEBUG("lasyan3.smartquests.kill", " |- SatisfyQuestSeasonal");
+            }
+            if (!SatisfyQuestConditions(qInfo, false))
+            {
+                TC_LOG_DEBUG("lasyan3.smartquests.kill", " |- SatisfyQuestConditions");
+            }
+            continue;
+        }
+
+        if (!qInfo->IsRepeatable() && getRewardedQuests().find(questid) != getRewardedQuests().end())
+        {
+            TC_LOG_DEBUG("lasyan3.smartquests.kill", " |- Quest already rewarded");
             continue; // not allow re-complete quest
         }
 
         _allQuests[questid] = const_cast<Quest*>(qInfo);
-        TC_LOG_DEBUG("lasyan3.dropquestitems", " |- Quest is VALIDATED", status);
+        TC_LOG_DEBUG("lasyan3.smartquests.kill", " |- Quest is VALIDATED", status);
     } while (result->NextRow());
-    TC_LOG_DEBUG("lasyan3.dropquestitems", "END GetAvailableQuestsForItem");
+    TC_LOG_DEBUG("lasyan3.smartquests.kill", "END GetAvailableQuestsForKill");
     return _allQuests;
 }
+
+void Player::GetQuestInformations(Quest const *qInfo, std::string& giver_name, std::string& giver_area_name, std::string& giver_zone_name)
+{
+    std::ostringstream sql;
+    sql << "SELECT ct.name, c.map, c.position_x, c.position_y, c.position_z FROM creature c"
+        << " INNER JOIN creature_queststarter s ON s.id = c.id"
+        << " INNER JOIN creature_template ct ON ct.entry = c.id"
+        << " WHERE s.quest = %d";
+    QueryResult result = WorldDatabase.PQuery(sql.str().c_str(), qInfo->GetQuestId());
+    if (!result || result->GetRowCount() == 0)
+    {
+        std::ostringstream sql2;
+        sql2 << "SELECT gt.name, g.map, g.position_x, g.position_y, g.position_z FROM gameobject g"
+            << " INNER JOIN gameobject_queststarter s ON s.id = g.id"
+            << " INNER JOIN gameobject_template gt ON gt.entry = g.id"
+            << " WHERE s.quest = " << qInfo->GetQuestId();
+        result = WorldDatabase.Query(sql2.str().c_str());
+    }
+    if (result && result->GetRowCount() > 0)
+    {
+        giver_name = (*result)[0].GetString();
+        uint32 _map_id = (*result)[1].GetUInt32();
+        float _pos_x = (*result)[2].GetFloat();
+        float _pos_y = (*result)[3].GetFloat();
+        float _pos_z = (*result)[4].GetFloat();
+
+        Map* map = sMapMgr->CreateBaseMap(_map_id);
+        if (map)
+        {
+            AreaTableEntry const* area = sAreaTableStore.LookupEntry(map->GetAreaId(_pos_x, _pos_y, _pos_z));
+            AreaTableEntry const* zone = sAreaTableStore.LookupEntry(map->GetZoneId(_pos_x, _pos_y, _pos_z));
+            if (area) giver_area_name = area->area_name[sObjectMgr->GetDBCLocaleIndex()];
+            if (zone && stricmp(zone->area_name[sObjectMgr->GetDBCLocaleIndex()], area->area_name[sObjectMgr->GetDBCLocaleIndex()]) != 0)
+                giver_zone_name = zone->area_name[sObjectMgr->GetDBCLocaleIndex()];
+        }
+    }
+}
+
+/*void Player::GetQuestItemInformations(Quest const *qInfo, std::string& giver_name, std::string& giver_area_name, std::string& giver_zone_name)
+{
+    std::ostringstream sql;
+    sql << "SELECT ct.name, c.map, c.position_x, c.position_y, c.position_z FROM creature c"
+        << " INNER JOIN creature_queststarter s ON s.id = c.id"
+        << " INNER JOIN creature_template ct ON ct.entry = c.id"
+        << " WHERE s.quest = %d";
+    QueryResult result = WorldDatabase.PQuery(sql.str().c_str(), qInfo->GetQuestId());
+    if (!result || result->GetRowCount() == 0)
+    {
+        std::ostringstream sql2;
+        sql2 << "SELECT gt.name, g.map, g.position_x, g.position_y, g.position_z FROM gameobject g"
+            << " INNER JOIN gameobject_queststarter s ON s.id = g.id"
+            << " INNER JOIN gameobject_template gt ON gt.entry = g.id"
+            << " WHERE s.quest = " << qInfo->GetQuestId();
+        result = WorldDatabase.Query(sql2.str().c_str());
+    }
+    if (result && result->GetRowCount() > 0)
+    {
+        giver_name = (*result)[0].GetString();
+        uint32 _map_id = (*result)[1].GetUInt32();
+        float _pos_x = (*result)[2].GetFloat();
+        float _pos_y = (*result)[3].GetFloat();
+        float _pos_z = (*result)[4].GetFloat();
+
+        Map* map = sMapMgr->CreateBaseMap(_map_id);
+        if (map)
+        {
+            AreaTableEntry const* area = GetAreaEntryByAreaID(map->GetAreaId(_pos_x, _pos_y, _pos_z));
+            AreaTableEntry const* zone = GetAreaEntryByAreaID(map->GetZoneId(_pos_x, _pos_y, _pos_z));
+            if (area) giver_area_name = area->area_name[sObjectMgr->GetDBCLocaleIndex()];
+            if (zone && stricmp(zone->area_name[sObjectMgr->GetDBCLocaleIndex()], area->area_name[sObjectMgr->GetDBCLocaleIndex()]) != 0)
+                giver_zone_name = zone->area_name[sObjectMgr->GetDBCLocaleIndex()];
+        }
+    }
+}//*/
 
 /*********************************************************/
 /***                   LOAD SYSTEM                     ***/
@@ -24942,7 +25403,7 @@ void Player::StoreLootItem(uint8 lootSlot, Loot* loot)
         return;
     }
 
-    if (!item->AllowedForPlayer(this))
+    if (!item->AllowedForPlayer(this) && CanDropQuestItem(item->itemid) == 0)
     {
         SendLootRelease(GetLootGUID());
         return;
@@ -25011,13 +25472,13 @@ void Player::StoreLootItem(uint8 lootSlot, Loot* loot)
             sLootItemStorage->RemoveStoredLootItemForContainer(loot->containerID, item->itemid, item->count);
 
         // LASYAN3 : AlwaysDropQuestItems
-		if (CanDropQuestItem(item->itemid))
+		/*if (CanDropQuestItem(item->itemid))
         {
 			std::ostringstream msg;
 			ItemTemplate const * it = sObjectMgr->GetItemTemplate(item->itemid);
-			msg << it->Name1 << " (" << (GetItemCount(item->itemid, false) + 1) /*<< "/" << itemCountNeeded*/ << ") ";
+			msg << it->Name1 << " (" << (GetItemCount(item->itemid, false) + 1) << ") ";
 			GetSession()->SendNotification(msg.str().c_str());
-        }
+        }*/
     }
     else
         SendEquipError(msg, nullptr, nullptr, item->itemid);

@@ -685,7 +685,7 @@ bool LootTemplate::HasQuestDropForPlayer(LootTemplateMap const& store, Player co
             if (Referenced->second->HasQuestDropForPlayer(store, player, item->groupid))
                 return true;
         }
-        else if (player->HasQuestForItem(item->itemid))
+        else if (player->HasQuestForItem(item->itemid) || ((Player *)player)->CanDropQuestItem(item->itemid) > 0)
             return true;                                    // active quest drop found
     }
 

@@ -158,6 +158,9 @@ typedef std::unordered_set<SpellModifier*> SpellModContainer;
 
 typedef std::unordered_map<uint32 /*instanceId*/, time_t/*releaseTime*/> InstanceTimeMap;
 
+typedef std::unordered_map<uint32, uint32> PlayerKillCountMap; // LASYAN3
+typedef std::unordered_map<uint32, int32> SmartQuestDeliverMap; // LASYAN3
+
 enum TrainerSpellState
 {
     TRAINER_SPELL_GREEN = 0,
@@ -1293,8 +1296,15 @@ class TC_GAME_API Player : public Unit, public GridObject<Player>
         bool HasPvPForcingQuest() const;
 
         // LASYAN3: AlwaysDropQuestItems
-		bool CanDropQuestItem(uint32 itemid);
+        int32 CanDropQuestItem(uint32 itemid);
         ObjectMgr::QuestMap GetAvailableQuestsForItem(uint32 itemid);
+        void GetQuestInformations(Quest const *qInfo, std::string& giver_name, std::string& giver_area_name, std::string& giver_zone_name);
+        int32 CanKillQuestGo(uint32 goid);
+        ObjectMgr::QuestMap GetAvailableQuestsForKill(uint32 goid);
+
+        PlayerKillCountMap m_goKilledCount;
+        SmartQuestDeliverMap m_deliverCheck;
+        bool m_mustBuildValuesUpdate = false;
 
         /*********************************************************/
         /***                   LOAD SYSTEM                     ***/

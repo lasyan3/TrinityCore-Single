@@ -146,19 +146,20 @@ bool LootItem::AllowedForPlayer(Player const* player) const
             }
             if (!allowEquip && player->GetSkillValue(itemSkill) == 0)
             {
-                TC_LOG_INFO("lasyan3", "Loot cannot be equip by player %s: %s", player->GetName().c_str(), pProto->Name1.c_str());
+                TC_LOG_DEBUG("lasyan3.customloot", "Loot cannot be equip by player %s: %s", player->GetName().c_str(), pProto->Name1.c_str());
                 return false;
             }
         }
 
         if (pProto->RequiredReputationFaction && uint32(player->GetReputationRank(pProto->RequiredReputationFaction)) < pProto->RequiredReputationRank)
         {
-            TC_LOG_INFO("lasyan3", "Loot cannot be used by player %s (REPUTATION) : %s", player->GetName().c_str(), pProto->Name1.c_str());
+            TC_LOG_DEBUG("lasyan3.customloot", "Loot cannot be used by player %s (REPUTATION) : %s", player->GetName().c_str(), pProto->Name1.c_str());
             return false;
         }
     }
 
-    if (pProto->Flags & ITEM_FLAG_HIDE_UNUSABLE_RECIPE && sWorld->getBoolConfig(CONFIG_LOOT_ONLY_FOR_PLAYER))
+    //if (pProto->Flags & ITEM_FLAG_HIDE_UNUSABLE_RECIPE && sWorld->getBoolConfig(CONFIG_LOOT_ONLY_FOR_PLAYER))
+    if (pProto->Class == ITEM_CLASS_RECIPE)
     {
         if (!player->HasSkill(pProto->RequiredSkill))
         {
@@ -173,12 +174,12 @@ bool LootItem::AllowedForPlayer(Player const* player) const
     }
     if ((pProto->Flags2 & ITEM_FLAG2_FACTION_HORDE) && player->GetTeam() != HORDE)
     {
-        TC_LOG_INFO("lasyan3", "%s is only for the Horde!", pProto->Name1.c_str());
+        TC_LOG_DEBUG("lasyan3.customloot", "%s is only for the Horde!", pProto->Name1.c_str());
         return false;
     }
     if ((pProto->Flags2 & ITEM_FLAG2_FACTION_ALLIANCE) && player->GetTeam() != ALLIANCE)
     {
-        TC_LOG_INFO("lasyan3", "%s is only for the Alliance!", pProto->Name1.c_str());
+        TC_LOG_DEBUG("lasyan3.customloot", "%s is only for the Alliance!", pProto->Name1.c_str());
         return false;
     }
     // LASYAN3 : Loot only one item
@@ -187,7 +188,7 @@ bool LootItem::AllowedForPlayer(Player const* player) const
     {
         if (player->HasItemCount(itemid, 1, true))
         {
-            TC_LOG_INFO("lasyan3", "Only one exemplary allowed for player %s: %s", player->GetName().c_str(), pProto->Name1.c_str());
+            TC_LOG_DEBUG("lasyan3.customloot", "Only one exemplary allowed for player %s: %s", player->GetName().c_str(), pProto->Name1.c_str());
             return false;
         }
     }
@@ -195,11 +196,11 @@ bool LootItem::AllowedForPlayer(Player const* player) const
     // check quest requirements
     if (!(pProto->FlagsCu & ITEM_FLAGS_CU_IGNORE_QUEST_STATUS) && ((needs_quest || (pProto->StartQuest && player->GetQuestStatus(pProto->StartQuest) != QUEST_STATUS_NONE)) && !player->HasQuestForItem(itemid)))
     {
-        TC_LOG_DEBUG("lasyan3", "Check quest requirements --> FALSE");
+        TC_LOG_DEBUG("lasyan3.customloot", "Check quest requirements --> FALSE");
         return false;
     }
 
-    TC_LOG_DEBUG("lasyan3", "Loot allowed for %s", pProto->Name1.c_str());
+    TC_LOG_DEBUG("lasyan3.customloot", "Loot allowed for %s", pProto->Name1.c_str());
     return true;
 }
 

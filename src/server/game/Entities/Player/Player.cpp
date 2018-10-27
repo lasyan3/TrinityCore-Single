@@ -17055,10 +17055,6 @@ void Player::AutoQuestCompleteDisplayQuestGiver(uint32 p_questId)
 	// Stop the npc if moving
 	_sum->StopMoving();
 	_sum->SetReactState(REACT_PASSIVE);
-	// Display quest popup
-	m_lastQuestCompleted = sObjectMgr->GetQuestTemplate(p_questId);
-	PrepareGossipMenu(_sum, _sum->GetCreatureTemplate()->GossipMenuId, true);
-	SendPreparedGossip(_sum);
 }
 
 int32 Player::CanDropQuestItem(uint32 itemid) // LASYAN: return true if at least one quest can be done by the player

@@ -1110,7 +1110,7 @@ void Creature::CalculateMinMaxDamage(WeaponAttackType attType, bool normalized, 
     float weaponMinDamage = GetWeaponDamageRange(attType, MINDAMAGE);
     float weaponMaxDamage = GetWeaponDamageRange(attType, MAXDAMAGE);
 
-    if (!CanUseAttackType(attType)) // disarm case
+    if (!CanUseAttackType(attType) || (GetTypeId() == TYPEID_UNIT && ToCreature()->GetBotAI())) // disarm case
     {
         weaponMinDamage = 0.0f;
         weaponMaxDamage = 0.0f;

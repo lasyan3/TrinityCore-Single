@@ -543,7 +543,7 @@ public:
                 return;
             CheckAttackState();
 
-            if (me->getPowerType() != POWER_RUNIC_POWER)
+            if (me->GetPowerType() != POWER_RUNIC_POWER)
                 InitPowers();
 
             if (runicpowertimer <= diff)
@@ -1347,7 +1347,7 @@ public:
 
             runicpowerIncomeMult = sWorld->getRate(RATE_POWER_RUNICPOWER_INCOME);
             runicpowerLossMult = sWorld->getRate(RATE_POWER_RUNICPOWER_LOSS);
-            me->setPowerType(POWER_RUNIC_POWER);
+            me->SetPowerType(POWER_RUNIC_POWER);
             me->SetMaxPower(POWER_RUNIC_POWER, me->GetCreatePowers(POWER_RUNIC_POWER));            
 
             DefaultInit();

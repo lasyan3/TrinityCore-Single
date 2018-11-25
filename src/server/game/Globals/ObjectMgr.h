@@ -963,6 +963,7 @@ class TC_GAME_API ObjectMgr
         GameObjectTemplateAddon const* GetGameObjectTemplateAddon(uint32 entry) const;
         GameObjectOverride const* GetGameObjectOverride(ObjectGuid::LowType spawnId) const;
         CreatureAddon const* GetCreatureTemplateAddon(uint32 entry) const;
+        CreatureMovementData const* GetCreatureMovementOverride(ObjectGuid::LowType spawnId) const;
         ItemTemplate const* GetItemTemplate(uint32 entry) const;
         ItemTemplateContainer const& GetItemTemplateStore() const { return _itemTemplateStore; }
 
@@ -1166,6 +1167,7 @@ class TC_GAME_API ObjectMgr
         void LoadCreatureTemplateAddons();
         void LoadCreatureTemplate(Field* fields);
         void CheckCreatureTemplate(CreatureTemplate const* cInfo);
+        void CheckCreatureMovement(char const* table, uint64 id, CreatureMovementData& creatureMovement);
         void LoadGameObjectQuestItems();
         void LoadCreatureQuestItems();
         void LoadTempSummons();
@@ -1176,6 +1178,7 @@ class TC_GAME_API ObjectMgr
         void LoadGameObjectAddons();
         void LoadCreatureModelInfo();
         void LoadEquipmentTemplates();
+        void LoadCreatureMovementOverrides();
         void LoadGameObjectLocales();
         void LoadGameObjects();
         void LoadSpawnGroupTemplates();
@@ -1662,6 +1665,7 @@ class TC_GAME_API ObjectMgr
         CreatureModelContainer _creatureModelStore;
         CreatureAddonContainer _creatureAddonStore;
         CreatureTemplateAddonContainer _creatureTemplateAddonStore;
+        std::unordered_map<ObjectGuid::LowType, CreatureMovementData> _creatureMovementOverrides;
         GameObjectAddonContainer _gameObjectAddonStore;
         GameObjectQuestItemMap _gameObjectQuestItemStore;
         CreatureQuestItemMap _creatureQuestItemStore;

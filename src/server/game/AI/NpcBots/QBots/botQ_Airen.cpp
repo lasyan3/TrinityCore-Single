@@ -103,7 +103,7 @@ public:
             me->SetMaxHealth(me->GetCreateHealth());
             me->SetFullHealth();
 
-            me->setPowerType(POWER_RAGE);
+            me->SetPowerType(POWER_RAGE);
             me->SetMaxPower(POWER_RAGE, 10000);
             me->SetPower(POWER_RAGE, me->GetMaxPower(POWER_RAGE));
         }

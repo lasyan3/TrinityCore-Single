@@ -716,7 +716,7 @@ public:
             tempDICE = false;
             //shadowstep = false;
 
-            me->setPowerType(POWER_ENERGY);
+            me->SetPowerType(POWER_ENERGY);
             //10 energy gained per stack
             DefaultInit();
 

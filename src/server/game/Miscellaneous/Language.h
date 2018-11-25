@@ -213,7 +213,7 @@ enum TrinityStrings
     LANG_INVALID_GAMEOBJECT_TYPE          = 176,
     LANG_GAMEOBJECT_DAMAGED               = 177,
     LANG_GRID_POSITION                    = 178,
-    // 179-185 used in 6.x branch
+    // 179-185 used in master branch
     LANG_TRANSPORT_POSITION               = 186,
     LANG_PARTIAL_GROUP_SUMMON             = 187,
     // Room for more level 1                188-199 not used
@@ -1137,7 +1137,7 @@ enum TrinityStrings
     LANG_BAN_ACCOUNT_YOUBANNEDMESSAGE_WORLD       = 11006,
     LANG_BAN_ACCOUNT_YOUPERMBANNEDMESSAGE_WORLD   = 11007,
 
-    LANG_NPCINFO_INHABIT_TYPE                     = 11008,
+    LANG_NPCINFO_MOVEMENT_DATA                    = 11008,
     LANG_NPCINFO_FLAGS_EXTRA                      = 11009,
     LANG_INSTANCE_LOGIN_GAMEMASTER_EXCEPTION      = 11010,
 

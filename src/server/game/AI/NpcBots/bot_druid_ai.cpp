@@ -76,7 +76,7 @@ public:
             {
                 cost = m_botSpellInfo->CalcPowerCost(me, m_botSpellInfo->GetSchoolMask());
                 clearcast = true;
-                power = me->getPowerType();
+                power = me->GetPowerType();
             }
             return result;
         }
@@ -218,7 +218,7 @@ public:
 
         void doBearActions(uint32 diff)
         {
-            if (me->getPowerType() != POWER_RAGE) return;
+            if (me->GetPowerType() != POWER_RAGE) return;
 
             if (GetHealthPCT(me) < 75)
                 if (HealTarget(me, GetHealthPCT(me), diff))
@@ -244,7 +244,7 @@ public:
 
         void doCatActions(uint32 diff)
         {
-            if (me->getPowerType() != POWER_ENERGY) return;
+            if (me->GetPowerType() != POWER_ENERGY) return;
 
             if (GetHealthPCT(me) < 75)
                 if (HealTarget(me, GetHealthPCT(me), diff))
@@ -398,7 +398,7 @@ public:
                 return;
             CheckAttackState();
 
-            if (me->getPowerType() == POWER_RAGE)
+            if (me->GetPowerType() == POWER_RAGE)
             {
                 rage = me->GetPower(POWER_RAGE);
                 if (ragetimer2 <= diff)
@@ -441,7 +441,7 @@ public:
             if (CCed(me)) return;
             warstomp(diff);
 
-            if (Potion_cd <= diff && me->getPowerType() == POWER_MANA && GetManaPCT(me) < 20)
+            if (Potion_cd <= diff && me->GetPowerType() == POWER_MANA && GetManaPCT(me) < 20)
             {
                 temptimer = GC_Timer;
                 if (doCast(me, MANAPOTION))
@@ -683,10 +683,10 @@ public:
             uint32 INNERVATE = GetSpell(INNERVATE_1);
             Unit* iTarget = NULL;
 
-            if (master->IsInCombat() && master->getPowerType() == POWER_MANA &&
+            if (master->IsInCombat() && master->GetPowerType() == POWER_MANA &&
                 GetManaPCT(master) < 20 && !master->HasAura(INNERVATE))
                 iTarget = master;
-            else if (me->IsInCombat() && me->getPowerType() == POWER_MANA &&
+            else if (me->IsInCombat() && me->GetPowerType() == POWER_MANA &&
                 GetManaPCT(me) < 20 && !me->HasAura(INNERVATE))
                 iTarget = me;
 
@@ -701,7 +701,7 @@ public:
                         Creature* bot = itr->second;
                         if (!bot || !bot->IsInCombat() || bot->isDead()) continue;
                         if (me->GetExactDist(bot) > 30) continue;
-                        if (bot->getPowerType() != POWER_MANA) continue;
+                        if (bot->GetPowerType() != POWER_MANA) continue;
                         if (GetManaPCT(bot) < minmanaval && !bot->HasAura(INNERVATE))
                         {
                             iTarget = bot;
@@ -716,7 +716,7 @@ public:
                         Player* tPlayer = itr->GetSource();
                         if (tPlayer == NULL || !tPlayer->IsInWorld() || !tPlayer->IsInCombat() || tPlayer->isDead()) continue;
                         if (me->GetExactDist(tPlayer) > 30) continue;
-                        if (tPlayer->getPowerType() != POWER_MANA) continue;
+                        if (tPlayer->GetPowerType() != POWER_MANA) continue;
                         if (GetManaPCT(tPlayer) < minmanaval && !tPlayer->HasAura(INNERVATE))
                         {
                             iTarget = tPlayer;
@@ -738,7 +738,7 @@ public:
                             Creature* bot = it->second;
                             if (!bot || bot->isDead()) continue;
                             if (me->GetExactDist(bot) > 30) continue;
-                            if (bot->getPowerType() != POWER_MANA) continue;
+                            if (bot->GetPowerType() != POWER_MANA) continue;
                             if (GetManaPCT(bot) < minmanaval && !bot->HasAura(INNERVATE))
                             {
                                 iTarget = bot;
@@ -849,7 +849,7 @@ public:
                 case BOT_CLASS_DRUID:
                     Form = BOT_STANCE_NONE;
                     SetShouldUpdateStats();
-                    me->setPowerType(POWER_MANA);
+                    me->SetPowerType(POWER_MANA);
                     me->RemoveMovementImpairingAuras(true);
                     break;
                 default:

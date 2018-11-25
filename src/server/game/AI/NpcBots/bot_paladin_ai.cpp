@@ -520,13 +520,13 @@ public:
                         return true;
                     else if (BLESSING_OF_SANCTUARY && !sanctuary && doCast(target, BLESSING_OF_SANCTUARY))
                         return true;
-                    else if (BLESSING_OF_WISDOM && !wisdom && target->getPowerType() == POWER_MANA && doCast(target, BLESSING_OF_WISDOM))
+                    else if (BLESSING_OF_WISDOM && !wisdom && target->GetPowerType() == POWER_MANA && doCast(target, BLESSING_OF_WISDOM))
                         return true;
                     break;
                 default:
                     if (BLESSING_OF_KINGS && !kings && doCast(target, BLESSING_OF_KINGS))
                         return true;
-                    else if (BLESSING_OF_WISDOM && !wisdom && target->getPowerType() == POWER_MANA && doCast(target, BLESSING_OF_WISDOM))
+                    else if (BLESSING_OF_WISDOM && !wisdom && target->GetPowerType() == POWER_MANA && doCast(target, BLESSING_OF_WISDOM))
                         return true;
                     else if (BLESSING_OF_SANCTUARY && !sanctuary && doCast(target, BLESSING_OF_SANCTUARY))
                         return true;

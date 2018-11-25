@@ -21,6 +21,7 @@
 #include "BattlefieldWG.h"
 #include "BattlegroundMgr.h"
 #include "Chat.h"
+#include "Containers.h"
 #include "DatabaseEnv.h"
 #include "DBCStores.h"
 #include "Log.h"
@@ -174,7 +175,7 @@ void SpellMgr::SetSpellDifficultyId(uint32 spellId, uint32 id)
     mSpellDifficultySearcherMap[spellId] = id;
 }
 
-uint32 SpellMgr::GetSpellIdForDifficulty(uint32 spellId, Unit const* caster) const
+uint32 SpellMgr::GetSpellIdForDifficulty(uint32 spellId, WorldObject const* caster) const
 {
     if (!GetSpellInfo(spellId))
         return spellId;
@@ -216,7 +217,7 @@ uint32 SpellMgr::GetSpellIdForDifficulty(uint32 spellId, Unit const* caster) con
     return uint32(difficultyEntry->SpellID[mode]);
 }
 
-SpellInfo const* SpellMgr::GetSpellForDifficultyFromSpell(SpellInfo const* spell, Unit const* caster) const
+SpellInfo const* SpellMgr::GetSpellForDifficultyFromSpell(SpellInfo const* spell, WorldObject const* caster) const
 {
     if (!spell)
         return nullptr;
@@ -640,10 +641,9 @@ bool SpellMgr::IsArenaAllowedEnchancment(uint32 ench_id) const
     return mEnchantCustomAttr[ench_id];
 }
 
-const std::vector<int32>* SpellMgr::GetSpellLinked(int32 spell_id) const
+std::vector<int32> const* SpellMgr::GetSpellLinked(int32 spell_id) const
 {
-    SpellLinkedMap::const_iterator itr = mSpellLinkedMap.find(spell_id);
-    return itr != mSpellLinkedMap.end() ? &(itr->second) : nullptr;
+    return Trinity::Containers::MapGetValuePtr(mSpellLinkedMap, spell_id);
 }
 
 PetLevelupSpellSet const* SpellMgr::GetPetLevelupSpellList(uint32 petFamily) const
@@ -1768,6 +1768,7 @@ void SpellMgr::LoadSpellProcs()
 
         bool addTriggerFlag = false;
         uint32 procSpellTypeMask = PROC_SPELL_TYPE_NONE;
+        uint32 nonProcMask = 0;
         for (uint8 i = 0; i < MAX_SPELL_EFFECTS; ++i)
         {
             if (!spellInfo->Effects[i].IsEffect())
@@ -1778,7 +1779,11 @@ void SpellMgr::LoadSpellProcs()
                 continue;
 
             if (!isTriggerAura[auraName])
+            {
+                // explicitly disable non proccing auras to avoid losing charges on self proc
+                nonProcMask |= 1 << i;
                 continue;
+            }
 
             procSpellTypeMask |= spellTypeMask[auraName];
             if (isAlwaysTriggeredAura[auraName])
@@ -1798,7 +1803,6 @@ void SpellMgr::LoadSpellProcs()
                         break;
                 }
             }
-            break;
         }
 
         if (!procSpellTypeMask)
@@ -1850,6 +1854,11 @@ void SpellMgr::LoadSpellProcs()
                 case SPELL_AURA_MOD_BLOCK_PERCENT:
                     procEntry.HitMask = PROC_HIT_BLOCK;
                     break;
+                // proc auras with another aura reducing hit chance (eg 63767) only proc on missed attack
+                case SPELL_AURA_MOD_HIT_CHANCE:
+                    if (spellInfo->Effects[i].CalcValue() <= -100)
+                        procEntry.HitMask = PROC_HIT_MISS;
+                    break;
                 default:
                     continue;
             }
@@ -1861,6 +1870,8 @@ void SpellMgr::LoadSpellProcs()
             procEntry.AttributesMask |= PROC_ATTR_REQ_EXP_OR_HONOR;
         if (addTriggerFlag)
             procEntry.AttributesMask |= PROC_ATTR_TRIGGERED_CAN_PROC;
+        if (nonProcMask)
+            procEntry.AttributesMask |= nonProcMask * PROC_ATTR_DISABLE_EFF_0;
 
         procEntry.ProcsPerMinute  = 0;
         procEntry.Chance          = spellInfo->ProcChance;
@@ -2622,7 +2633,20 @@ void SpellMgr::LoadSpellInfoCustomAttributes()
                 continue;
             }
 
-            // TODO: validate attributes
+            if ((attributes & SPELL_ATTR0_CU_NEGATIVE) != 0)
+            {
+                for (uint8 i = 0; i < MAX_SPELL_EFFECTS; ++i)
+                {
+                    if (spellInfo->Effects[i].IsEffect())
+                        continue;
+
+                    if ((attributes & (SPELL_ATTR0_CU_NEGATIVE_EFF0 << i)) != 0)
+                    {
+                        TC_LOG_ERROR("sql.sql", "Table `spell_custom_attr` has attribute SPELL_ATTR0_CU_NEGATIVE_EFF%u for spell %u with no EFFECT_%u", uint32(i), spellId, uint32(i));
+                        continue;
+                    }
+                }
+            }
 
             spellInfo->AttributesCu |= attributes;
             ++count;
@@ -2823,14 +2847,7 @@ void SpellMgr::LoadSpellInfoCustomAttributes()
             spellInfo->AttributesCu |= SPELL_ATTR0_CU_SCHOOLMASK_NORMAL_WITH_MAGIC;
         }
 
-        if (!spellInfo->_IsPositiveEffect(EFFECT_0, false))
-            spellInfo->AttributesCu |= SPELL_ATTR0_CU_NEGATIVE_EFF0;
-
-        if (!spellInfo->_IsPositiveEffect(EFFECT_1, false))
-            spellInfo->AttributesCu |= SPELL_ATTR0_CU_NEGATIVE_EFF1;
-
-        if (!spellInfo->_IsPositiveEffect(EFFECT_2, false))
-            spellInfo->AttributesCu |= SPELL_ATTR0_CU_NEGATIVE_EFF2;
+        spellInfo->_InitializeSpellPositivity();
 
         if (spellInfo->SpellVisual[0] == 3879)
             spellInfo->AttributesCu |= SPELL_ATTR0_CU_CONE_BACK;
@@ -3114,6 +3131,15 @@ void SpellMgr::LoadSpellInfoCorrections()
     ApplySpellFix({ 52611, 52612 }, [](SpellInfo* spellInfo)
     {
         spellInfo->Effects[EFFECT_0].MiscValueB = 64;
+    });
+
+    // Battlegear of Eternal Justice
+    ApplySpellFix({
+        26135, // Battlegear of Eternal Justice
+        37557  // Mark of Light
+    }, [](SpellInfo* spellInfo)
+    {
+        spellInfo->SpellFamilyFlags = flag96();
     });
 
     ApplySpellFix({
@@ -3403,6 +3429,7 @@ void SpellMgr::LoadSpellInfoCorrections()
         48025, // Headless Horseman's Mount
         54729, // Winged Steed of the Ebon Blade
         58983, // Big Blizzard Bear
+        65917, // Magic Rooster
         71342, // Big Love Rocket
         72286, // Invincible
         74856, // Blazing Hippogryph
@@ -3843,6 +3870,12 @@ void SpellMgr::LoadSpellInfoCorrections()
         spellInfo->AttributesEx7 |= SPELL_ATTR7_INTERRUPT_ONLY_NONPLAYER;
     });
 
+    // Guardian Spirit
+    ApplySpellFix({ 47788 }, [](SpellInfo* spellInfo)
+    {
+        spellInfo->ExcludeTargetAuraSpell = 72232; // Weakened Spirit
+    });
+
     ApplySpellFix({
         42490, // Energized!
         42492, // Cast Energized
@@ -3962,17 +3995,6 @@ void SpellMgr::LoadSpellInfoCorrections()
     }, [](SpellInfo* spellInfo)
     {
         spellInfo->MaxAffectedTargets = 1;
-    });
-
-    // Boom (XT-002)
-    ApplySpellFix({ 62834 }, [](SpellInfo* spellInfo)
-    {
-        // This hack is here because we suspect our implementation of spell effect execution on targets
-        // is done in the wrong order. We suspect that EFFECT_0 needs to be applied on all targets,
-        // then EFFECT_1, etc - instead of applying each effect on target1, then target2, etc.
-        // The above situation causes the visual for this spell to be bugged, so we remove the instakill
-        // effect and implement a script hack for that.
-        spellInfo->Effects[EFFECT_1].Effect = 0;
     });
 
     ApplySpellFix({
@@ -4814,6 +4836,13 @@ void SpellMgr::LoadSpellInfoCorrections()
             if (spellInfo->IsPassive() && GetTalentSpellCost(i))
                 if (spellInfo->Effects[j].TargetA.GetTarget() == TARGET_UNIT_PET)
                     spellInfo->Effects[j].TargetA = SpellImplicitTargetInfo(TARGET_UNIT_CASTER);
+
+            // Area auras may not target area (they're self cast)
+            if (spellInfo->Effects[j].IsAreaAuraEffect() && spellInfo->Effects[j].IsTargetingArea())
+            {
+                spellInfo->Effects[j].TargetA = SpellImplicitTargetInfo(TARGET_UNIT_CASTER);
+                spellInfo->Effects[j].TargetB = SpellImplicitTargetInfo(0);
+            }
         }
 
         // disable proc for magnet auras, they're handled differently
@@ -4852,6 +4881,9 @@ void SpellMgr::LoadSpellInfoCorrections()
         properties->Type = SUMMON_TYPE_TOTEM;
     if (SummonPropertiesEntry* properties = const_cast<SummonPropertiesEntry*>(sSummonPropertiesStore.LookupEntry(628))) // Hungry Plaguehound
         properties->Category = SUMMON_CATEGORY_PET;
+
+    if (LockEntry* entry = const_cast<LockEntry*>(sLockStore.LookupEntry(36))) // 3366 Opening, allows to open without proper key
+        entry->Type[2] = LOCK_KEY_NONE;
 
     TC_LOG_INFO("server.loading", ">> Loaded SpellInfo corrections in %u ms", GetMSTimeDiffToNow(oldMSTime));
 }

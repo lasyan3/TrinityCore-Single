@@ -1605,7 +1605,7 @@ public:
 
             rageIncomeMult = sWorld->getRate(RATE_POWER_RAGE_INCOME);
             rageLossMult = sWorld->getRate(RATE_POWER_RAGE_LOSS);
-            me->setPowerType(POWER_RAGE);
+            me->SetPowerType(POWER_RAGE);
             rage = 0;
 
             DefaultInit();

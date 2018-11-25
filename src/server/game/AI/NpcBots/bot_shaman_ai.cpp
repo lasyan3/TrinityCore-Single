@@ -249,7 +249,7 @@ public:
                 {
                     uint8 manapct = GetManaPCT(master);
                     uint8 hppct = GetHealthPCT(master);
-                    if (GetSpell(HEALINGSTREAM_TOTEM_1) && hppct < 98 && master->getPowerType() != POWER_MANA &&
+                    if (GetSpell(HEALINGSTREAM_TOTEM_1) && hppct < 98 && master->GetPowerType() != POWER_MANA &&
                         (hppct < 25 || manapct > hppct))
                     {
                         temptimer = GC_Timer;
@@ -334,7 +334,7 @@ public:
                 if (!tPlayer || !tPlayer->IsInWorld() || tPlayer->GetMapId() != me->GetMapId() ||
                     (!tPlayer->IsAlive() && !tPlayer->HaveBot())) continue;
                 if (me->GetExactDist(tPlayer) > 20) continue;
-                if (tPlayer->getPowerType() != POWER_MANA) continue;
+                if (tPlayer->GetPowerType() != POWER_MANA) continue;
                 if (GetManaPCT(tPlayer) < 35)
                 {
                     ++LMPcount;
@@ -346,7 +346,7 @@ public:
                     for (BotMap::const_iterator it = map->begin(); it != map->end(); ++it)
                     {
                         Creature* bot = it->second;
-                        if (bot && bot->IsInWorld() && bot->getPowerType() == POWER_MANA &&
+                        if (bot && bot->IsInWorld() && bot->GetPowerType() == POWER_MANA &&
                             bot->GetExactDist(me) < 20 && GetManaPCT(bot) < 35)
                         {
                             ++LMPcount;

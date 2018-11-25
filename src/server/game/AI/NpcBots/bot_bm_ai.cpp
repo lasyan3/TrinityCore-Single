@@ -880,7 +880,7 @@ public:
             illusionsCount = 0;
             illusion_Fade = false;
 
-            me->setPowerType(POWER_MANA);
+            me->SetPowerType(POWER_MANA);
             me->SetMaxPower(POWER_MANA, 75);
 
             DefaultInit();

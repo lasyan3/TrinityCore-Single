@@ -1204,7 +1204,7 @@ void bot_ai::_listAuras(Player* player, Unit* unit) const
     ch.PSendSysMessage("total hp: %u", unit->GetMaxHealth());
     ch.PSendSysMessage("base mana: %u", unit->GetCreateMana());
     ch.PSendSysMessage("total mana: %u", unit->GetMaxPower(POWER_MANA));
-    if (unit->GetShapeshiftForm() != FORM_NONE && unit->getPowerType() != POWER_MANA)
+    if (unit->GetShapeshiftForm() != FORM_NONE && unit->GetPowerType() != POWER_MANA)
         ch.PSendSysMessage("cur mana: %u", unit->GetPower(POWER_MANA));
     //DEBUG1
     //ch.PSendSysMessage("STATS: ");
@@ -3002,7 +3002,7 @@ void bot_minion_ai::_updateMountedState()
 
     if ((!master->IsMounted() || aura != mounted || (me->IsInCombat() && opponent)) && (aura || mounted))
     {
-        const_cast<CreatureTemplate*>(me->GetCreatureTemplate())->InhabitType &= ~INHABIT_AIR;
+        //const_cast<CreatureTemplate*>(me->GetCreatureTemplate())->InhabitType &= ~INHABIT_AIR;
         me->RemoveAurasByType(SPELL_AURA_MOUNTED);
         //me->RemoveUnitMovementFlag(MOVEMENTFLAG_HOVER);
         me->SetCanFly(false);
@@ -4236,7 +4236,7 @@ void bot_ai::OnSpellHit(Unit* caster, SpellInfo const* spell)
             if (master->HasAuraType(SPELL_AURA_MOD_INCREASE_VEHICLE_FLIGHT_SPEED) ||
                 master->HasAuraType(SPELL_AURA_MOD_INCREASE_MOUNTED_FLIGHT_SPEED))
             {
-                const_cast<CreatureTemplate*>(me->GetCreatureTemplate())->InhabitType |= INHABIT_AIR;
+                //const_cast<CreatureTemplate*>(me->GetCreatureTemplate())->InhabitType |= INHABIT_AIR;
                 //me->AddUnitMovementFlag(MOVEMENTFLAG_HOVER);
                 me->SetCanFly(true);
                 me->SetDisableGravity(true);
@@ -8965,7 +8965,7 @@ void bot_ai::KillEvents(bool force)
 
 bool bot_ai::IsBotImmuneToSpell(SpellInfo const* spellInfo) const
 {
-    if (spellInfo->_IsPositiveSpell())
+    if (spellInfo->IsPositive())
         return false;
 
     if (_botclass >= BOT_CLASS_EX_START)
@@ -9045,7 +9045,7 @@ void bot_ai::BuildGrouUpdatePacket(WorldPacket* data)
     if (mask & GROUP_UPDATE_FLAG_MAX_HP)
         *data << uint32(me->GetMaxHealth());
 
-    Powers powerType = me->getPowerType();
+    Powers powerType = me->GetPowerType();
     if (mask & GROUP_UPDATE_FLAG_POWER_TYPE)
         *data << uint8(powerType);
 

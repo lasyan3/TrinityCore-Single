@@ -147,7 +147,7 @@ public:
 
             if (uint32 ARCANEINTELLECT = GetSpell(ARCANEINTELLECT_1))
             {
-                if (target->getPowerType() == POWER_MANA && !HasAuraName(target, ARCANEINTELLECT) &&
+                if (target->GetPowerType() == POWER_MANA && !HasAuraName(target, ARCANEINTELLECT) &&
                     doCast(target, ARCANEINTELLECT))
                     return true;
             }
@@ -507,7 +507,7 @@ public:
                 Group* pGroup = master->GetGroup();
                 if (!pGroup)
                 {
-                    if (master->getPowerType() == POWER_MANA && me->GetExactDist(master) < 30 &&
+                    if (master->GetPowerType() == POWER_MANA && me->GetExactDist(master) < 30 &&
                         !master->HasAura(FOCUSMAGIC))
                         target = master;
                 }
@@ -518,7 +518,7 @@ public:
                         Player* pPlayer = itr->GetSource();
                         if (!pPlayer || !pPlayer->IsInWorld() || pPlayer->isDead()) continue;
                         if (me->GetMapId() != pPlayer->GetMapId()) continue;
-                        if (pPlayer->getPowerType() == POWER_MANA && me->GetExactDist(pPlayer) < 30 &&
+                        if (pPlayer->GetPowerType() == POWER_MANA && me->GetExactDist(pPlayer) < 30 &&
                             !pPlayer->HasAura(FOCUSMAGIC))
                         {
                             target = pPlayer;
@@ -537,7 +537,7 @@ public:
                             {
                                 Creature* cre = it->second;
                                 if (!cre || !cre->IsInWorld() || cre == me || cre->isDead()) continue;
-                                if (cre->getPowerType() == POWER_MANA && me->GetExactDist(cre) < 30 &&
+                                if (cre->GetPowerType() == POWER_MANA && me->GetExactDist(cre) < 30 &&
                                     !cre->HasAura(FOCUSMAGIC))
                                 {
                                     target = cre;

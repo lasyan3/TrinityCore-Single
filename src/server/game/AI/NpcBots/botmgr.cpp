@@ -259,7 +259,7 @@ void BotMgr::_reviveBot(Creature* bot)
     bot->SetBotShouldUpdateStats();
 
     bot->SetHealth(bot->GetMaxHealth() / 6); //~15% of max health
-    if (bot->getPowerType() == POWER_MANA)
+    if (bot->GetPowerType() == POWER_MANA)
         bot->SetPower(POWER_MANA, bot->GetMaxPower(POWER_MANA) / 5); //20% of max mana
 
     if (!bot->GetBotAI()->IAmFree())

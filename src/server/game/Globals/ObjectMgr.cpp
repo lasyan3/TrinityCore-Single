@@ -4816,6 +4816,8 @@ void ObjectMgr::LoadQuests()
         {
             if (!_questTemplates.count(prevQuestId))
                 TC_LOG_ERROR("sql.sql", "Quest %u has PrevQuestId %i, but no such quest", qinfo->GetQuestId(), qinfo->_prevQuestId);
+            else
+                qinfo->DependentPreviousQuests.push_back(qinfo->_prevQuestId);
         }
 
         if (uint32 nextQuestId = qinfo->_nextQuestId)

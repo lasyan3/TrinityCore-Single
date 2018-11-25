@@ -436,7 +436,7 @@ void BotMgr::CleanupsBeforeBotDelete(uint64 guid)
     bot->SetOwnerGUID(ObjectGuid::Empty);
     _owner->m_Controlled.erase(bot);
     bot->m_ControlledByPlayer = false;
-    bot->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PVP_ATTACKABLE);
+    bot->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PLAYER_CONTROLLED);
     bot->SetByteValue(UNIT_FIELD_BYTES_2, 1, 0);
     bot->SetUInt64Value(UNIT_FIELD_CREATEDBY, 0);
 
@@ -613,7 +613,7 @@ BotAddResult BotMgr::AddBot(Creature* bot, bool takeMoney)
     bot->SetOwnerGUID(_owner->GetGUID());
     _owner->m_Controlled.insert(bot);
     bot->m_ControlledByPlayer = true;
-    bot->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PVP_ATTACKABLE);
+    bot->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PLAYER_CONTROLLED);
     bot->SetByteValue(UNIT_FIELD_BYTES_2, 1, _owner->GetByteValue(UNIT_FIELD_BYTES_2, 1));
 
     //bot->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_PC | UNIT_FLAG_IMMUNE_TO_NPC);

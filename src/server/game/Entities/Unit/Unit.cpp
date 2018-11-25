@@ -5927,6 +5927,8 @@ ReputationRank Unit::GetFactionReactionTo(FactionTemplateEntry const* factionTem
 
 bool Unit::IsHostileTo(Unit const* unit) const
 {
+    if (unit->ToCreature() && unit->ToCreature()->GetBotAI())
+        return false;
     return GetReactionTo(unit) <= REP_HOSTILE;
 }
 
@@ -12217,7 +12219,9 @@ bool Unit::InitTamedPet(Pet* pet, uint8 level, uint32 spell_id)
         // only if not player and not controlled by player pet. And not at BG
         if ((durabilityLoss && !player && !victim->ToPlayer()->InBattleground()) || (player && sWorld->getBoolConfig(CONFIG_DURABILITY_LOSS_IN_PVP)))
         //npcbot - bots should not cause durability loss unless rampaging around
-        if (player || !victim->ToCreature()->GetBotAI() || victim->ToCreature()->GetBotOwner()->GetGUID().GetCounter() == victim->GetGUID().GetCounter())
+        if (player || (victim->ToCreature() && !victim->ToCreature()->GetBotAI()) ||
+            (victim->ToCreature() && victim->ToCreature()->GetBotOwner() && victim->ToCreature()->GetBotOwner()->GetGUID() && victim->GetGUID() &&
+                victim->ToCreature()->GetBotOwner()->GetGUID().GetCounter() == victim->GetGUID().GetCounter()))
         //end npcbot
         {
             TC_LOG_DEBUG("entities.unit", "We are dead, losing %f percent durability", sWorld->getRate(RATE_DURABILITY_LOSS_ON_DEATH));

@@ -827,7 +827,9 @@ void BotMgr::SendBotCommandState(CommandStates state)
 {
     for (BotMap::const_iterator itr = _bots.begin(); itr != _bots.end(); ++itr)
     {
-        itr->second->SetBotCommandState(state, true);
+        if (itr->second->GetBotCommandState() != state) {
+            itr->second->SetBotCommandState(state, true);
+        }
     }
 }
 

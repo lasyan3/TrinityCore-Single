@@ -556,7 +556,7 @@ void bot_minion_ai::_calculatePos(Position& pos)
             mydist *= 0.2f;
             break;
         }
-        master->GetNearPoint(me, x, y, z, size, mydist, angle);
+        master->GetNearPoint(me, x, y, z, mydist, angle);
         if (!master->IsWithinLOS(x,y,z)) //try to get much closer to master
         {
             mydist *= 0.4f - float(i*0.07f);
@@ -2884,20 +2884,20 @@ void bot_ai::CalculateAttackPos(Unit* target, Position& pos) const
     uint8 followdist = IAmFree() ? 100 : master->GetBotFollowDist();
     float x(0),y(0),z(0),
         dist = float(6 + urand(followdist/4, followdist/3)),
-        angle = target->GetAngle(me);
+        angle = target->GetAbsoluteAngle(me);
     dist = std::min(dist, 20.f);
     if (me->GetIAmABotsPet())
         dist *= 0.5f;
     float clockwise = RAND(1.f,-1.f);
     for (uint8 i = 0; i != 5; ++i)
     {
-        target->GetNearPoint(me, x, y, z, me->GetObjectSize()/2.f, dist, angle);
+        target->GetNearPoint(me, x, y, z, dist, angle);
         bool toofaraway = master->GetDistance(x,y,z) > (followdist > 28 ? 28.f : followdist < 20 ? 20.f : float(followdist));
         bool outoflos = !target->IsWithinLOS(x,y,z);
         if (toofaraway || outoflos)
         {
             if (toofaraway)
-                angle = target->GetAngle(master) + frand(0.f, M_PI*0.5f) * clockwise;
+                angle = target->GetAbsoluteAngle(master) + frand(0.f, M_PI*0.5f) * clockwise;
             if (outoflos)
                 dist *= 0.5f;
         }
@@ -2979,7 +2979,7 @@ bool bot_ai::MoveBehind(Unit &target) const
         (_botclass == BOT_CLASS_ROGUE ? target.GetVictim() != me || CCed(&target) : target.GetVictim() != me && !CCed(&target)))
     {
         float x(0),y(0),z(0);
-        target.GetNearPoint(me, x, y, z, me->GetObjectSize()/3, 0.1f, me->GetAngle(&target));
+        target.GetNearPoint(me, x, y, z, 0.1f, me->GetAbsoluteAngle(&target));
         me->GetMotionMaster()->MovePoint(target.GetMapId(), x, y, z);
         return true;
     }

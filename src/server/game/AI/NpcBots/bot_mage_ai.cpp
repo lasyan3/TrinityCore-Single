@@ -479,7 +479,7 @@ public:
                 {
                     if (op->GetVictim() == me)
                     {
-                        me->SetFacingTo(me->GetAngle(master));
+                        me->SetFacingTo(me->GetAbsoluteAngle(master));
                         temptimer = GC_Timer;
                         if (doCast(me, GetSpell(BLINK_1)))
                             GC_Timer = temptimer;

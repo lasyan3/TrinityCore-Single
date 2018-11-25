@@ -1,6 +1,5 @@
 /*
  * Copyright (C) 2008-2018 TrinityCore <https://www.trinitycore.org/>
- * Copyright (C) 2005-2009 MaNGOS <http://getmangos.com/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -16,16 +15,34 @@
  * with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef _FOLLOWERREFMANAGER
-#define _FOLLOWERREFMANAGER
+#include "GenericMovementGenerator.h"
+#include "Creature.h"
+#include "CreatureAI.h"
+#include "MoveSpline.h"
+#include "Unit.h"
 
-#include "RefManager.h"
-
-class Unit;
-class TargetedMovementGeneratorBase;
-
-class FollowerRefManager : public RefManager<Unit, TargetedMovementGeneratorBase>
+void GenericMovementGenerator::Initialize(Unit* /*owner*/)
 {
+    _duration.Reset(_splineInit.Launch());
+}
 
-};
-#endif
+bool GenericMovementGenerator::Update(Unit* owner, uint32 diff)
+{
+    _duration.Update(diff);
+    if (_duration.Passed())
+        return false;
+
+    return !owner->movespline->Finalized();
+}
+
+void GenericMovementGenerator::Finalize(Unit* owner)
+{
+    MovementInform(owner);
+}
+
+void GenericMovementGenerator::MovementInform(Unit* owner)
+{
+    if (Creature* creature = owner->ToCreature())
+        if (creature->AI())
+            creature->AI()->MovementInform(_type, _pointId);
+}

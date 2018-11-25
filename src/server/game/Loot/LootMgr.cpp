@@ -306,7 +306,7 @@ bool LootStoreItem::Roll(bool rate) const
         case ITEM_QUALITY_ARTIFACT: _rate = sWorld->getFloatConfig(CONFIG_MINRATE_DROP_ITEM_ART); break;
         default: _rate = 0; break;
     }
-    _chance = (chance < _rate && _rate > 0) ? _rate : chance;
+    _chance = (chance < _rate && _rate >= 0) ? _rate : chance;
 
     return roll_chance_f(_chance*qualityModifier);
 }

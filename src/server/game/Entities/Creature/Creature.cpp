@@ -339,7 +339,7 @@ void Creature::DisappearAndDie()
 
 bool Creature::IsReturningHome() const
 {
-    if (GetMotionMaster()->GetMotionSlotType(MOTION_SLOT_ACTIVE) == HOME_MOTION_TYPE)
+    if (GetMotionMaster()->GetCurrentMovementGeneratorType() == HOME_MOTION_TYPE)
         return true;
 
     return false;
@@ -788,8 +788,7 @@ void Creature::Update(uint32 diff)
                 IsAIEnabled = true;
                 if (!IsInEvadeMode() && LastCharmerGUID)
                     if (Unit* charmer = ObjectAccessor::GetUnit(*this, LastCharmerGUID))
-                        if (CanStartAttack(charmer, true))
-                            i_AI->AttackStart(charmer);
+                        EngageWithTarget(charmer);
 
                 LastCharmerGUID.Clear();
             }
@@ -1014,7 +1013,6 @@ void Creature::DoFleeToGetAssistance()
         UpdateSpeed(MOVE_RUN);
 
         if (!creature)
-            //SetFeared(true, EnsureVictim()->GetGUID(), 0, sWorld->getIntConfig(CONFIG_CREATURE_FAMILY_FLEE_DELAY));
             /// @todo use 31365
             SetControlled(true, UNIT_STATE_FLEEING);
         else
@@ -1083,7 +1081,7 @@ void Creature::Motion_Initialize()
             m_formation->FormationReset(false);
         else if (m_formation->IsFormed())
         {
-            GetMotionMaster()->MoveIdle(); //wait the order of leader
+            GetMotionMaster()->MoveIdle(); // wait the order of leader
             return;
         }
     }
@@ -2137,8 +2135,9 @@ void Creature::Respawn(bool force)
                 SetNativeDisplayId(displayID);
             }
 
-            GetMotionMaster()->InitDefault();
-            //Re-initialize reactstate that could be altered by movementgenerators
+            GetMotionMaster()->InitializeDefault();
+
+            // Re-initialize reactstate that could be altered by movementgenerators
             InitializeReactState();
 
             if (IsAIEnabled) // reset the AI to be sure no dirty or uninitialized values will be used till next tick

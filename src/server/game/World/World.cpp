@@ -1253,6 +1253,8 @@ void World::LoadConfigSettings(bool reload)
     m_float_configs[CONFIG_MINRATE_DROP_ITEM_LEGEND] = sConfigMgr->GetFloatDefault("Custom.MinimumRate.Drop.Item.Legendary", 0);
     m_float_configs[CONFIG_MINRATE_DROP_ITEM_ART] = sConfigMgr->GetFloatDefault("Custom.MinimumRate.Drop.Item.Artifact", 0);
     m_float_configs[CONFIG_SPEED_GAME] = sConfigMgr->GetFloatDefault("Custom.SpeedGame", 1.0f);
+    m_bool_configs[CONFIG_NO_CAST_TIME] = sConfigMgr->GetBoolDefault("Custom.NoCastTime", false);
+    m_bool_configs[CONFIG_NO_COOLDOWN] = sConfigMgr->GetBoolDefault("Custom.NoCooldown", false);
     m_bool_configs[CONFIG_HURT_IN_REAL_TIME] = sConfigMgr->GetBoolDefault("Custom.HurtInRealTime", false);
     m_float_configs[CONFIG_ATTACKSPEED_PLAYER] = sConfigMgr->GetFloatDefault("Custom.AttackSpeedForPlayer", 1.0f);
     m_float_configs[CONFIG_ATTACKSPEED_ALL] = sConfigMgr->GetFloatDefault("Custom.AttackSpeedForMobs", 1.0f);

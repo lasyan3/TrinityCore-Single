@@ -4180,7 +4180,7 @@ Custom.RespawnSpeed = 1.0
 #     Example : 180 (When a quest is completed, the quest giver will be summoned for 3 minutes)
 #
 
-Custom.AutoCompleteQuestDelay = 180
+Custom.AutoCompleteQuestDelay = 0
 
 #     Custom.SmartQuests.Deliver
 #         Set it to 1 so that quest items are looted from monsters even if the quest is not taken.
@@ -4189,8 +4189,8 @@ Custom.AutoCompleteQuestDelay = 180
 #     Default : 0
 #
 
-Custom.SmartQuests.Deliver = 1
-Custom.SmartQuests.Kill = 1
+Custom.SmartQuests.Deliver = 0
+Custom.SmartQuests.Kill = 0
 
 #     Custom.LootOnlyForPlayer
 #         Set it to 1 to enable only certain item to be looted:
@@ -4200,7 +4200,7 @@ Custom.SmartQuests.Kill = 1
 #     Default : 0 (all items are looted)
 #
 
-Custom.LootOnlyForPlayer = 1
+Custom.LootOnlyForPlayer = 0
 
 #     Custom.MinimumRate.Drop.Item
 #         Set it to a number to set the minimum drop rates for items of the corresponding quality

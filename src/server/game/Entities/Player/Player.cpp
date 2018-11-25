@@ -12044,22 +12044,22 @@ Item* Player::StoreNewItem(ItemPosCountVec const& dest, uint32 item, bool update
             ObjectMgr::GetLocaleString(il->Name, loc, locName);
             std::ostringstream msg;
             msg << locName << " (" << GetItemCount(item, true) << "/" << m_deliverCheck[item] << ") ";
-            if (GetItemCount(item, true) == m_deliverCheck[item]) {
+            if (m_deliverCheck[item] > 0 && GetItemCount(item, true) == m_deliverCheck[item]) {
                 ObjectMgr::QuestMap _allQuests = GetAvailableQuestsForItem(item);
                 ObjectMgr::QuestMap::const_iterator iter = _allQuests.begin();
                 //uint32 questid = iter->first;
                 Quest const* qInfo = iter->second;
-                if (qInfo) {
-                    std::string giver_name, area_name, zone_name;
+                if (qInfo && qInfo->GetQuestId() > 0) {
+                    std::string quest_name, giver_name, area_name, zone_name;
                     GetQuestInformations(qInfo, giver_name, area_name, zone_name);
-                    if (area_name.size() > 0)
-                    {
-                        std::ostringstream msg2;
-                        //msg2 << "\r\n" << giver_name;
-                        msg2 << locName << ": " << " " << area_name;
-                        if (zone_name.size() > 0) msg2 << " (" << zone_name << ")";
-                        ChatHandler(GetSession()).SendSysMessage(msg2.str().c_str());
-                    }
+                    QuestLocale const * ql = sObjectMgr->GetQuestLocale(qInfo->GetQuestId());
+                    ObjectMgr::GetLocaleString(ql->Title, loc, quest_name);
+                    std::ostringstream msg2;
+                    msg2 << quest_name;
+                    if (giver_name.size() > 0) msg2 << " / " << giver_name;
+                    if (area_name.size() > 0) msg2 << " / " << area_name;
+                    if (zone_name.size() > 0) msg2 << " (" << zone_name << ")";
+                    ChatHandler(GetSession()).SendSysMessage(msg2.str().c_str());
                 }
             }
             GetSession()->SendNotification("|cff00bbbb%s", msg.str().c_str());
@@ -15601,6 +15601,7 @@ bool Player::SatisfyQuestDependentPreviousQuests(Quest const* qInfo, bool msg) c
     {
         // checked in startup
         Quest const* questInfo = sObjectMgr->GetQuestTemplate(prevId);
+        if (questInfo == nullptr) continue;
         ASSERT(questInfo);
 
         // If any of the previous quests completed, return true
@@ -17075,18 +17076,23 @@ int32 Player::CanDropQuestItem(uint32 itemid) // LASYAN: return true if at least
 
     m_deliverCheck[itemid] = 0;*/
 
-    LocaleConstant loc = GetSession()->GetSessionDbLocaleIndex();
-    ItemLocale const * il = sObjectMgr->GetItemLocale(itemid);
-    std::string itemLocName;
-    ObjectMgr::GetLocaleString(il->Name, loc, itemLocName);
-    TC_LOG_DEBUG("lasyan3.smartquests.deliver", "START CanDropQuestItem for item %d [%s]", itemid, itemLocName);
-
     ItemTemplate const *it = sObjectMgr->GetItemTemplate(itemid);
     if (it == nullptr) return 0;
     if (it->Class != ITEM_CLASS_QUEST) {
-        TC_LOG_DEBUG("lasyan3.smartquests.deliver", "Item %s is not for a quest!", itemLocName);
+        TC_LOG_DEBUG("lasyan3.smartquests.deliver", "Item %s is not for a quest!", it->Name1);
         return 0;
     }
+
+    LocaleConstant loc = GetSession()->GetSessionDbLocaleIndex();
+    ItemLocale const * il = sObjectMgr->GetItemLocale(itemid);
+    std::string itemLocName;
+    if (il) {
+        ObjectMgr::GetLocaleString(il->Name, loc, itemLocName);
+    }
+    else {
+        itemLocName = it->Name1;
+    }
+    TC_LOG_DEBUG("lasyan3.smartquests.deliver", "START CanDropQuestItem for item %d [%s]", itemid, itemLocName);
 
 
     ObjectMgr::QuestMap _allQuests = GetAvailableQuestsForItem(itemid);
@@ -17177,6 +17183,17 @@ ObjectMgr::QuestMap Player::GetAvailableQuestsForItem(uint32 itemid)
         if (!qInfo->HasSpecialFlag(QUEST_SPECIAL_FLAGS_DELIVER))
         {
             TC_LOG_DEBUG("lasyan3.smartquests.deliver", "     |- Quest has not special flag QUEST_SPECIAL_FLAGS_DELIVER");
+            continue;
+        }
+
+        if ((getLevel() + sWorld->getIntConfig(CONFIG_QUEST_HIGH_LEVEL_HIDE_DIFF)) < qInfo->GetMinLevel())
+        {
+            TC_LOG_DEBUG("lasyan3.smartquests.deliver", " |- Player's level is too low!");
+            continue;
+        }
+        if (getLevel() > (GetQuestLevel(qInfo) + sWorld->getIntConfig(CONFIG_QUEST_LOW_LEVEL_HIDE_DIFF)))
+        {
+            TC_LOG_DEBUG("lasyan3.smartquests.deliver", " |- Player's level is too high!");
             continue;
         }
 
@@ -17365,6 +17382,7 @@ int32 Player::CanKillQuestGo(uint32 goid) // LASYAN: return true if at least one
                 uint32 goCountNeeded = qInfo->RequiredNpcOrGoCount[i];
 
                 // Get first available quest of chain
+                TC_LOG_DEBUG("lasyan3.smartquests.kill", "This quest has %d dependant previous quests", qInfo->DependentPreviousQuests.size());
                 for (uint32 prevId : qInfo->DependentPreviousQuests)
                 {
                     // checked in startup
@@ -17382,19 +17400,19 @@ int32 Player::CanKillQuestGo(uint32 goid) // LASYAN: return true if at least one
                 ObjectMgr::GetLocaleString(cl->Name, loc, locName);
                 std::ostringstream msg;
                 msg << locName << " (" << m_goKilledCount[goid] << "/" << goCountNeeded << ") ";
-                if (m_goKilledCount[goid] == goCountNeeded) {
-                    std::string giver_name, area_name, zone_name;
-                    GetQuestInformations(qInfo, giver_name, area_name, zone_name);
-                    if (giver_name.size() > 0)
-                    {
-                        std::ostringstream msg2;
-                        msg2 << locName << ": ";
-                        if (area_name.size() > 0) msg2 << " " << area_name;
-                        if (zone_name.size() > 0) msg2 << " (" << zone_name << ")";
-                        ChatHandler(GetSession()).SendSysMessage(msg2.str().c_str());
-                    }
-                }
                 GetSession()->SendNotification("|cff00bbbb%s", msg.str().c_str());
+                if (m_goKilledCount[goid] == goCountNeeded) {
+                    std::string quest_name, giver_name, area_name, zone_name;
+                    GetQuestInformations(qInfo, giver_name, area_name, zone_name);
+                    QuestLocale const * ql = sObjectMgr->GetQuestLocale(qInfo->GetQuestId());
+                    ObjectMgr::GetLocaleString(ql->Title, loc, quest_name);
+                    std::ostringstream msg2;
+                    msg2 << quest_name;
+                    if (giver_name.size() >0) msg2 << " / " << giver_name;
+                    if (area_name.size() > 0) msg2 << " / " << area_name;
+                    if (zone_name.size() > 0) msg2 << " (" << zone_name << ")";
+                    ChatHandler(GetSession()).SendSysMessage(msg2.str().c_str());
+                }
                 TC_LOG_DEBUG("lasyan3.smartquests.kill", "END CanKillQuestGo Go can be killed for the quest --> TRUE");
                 return 1;
             }
@@ -17542,6 +17560,28 @@ ObjectMgr::QuestMap Player::GetAvailableQuestsForKill(uint32 goid)
             continue; // not allow re-complete quest
         }
 
+        // Ignore quests given by creature or gameobject in a different zone
+        std::ostringstream sql;
+        sql << "SELECT ct.name, c.map, c.position_x, c.position_y, c.position_z FROM creature c"
+            << " INNER JOIN creature_queststarter s ON s.id = c.id"
+            << " INNER JOIN creature_template ct ON ct.entry = c.id"
+            << " WHERE s.quest = %d";
+        QueryResult result = WorldDatabase.PQuery(sql.str().c_str(), qInfo->GetQuestId());
+        if (!result || result->GetRowCount() == 0)
+        {
+            std::ostringstream sql2;
+            sql2 << "SELECT gt.name, g.map, g.position_x, g.position_y, g.position_z FROM gameobject g"
+                << " INNER JOIN gameobject_queststarter s ON s.id = g.id"
+                << " INNER JOIN gameobject_template gt ON gt.entry = g.id"
+                << " WHERE s.quest = " << qInfo->GetQuestId();
+            result = WorldDatabase.Query(sql2.str().c_str());
+        }
+        if (!result || result->GetRowCount() == 0)
+        {
+            TC_LOG_DEBUG("lasyan3.smartquests.kill", "     |- No starters found!");
+            continue;
+        }
+
         _allQuests[questid] = const_cast<Quest*>(qInfo);
         TC_LOG_DEBUG("lasyan3.smartquests.kill", " |- Quest is VALIDATED", status);
     } while (result->NextRow());
@@ -17551,16 +17591,19 @@ ObjectMgr::QuestMap Player::GetAvailableQuestsForKill(uint32 goid)
 
 void Player::GetQuestInformations(Quest const *qInfo, std::string& giver_name, std::string& giver_area_name, std::string& giver_zone_name)
 {
+    bool starterIsCreature = true;
     std::ostringstream sql;
-    sql << "SELECT ct.name, c.map, c.position_x, c.position_y, c.position_z FROM creature c"
+    sql << "SELECT c.id, c.map, c.position_x, c.position_y, c.position_z FROM creature c"
         << " INNER JOIN creature_queststarter s ON s.id = c.id"
         << " INNER JOIN creature_template ct ON ct.entry = c.id"
         << " WHERE s.quest = %d";
+    TC_LOG_INFO("lasyan3.debug", "qInfo->GetQuestId=%d", qInfo->GetQuestId());
     QueryResult result = WorldDatabase.PQuery(sql.str().c_str(), qInfo->GetQuestId());
     if (!result || result->GetRowCount() == 0)
     {
+        starterIsCreature = false;
         std::ostringstream sql2;
-        sql2 << "SELECT gt.name, g.map, g.position_x, g.position_y, g.position_z FROM gameobject g"
+        sql2 << "SELECT g.id, g.map, g.position_x, g.position_y, g.position_z FROM gameobject g"
             << " INNER JOIN gameobject_queststarter s ON s.id = g.id"
             << " INNER JOIN gameobject_template gt ON gt.entry = g.id"
             << " WHERE s.quest = " << qInfo->GetQuestId();
@@ -17568,7 +17611,18 @@ void Player::GetQuestInformations(Quest const *qInfo, std::string& giver_name, s
     }
     if (result && result->GetRowCount() > 0)
     {
-        giver_name = (*result)[0].GetString();
+        LocaleConstant loc = GetSession()->GetSessionDbLocaleIndex();
+
+        uint32 giver_id = (*result)[0].GetInt32();
+        if (starterIsCreature) {
+            CreatureLocale const * cl = sObjectMgr->GetCreatureLocale(giver_id);
+            ObjectMgr::GetLocaleString(cl->Name, loc, giver_name);
+        }
+        else {
+            GameObjectLocale const * cl = sObjectMgr->GetGameObjectLocale(giver_id);
+            ObjectMgr::GetLocaleString(cl->Name, loc, giver_name);
+        }
+
         uint32 _map_id = (*result)[1].GetUInt32();
         float _pos_x = (*result)[2].GetFloat();
         float _pos_y = (*result)[3].GetFloat();

@@ -44,6 +44,8 @@
 #include "Vehicle.h"
 #include "VMapFactory.h"
 #include "World.h"
+#include <unordered_set>
+#include <vector>
 //npcbot
 #include "botmgr.h"
 //end npcbot
@@ -803,6 +805,18 @@ void Map::Update(uint32 t_diff)
                 if (Creature* unit = pair.second->GetOther(player)->ToCreature())
                     if (unit->GetMapId() == player->GetMapId() && !unit->IsWithinDistInMap(player, GetVisibilityRange(), false))
                         toVisit.push_back(unit);
+            for (Unit* unit : toVisit)
+                VisitNearbyCellsOf(unit, grid_object_update, world_object_update);
+        }
+
+        { // Update any creatures that own auras the player has applications of
+            std::unordered_set<Unit*> toVisit;
+            for (std::pair<uint32, AuraApplication*> pair : player->GetAppliedAuras())
+            {
+                if (Unit* caster = pair.second->GetBase()->GetCaster())
+                    if (caster->GetTypeId() != TYPEID_PLAYER && !caster->IsWithinDistInMap(player, GetVisibilityRange(), false))
+                        toVisit.insert(caster);
+            }
             for (Unit* unit : toVisit)
                 VisitNearbyCellsOf(unit, grid_object_update, world_object_update);
         }

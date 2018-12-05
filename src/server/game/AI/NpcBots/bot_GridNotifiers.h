@@ -192,8 +192,8 @@ class PolyUnitCheck
             if (!u->IsHostileTo(me))
                 return false;
             if (u->IsPolymorphed() ||
-                u->isFrozen() ||
-                u->isInRoots() ||
+                u->IsFrozen() ||
+                u->IsRooted() ||
                 u->HasAura(51514)/*hex*/ ||
                 u->HasAura(20066)/*repentance*/ ||
                 //u->HasAuraTypeWithAffectMask(SPELL_AURA_PERIODIC_DAMAGE, sSpellMgr->GetSpellInfo(339)) || //entangling roots
@@ -247,7 +247,7 @@ class FearUnitCheck
                 return false;
             if (u->HasUnitState(UNIT_STATE_CONFUSED | UNIT_STATE_STUNNED | UNIT_STATE_FLEEING | UNIT_STATE_DISTRACTED | UNIT_STATE_CONFUSED_MOVE | UNIT_STATE_FLEEING_MOVE))
                 return false;
-            if (u->isFeared())
+            if (u->IsFeared())
                 return false;
             if (u->GetReactionTo(me) > REP_NEUTRAL)
                 return false;
@@ -306,7 +306,7 @@ class StunUnitCheck
                 u->GetCreatureType() == CREATURE_TYPE_GIANT ||
                 u->GetCreatureType() == CREATURE_TYPE_UNDEAD))
                 return false;
-            if (me->ToCreature()->GetBotClass() == BOT_CLASS_HUNTER && u->isFeared())
+            if (me->ToCreature()->GetBotClass() == BOT_CLASS_HUNTER && u->IsFeared())
                 return false;
             if (me->GetDistance(u) < 10)//do not allow close cast to prevent break due to AOE damage
                 return false;
@@ -417,7 +417,7 @@ class RootUnitCheck
                 return false;
             if (u->GetReactionTo(me) > REP_NEUTRAL)
                 return false;
-            if (u->isFrozen() || u->isInRoots())
+            if (u->IsFrozen() || u->IsRooted())
                 return false;
             if (!u->getAttackers().empty())
                 return false;

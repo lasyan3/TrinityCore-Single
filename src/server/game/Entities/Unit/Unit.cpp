@@ -688,7 +688,7 @@ bool Unit::HasBreakableByDamageCrowdControlAura(Unit* excludeCasterChannel) cons
         // NpcBot mod: also signal owned npcbots
         for (ControlList::const_iterator itr = victim->ToPlayer()->m_Controlled.begin(); itr != victim->ToPlayer()->m_Controlled.end(); ++itr)
             if (Creature* cre = (*itr)->ToCreature())
-                if (cre->IsAIEnabled)
+                if (cre->IsAIEnabled())
                     cre->AI()->OwnerAttackedBy(attacker);
         // End NpcBot
 

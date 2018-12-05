@@ -274,7 +274,7 @@ void bot_ai::ResetBotAI(uint8 resetType)
     (const_cast<CreatureTemplate*>(me->GetCreatureTemplate()))->unit_flags2 |= (UNIT_FLAG2_ALLOW_ENEMY_INTERACT);
     me->SetUInt32Value(UNIT_FIELD_FLAGS_2, me->GetCreatureTemplate()->unit_flags2);
 
-    me->IsAIEnabled = true;
+    //me->IsAIEnabled = true;
     me->SetCanUpdate(true);
 
     if (spawned)
@@ -8918,7 +8918,7 @@ bool bot_minion_ai::FinishTeleport(/*uint32 mapId, uint32 instanceId, float x, f
     map->AddToMap(me);
     me->BotStopMovement();
     //bot->SetAI(oldAI);
-    me->IsAIEnabled = true;
+    //me->IsAIEnabled = true;
 
     master->m_Controlled.insert(me);
     me->CastSpell(me, COSMETIC_TELEPORT_EFFECT, true);

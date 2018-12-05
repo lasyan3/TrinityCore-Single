@@ -549,7 +549,7 @@ public:
 
         void DamageTaken(Unit* u, uint32& /*damage*/)
         {
-            if (m_creatureOwner->IsAIEnabled)
+            if (m_creatureOwner->IsAIEnabled())
                 if (bot_minion_ai* ai = m_creatureOwner->GetBotMinionAI())
                     ai->OnOwnerDamagedBy(u);
         }
@@ -712,7 +712,7 @@ public:
 
         void DamageTaken(Unit* u, uint32& /*damage*/)
         {
-            if (m_creatureOwner->IsAIEnabled)
+            if (m_creatureOwner->IsAIEnabled())
                 if (bot_minion_ai* ai = m_creatureOwner->GetBotMinionAI())
                     ai->OnOwnerDamagedBy(u);
         }

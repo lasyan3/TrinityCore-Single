@@ -815,9 +815,9 @@ void Creature::Update(uint32 diff)
             // do not allow the AI to be changed during update
             m_AI_locked = true;
             Unit::AIUpdateTick(diff);
-				//npcbot
-				if (!bot_AI)
-				//end npcbot
+			//npcbot
+			if (!bot_AI)
+			//end npcbot
             m_AI_locked = false;
 			//npcbot - Update evade mode AI
 			else if (bot_AI)
@@ -3327,7 +3327,7 @@ void Creature::SetIAmABot(bool bot)
 	}
 	else
 	{
-		SetCharmerGUID(ObjectGuid::Empty);
+        SetGuidValue(UNIT_FIELD_CHARMEDBY, ObjectGuid::Empty);
 		bot_AI->UnsummonAll();
 		m_unitTypeMask &= ~(/*UNIT_MASK_SUMMON | */UNIT_MASK_MINION);
 		SetGuidValue(UNIT_FIELD_CREATEDBY, ObjectGuid::Empty);
@@ -3341,7 +3341,7 @@ void Creature::SetBotsPetDied()
 	if (!m_bots_pet)
 		return;
 
-	m_bots_pet->SetCharmerGUID(ObjectGuid::Empty);
+    m_bots_pet->SetGuidValue(UNIT_FIELD_CHARMEDBY, ObjectGuid::Empty);
 	m_bots_pet->SetCreatureOwner(NULL);
 	//m_bots_pet->GetBotPetAI()->SetCreatureOwner(NULL);
 	GetBotOwner()->SetMinion((Minion*)m_bots_pet, false);

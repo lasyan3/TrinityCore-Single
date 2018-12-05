@@ -352,7 +352,7 @@ public:
             }*/
             //fire blast
             if (IsSpellReady(FIREBLAST_1, diff) && HasRole(BOT_ROLE_DPS) && dist < 25 &&
-                Rand() < 20 + 80*(!opponent->isFrozen() && !opponent->HasAuraType(SPELL_AURA_MOD_STUN) && me->HasAura(IMPACT_BUFF)))
+                Rand() < 20 + 80*(!opponent->IsFrozen() && !opponent->HasAuraType(SPELL_AURA_MOD_STUN) && me->HasAura(IMPACT_BUFF)))
             {
                 if (doCast(opponent, GetSpell(FIREBLAST_1)))
                 {

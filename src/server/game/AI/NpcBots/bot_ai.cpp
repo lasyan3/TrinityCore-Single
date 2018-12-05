@@ -3290,7 +3290,7 @@ bool bot_ai::InDuel(Unit const* target) const
         player = target->GetCharmerOrOwnerPlayerOrPlayerItself();
     }
 
-    return (player && player->duel && (IsInBotParty(player) || IsInBotParty(player->duel->opponent)));
+    return (player && player->duel && (IsInBotParty(player) || IsInBotParty(player->duel->Opponent)));
 }
 ////////////////
 //GRID SEARCHERS

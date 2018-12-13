@@ -704,6 +704,8 @@ class bot_ai : public ScriptedAI
         //EvadeEvent* evadeEvent;
         TeleportFinishEvent* teleFinishEvent;
 
+        void SetAllowedToAttack(bool set) { _allowedToAttack = set; }
+
     private:
         Unit* _getTarget(bool byspell, bool ranged, bool &reset) const;
         bool _hasAuraName(Unit* unit, const std::string spell, ObjectGuid casterGuid = ObjectGuid::Empty, bool exclude = false) const;
@@ -711,6 +713,8 @@ class bot_ai : public ScriptedAI
         static inline float _getAttackDistance(float distance) { return distance > 0.0f ? distance*0.72f : 0.0f; }
 
         BotSpellMap spells;
+
+        bool _allowedToAttack = true;
 };
 
 class bot_minion_ai : public bot_ai

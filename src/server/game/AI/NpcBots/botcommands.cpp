@@ -54,6 +54,10 @@ public:
             { "withdraw",   rbac::RBAC_PERM_COMMAND_NPCBOT_WITHDRAW,		       false, &HandleNpcBotWithdrawCommand,	       ""},
             { "change",   rbac::RBAC_PERM_COMMAND_NPCBOT_CHANGE,		       false, &HandleNpcBotChangeCommand,	       ""},
             { "savemodel",   rbac::RBAC_PERM_COMMAND_NPCBOT_SAVEMODEL,		       false, &HandleNpcBotSaveModelCommand,	       ""},
+            { "stay",   rbac::RBAC_PERM_COMMAND_NPCBOT_STAY,		       false, &HandleNpcBotStayCommand,	       ""},
+            { "follow",   rbac::RBAC_PERM_COMMAND_NPCBOT_FOLLOW,		       false, &HandleNpcBotFollowCommand,	       ""},
+            { "passive", rbac::RBAC_PERM_COMMAND_NPCBOT_PASSIVE, false, &HandleNpcBotPassiveCommand,	       ""},
+            { "active", rbac::RBAC_PERM_COMMAND_NPCBOT_ACTIVE, false, &HandleNpcBotActiveCommand,	       ""},
         };
 
         static std::vector<ChatCommand> commandTable =
@@ -1102,6 +1106,53 @@ public:
         handler->SetSentErrorMessage(true);
         return false;
     }
+
+    static bool HandleNpcBotStayCommand(ChatHandler* handler, const char* /*args*/)
+    {
+        Player* botowner = handler->GetSession()->GetPlayer();
+
+        botowner->GetBotMgr()->SendBotCommandState(COMMAND_STAY);
+
+        handler->SendSysMessage("Npcbots will stay.");
+        return true;
+    }
+
+    static bool HandleNpcBotFollowCommand(ChatHandler* handler, const char* /*args*/)
+    {
+        Player* botowner = handler->GetSession()->GetPlayer();
+
+        botowner->GetBotMgr()->SendBotCommandState(COMMAND_FOLLOW);
+
+        handler->SendSysMessage("Npcbots will follow you.");
+        return true;
+    }
+
+    static bool HandleNpcBotPassiveCommand(ChatHandler* handler, const char* /*args*/)
+    {
+        Player* botowner = handler->GetSession()->GetPlayer();
+
+        BotMap * _bots = botowner->GetBotMgr()->GetBotMap();
+        for (BotMap::const_iterator itr = _bots->begin(); itr != _bots->end(); ++itr) {
+            itr->second->GetBotAI()->SetAllowedToAttack(false);
+        }
+
+        handler->SendSysMessage("Npcbots will not attack.");
+        return true;
+    }
+
+    static bool HandleNpcBotActiveCommand(ChatHandler* handler, const char* /*args*/)
+    {
+        Player* botowner = handler->GetSession()->GetPlayer();
+
+        BotMap * _bots = botowner->GetBotMgr()->GetBotMap();
+        for (BotMap::const_iterator itr = _bots->begin(); itr != _bots->end(); ++itr) {
+            itr->second->GetBotAI()->SetAllowedToAttack(true);
+        }
+
+        handler->SendSysMessage("Npcbots will attack.");
+        return true;
+    }
+
 };
 
 void AddSC_script_bot_commands()

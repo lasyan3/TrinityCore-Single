@@ -2615,7 +2615,7 @@ void bot_pet_ai::CheckAuras(bool /*force*/)
 
 bool bot_ai::CanBotAttack(Unit const* target, int8 byspell) const
 {
-    if (!target)
+    if (!target || !_allowedToAttack)
         return false;
     if (!_botPvP && !IAmFree() && target->IsControlledByPlayer())
         return false;
@@ -2797,7 +2797,7 @@ Unit* bot_ai::_getTarget(bool byspell, bool ranged, bool &reset) const
 //'CanAttack' function
 bool bot_ai::CheckAttackTarget(uint8 botOrPetType)
 {
-    if (IsDuringTeleport()/* || _evadeMode*/)
+    if (IsDuringTeleport()/* || _evadeMode*/ || !_allowedToAttack)
     {
         //me->AttackStop(); //already in CombatStop()
         me->CombatStop(true);
@@ -2959,7 +2959,7 @@ void bot_ai::GetInPosition(bool force, Unit* newtarget, Position* mypos)
 
 void bot_ai::CheckAttackState()
 {
-    if (me->GetVictim())
+    if (me->GetVictim() && _allowedToAttack)
     {
         if (HasRole(BOT_ROLE_DPS))
             DoMeleeAttackIfReady();

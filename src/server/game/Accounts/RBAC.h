@@ -795,8 +795,12 @@ enum RBACPermissions
 	RBAC_PERM_COMMAND_NPCBOT_ATTACK							 = 1815,
 	RBAC_PERM_COMMAND_NPCBOT_WITHDRAW						 = 1816,
 	RBAC_PERM_COMMAND_NPCBOT_CHANGE						     = 1817,
-	RBAC_PERM_COMMAND_NPCBOT_SAVEMODEL						 = 1818,
-    //end npcbot
+    RBAC_PERM_COMMAND_NPCBOT_SAVEMODEL                       = 1818,
+    RBAC_PERM_COMMAND_NPCBOT_STAY                            = 1819,
+    RBAC_PERM_COMMAND_NPCBOT_FOLLOW                          = 1820,
+    RBAC_PERM_COMMAND_NPCBOT_PASSIVE                         = 1821,
+    RBAC_PERM_COMMAND_NPCBOT_ACTIVE                          = 1822,
+        //end npcbot
     RBAC_PERM_MAX
 };
 

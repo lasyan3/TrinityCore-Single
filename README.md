@@ -3,6 +3,7 @@
 ## Last update
 
 Release: TDB 335.64
+
 Month:   October 2018 (last commit: [Add rotation to .gob info](https://github.com/TrinityCore/TrinityCore/commit/257ae44a20ed40469dd821845de8e27c0af838c7))
 
 ## Introduction

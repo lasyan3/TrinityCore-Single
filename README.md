@@ -1,78 +1,41 @@
-# ![logo](https://community.trinitycore.org/public/style_images/1_trinitycore.png) TrinityCore (3.3.5)
+# ![logo](https://community.trinitycore.org/public/style_images/1_trinitycore.png) TrinityCore Single (3.3.5)
 
-[![Average time to resolve an issue](https://isitmaintained.com/badge/resolution/TrinityCore/TrinityCore.svg)](https://isitmaintained.com/project/TrinityCore/TrinityCore "Average time to resolve an issue") [![Percentage of issues still open](https://isitmaintained.com/badge/open/TrinityCore/TrinityCore.svg)](https://isitmaintained.com/project/TrinityCore/TrinityCore "Percentage of issues still open")
+## Last update
 
-## Build Status
-
-master | 3.3.5
-:------------: | :------------:
-[![master Build Status](https://travis-ci.org/TrinityCore/TrinityCore.svg?branch=master)](https://travis-ci.org/TrinityCore/TrinityCore) | [![3.3.5 Build Status](https://travis-ci.org/TrinityCore/TrinityCore.svg?branch=3.3.5)](https://travis-ci.org/TrinityCore/TrinityCore)
-[![master Build status](https://ci.appveyor.com/api/projects/status/54d0u1fxe50ad80o/branch/master?svg=true)](https://ci.appveyor.com/project/DDuarte/trinitycore/branch/master) | [![Build status](https://ci.appveyor.com/api/projects/status/54d0u1fxe50ad80o/branch/3.3.5?svg=true)](https://ci.appveyor.com/project/DDuarte/trinitycore/branch/3.3.5)
-[![Coverity Scan Build Status](https://scan.coverity.com/projects/435/badge.svg)](https://scan.coverity.com/projects/435) | [![Coverity Scan Build Status](https://scan.coverity.com/projects/4656/badge.svg)](https://scan.coverity.com/projects/4656)
+Release: TDB 335.64
+Month:   October 2018 (last commit: [Add rotation to .gob info](https://github.com/TrinityCore/TrinityCore/commit/257ae44a20ed40469dd821845de8e27c0af838c7))
 
 ## Introduction
 
-TrinityCore is a *MMORPG* Framework based mostly in C++.
+TrinityCore Single is a personal fork of [TrinityCore](https://www.trinitycore.org) I made it on my freetime, as an attempt to play World of Warcraft as a Single-Player game (and also as a technical challenge!).
 
-It is derived from *MaNGOS*, the *Massive Network Game Object Server*, and is
-based on the code of that project with extensive changes over time to optimize,
-improve and cleanup the codebase at the same time as improving the in-game
-mechanics and functionality.
+## Additions/Changes from TrinityCore
 
-It is completely open source; community involvement is highly encouraged.
+Here is the list of changes I made to the core:
 
-If you wish to contribute ideas or code please visit our site linked below or
-make pull requests to our [Github repository](https://github.com/TrinityCore/TrinityCore/pulls).
+- SpeedGame: increase or reduce the time speed in the game.
+- NoCastTime: ignore casting time.
+- NoCooldown: ignore cooldowns (with NoCastTime, leads to fireball burst shooting!).
+- HurtInRealTime: disable auto-attack, 1 click = 1 attack.
+- AttackSpeedForPlayer: increase or reduce auto-attack speed for the player.
+- AttackSpeedforMobs: same than above but for the bad guys.
+- FastFishing: catch instantly all fishes!
+- GainHonorOnGuardKill: gain honor by killing guards.
+- GainHonorOnEliteKill: gain honor by killing Elite mobs.
+- RespawnSpeed: increase or reduce the respawn time of the defeated mobs.
+- AutoCompleteQuestDelay: on quest completion, the quest giver will be summoned on your position to allow you to terminate the quest. The delay is the time in seconds until when the NPC will depop.
+- SmartQuests System: quest items can be looted (from mobs and/or containers in the world) even if you don't own the quest. That means you can cross a land, kill monsters (they will be counted if later you catch some quest requiring you to kill them!), get the quest loot, and when someone gives you a quest for those items, you won't have to go killing the same monsters again.
+- LootOnlyForPlayer: only loot weapons and armors that fit to the player (no more hammer for a thief!).
+- MinimumRates for loot: set a minimum chance for the loot (some really rare weapons have a blizzlike chance of 0.000001%, which means nothing on a Single-Player game).
+- AutoMount: some actions requires you to get off your mount (like mining or opening a chest), and it's boring. So with this mod, you'll automatically summon your mount when you finish looting.
 
-For further information on the TrinityCore project, please visit our project
-website at [TrinityCore.org](https://www.trinitycore.org).
+## NPCBots
 
-## Requirements
+I'm using NPCBots (credit to [livingsacrifice](https://github.com/livingsacrifice/TrinityCore/tree/npcbots)) with some customizations:
+- Reduced damages: sometimes the bots were dealing way too much damages. I fixed that.
+- No hostility: bots are not hostile against mobs. That means if you're a thief, you can sneak around in peace!
+- More control to bots: new commands allowing to stop bots following you or even taking part to the fight (can be useful for some quests). 
 
+## Additional notes
 
-Software requirements are available in the [wiki](https://www.trinitycore.info/display/tc/Requirements) for
-Windows, Linux and OS X.
-
-
-## Install
-
-Detailed installation guides are available in the [wiki](https://www.trinitycore.info/display/tc/Installation+Guide) for
-Windows, Linux and OS X.
-
-
-## Reporting issues
-
-Issues can be reported via the [Github issue tracker](https://github.com/TrinityCore/TrinityCore/labels/Branch-3.3.5a).
-
-Please take the time to review existing issues before submitting your own to
-prevent duplicates.
-
-In addition, thoroughly read through the [issue tracker guide](https://community.trinitycore.org/topic/37-the-trinitycore-issuetracker-and-you/) to ensure
-your report contains the required information. Incorrect or poorly formed
-reports are wasteful and are subject to deletion.
-
-
-## Submitting fixes
-
-C++ fixes are submitted as pull requests via Github. For more information on how to
-properly submit a pull request, read the [how-to: maintain a remote fork](https://community.trinitycore.org/topic/9002-howto-maintain-a-remote-fork-for-pull-requests-tortoisegit/).
-For SQL only fixes open a ticket or if a bug report exists for the bug post on existing ticket.
-
-
-## Copyright
-
-License: GPL 2.0
-
-Read file [COPYING](COPYING).
-
-
-## Authors &amp; Contributors
-
-Read file [THANKS](THANKS).
-
-
-## Links
-
-* [Website](https://www.trinitycore.org)
-* [Wiki](https://www.trinitycore.info)
-* [Forums](https://community.trinitycore.org)
+Feel free to use my fork and open issues if you see strange things related to my work.

@@ -32,7 +32,7 @@ Here is the list of changes I made to the core:
 
 ## NPCBots
 
-I'm using NPCBots (credit to [livingsacrifice](https://github.com/livingsacrifice/TrinityCore/tree/npcbots)) with some customizations:
+I'm using NPCBots (credit to [livingsacrifice](https://github.com/livingsacrifice/TrinityCore/tree/npcbots)) updated for the last TDB release and with some customizations:
 - Reduced damages: sometimes the bots were dealing way too much damages. I fixed that.
 - No hostility: bots are not hostile against mobs. That means if you're a thief, you can sneak around in peace!
 - More control to bots: new commands allowing to stop bots following you or even taking part to the fight (can be useful for some quests). 

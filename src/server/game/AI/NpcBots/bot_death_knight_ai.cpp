@@ -1314,8 +1314,8 @@ public:
                     CastSpellExtraArgs extra;
                     extra.TriggerFlags = TriggerCastFlags::TRIGGERED_FULL_MASK;
                     extra.AddSpellMod(SPELLVALUE_BASE_POINT0, bp0);
-                    extra.AddSpellMod(SPELLVALUE_BASE_POINT1, NULL);
-                    extra.AddSpellMod(SPELLVALUE_BASE_POINT2, NULL);
+                    extra.AddSpellMod(SPELLVALUE_BASE_POINT1, 0);
+                    extra.AddSpellMod(SPELLVALUE_BASE_POINT2, 0);
                     me->CastSpell(me, BLOOD_PRESENCE_HEAL_EFFECT, extra);
                 }
             }

@@ -12054,28 +12054,39 @@ Item* Player::StoreNewItem(ItemPosCountVec const& dest, uint32 item, bool update
             ItemLocale const * il = sObjectMgr->GetItemLocale(item);
             std::string locName;
             ObjectMgr::GetLocaleString(il->Name, loc, locName);
+
+            int32 deliverCheckItem = 0;
+            auto deliverItr = m_deliverCheck.find(item);
+            if (deliverItr == m_deliverCheck.end())
+                m_deliverCheck[item] = 0;
+            else
+                deliverCheckItem = deliverItr->second;
+
             std::ostringstream msg;
-            msg << locName << " (" << GetItemCount(item, true) << "/" << m_deliverCheck[item] << ") ";
-            if (m_deliverCheck[item] > 0 && GetItemCount(item, true) == m_deliverCheck[item]) {
+            msg << locName << " (" << GetItemCount(item, true) << "/" << deliverCheckItem << ") ";
+            if (deliverCheckItem > 0 && GetItemCount(item, true) == deliverCheckItem) {
                 ObjectMgr::QuestMap _allQuests = GetAvailableQuestsForItem(item);
-                ObjectMgr::QuestMap::const_iterator iter = _allQuests.begin();
-                //uint32 questid = iter->first;
-                Quest const* qInfo = iter->second;
-                if (qInfo && qInfo->GetQuestId() > 0) {
-                    std::string quest_name, giver_name, area_name, zone_name;
-                    GetQuestInformations(qInfo, giver_name, area_name, zone_name);
-                    QuestLocale const * ql = sObjectMgr->GetQuestLocale(qInfo->GetQuestId());
-                    ObjectMgr::GetLocaleString(ql->Title, loc, quest_name);
-                    std::ostringstream msg2;
-                    msg2 << quest_name;
-                    if (giver_name.size() > 0) msg2 << " / " << giver_name;
-                    if (area_name.size() > 0) msg2 << " / " << area_name;
-                    if (zone_name.size() > 0) msg2 << " (" << zone_name << ")";
-                    ChatHandler(GetSession()).SendSysMessage(msg2.str().c_str());
+                if (!_allQuests.empty())
+                {
+                    ObjectMgr::QuestMap::const_iterator iter = _allQuests.begin();
+                    //uint32 questid = iter->first;
+                    Quest* qInfo = iter->second;
+                    if (qInfo && qInfo->GetQuestId() > 0) {
+                        std::string quest_name, giver_name, area_name, zone_name;
+                        GetQuestInformations(qInfo, giver_name, area_name, zone_name);
+                        QuestLocale const * ql = sObjectMgr->GetQuestLocale(qInfo->GetQuestId());
+                        ObjectMgr::GetLocaleString(ql->Title, loc, quest_name);
+                        std::ostringstream msg2;
+                        msg2 << quest_name;
+                        if (giver_name.size() > 0) msg2 << " / " << giver_name;
+                        if (area_name.size() > 0) msg2 << " / " << area_name;
+                        if (zone_name.size() > 0) msg2 << " (" << zone_name << ")";
+                        ChatHandler(GetSession()).SendSysMessage(msg2.str().c_str());
+                    }
                 }
             }
             GetSession()->SendNotification("|cff00bbbb%s", msg.str().c_str());
-            if (GetItemCount(item, true) >= m_deliverCheck[item]) {
+            if (GetItemCount(item, true) >= deliverCheckItem) {
                 m_deliverCheck[item] = -1;
                 //m_mustBuildValuesUpdate = true;
                 UpdateForQuestWorldObjects();
@@ -12929,7 +12940,12 @@ void Player::DestroyItemCount(Item* pItem, uint32 &count, bool update)
         pItem->SetState(ITEM_CHANGED, this);
     }
 
-    if (m_deliverCheck[entry] < 0) {
+    int32 deliverCheckItem = 0;
+    auto deliverItr = m_deliverCheck.find(entry);
+    if (deliverItr != m_deliverCheck.end())
+        deliverCheckItem = deliverItr->second;
+
+    if (deliverCheckItem < 0) {
         //TC_LOG_DEBUG("lasyan3.smartquests.deliver", "Destroy-1");
         m_deliverCheck[entry] = 0;
         UpdateForQuestWorldObjects();
@@ -17056,7 +17072,8 @@ void Player::AutoQuestCompleteDisplayQuestGiver(uint32 p_questId)
 
 	uint32 entry = (*result)[0].GetUInt32();
 	bool visible = false;
-	for (GuidList::const_iterator itr = m_clientGUIDs.begin(); itr != m_clientGUIDs.end(); ++itr)
+	//for (GuidList::const_iterator itr = m_clientGUIDs.begin(); itr != m_clientGUIDs.end(); ++itr)
+    for (auto itr = m_clientGUIDs.begin(); itr != m_clientGUIDs.end(); ++itr)
 	{
 		if (!itr->IsCreatureOrPet() && !itr->IsCreatureOrVehicle()) continue;
 		Creature* questgiver = ObjectAccessor::GetCreatureOrPetOrVehicle(*this, *itr);
@@ -17084,16 +17101,15 @@ int32 Player::CanDropQuestItem(uint32 itemid) // LASYAN: return true if at least
     //TC_LOG_DEBUG("lasyan3.smartquests.deliver", "START CanDropQuestItem for item %d [%s]", itemid, sObjectMgr->GetItemTemplate(itemid)->Name1.c_str());
     //TC_LOG_INFO("lasyan3.smartquests.deliver", "GetItemCount(itemid, true)=%d", GetItemCount(itemid, true));
 
-    if (m_deliverCheck[itemid] != 0) {
-        //TC_LOG_INFO("lasyan3.smartquests.deliver", "CanDropQuestItem SKIP for item %d [%s]", itemid, sObjectMgr->GetItemTemplate(itemid)->Name1.c_str());
-        return m_deliverCheck[itemid];
-    }
-    /*if (m_deliverCheck[itemid] < 0) {
-        //TC_LOG_INFO("lasyan3.smartquests.deliver", "CanDropQuestItem DONE for item %d [%s]", itemid, sObjectMgr->GetItemTemplate(itemid)->Name1.c_str());
-        return m_deliverCheck[itemid];
-    }
+    int32 deliverCheckItem = 0;
+    auto deliverItr = m_deliverCheck.find(itemid);
+    if (deliverItr != m_deliverCheck.end())
+        deliverCheckItem = deliverItr->second;
 
-    m_deliverCheck[itemid] = 0;*/
+    if (deliverCheckItem != 0) {
+        //TC_LOG_INFO("lasyan3.smartquests.deliver", "CanDropQuestItem SKIP for item %d [%s]", itemid, sObjectMgr->GetItemTemplate(itemid)->Name1.c_str());
+        return deliverCheckItem;
+    }
 
     ItemTemplate const *it = sObjectMgr->GetItemTemplate(itemid);
     if (it == nullptr) return 0;
@@ -17144,7 +17160,7 @@ int32 Player::CanDropQuestItem(uint32 itemid) // LASYAN: return true if at least
 
                 m_deliverCheck[itemid] = itemCountNeeded;
                 TC_LOG_DEBUG("lasyan3.smartquests.deliver", "CanDropQuestItem TRUE for item %d [%s]", itemid, itemLocName);
-                return m_deliverCheck[itemid];
+                return itemCountNeeded;
             }
             else
             {

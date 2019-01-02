@@ -275,8 +275,8 @@ public:
                 CastSpellExtraArgs extra;
                 extra.TriggerFlags = TriggerCastFlags::TRIGGERED_NONE;
                 extra.AddSpellMod(SPELLVALUE_BASE_POINT0, damage);
-                extra.AddSpellMod(SPELLVALUE_BASE_POINT1, NULL);
-                extra.AddSpellMod(SPELLVALUE_BASE_POINT2, NULL);
+                extra.AddSpellMod(SPELLVALUE_BASE_POINT1, 0);
+                extra.AddSpellMod(SPELLVALUE_BASE_POINT2, 0);
                 me->CastSpell(me, EVISCERATE, extra);
                 return;
             }
@@ -319,8 +319,8 @@ public:
                 CastSpellExtraArgs extra;
                 extra.TriggerFlags = TriggerCastFlags::TRIGGERED_NONE;
                 extra.AddSpellMod(SPELLVALUE_BASE_POINT0, damage);
-                extra.AddSpellMod(SPELLVALUE_BASE_POINT1, NULL);
-                extra.AddSpellMod(SPELLVALUE_BASE_POINT2, NULL);
+                extra.AddSpellMod(SPELLVALUE_BASE_POINT1, 0);
+                extra.AddSpellMod(SPELLVALUE_BASE_POINT2, 0);
                 me->CastSpell(me, RUPTURE, extra);
                 return;
             }
